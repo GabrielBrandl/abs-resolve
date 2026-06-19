@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  admin
+  comercial
+  operacional
+  cliente
+  parceiro
+}
+
+model User {
+  id            String         @id @default(uuid())
+  nome          String
+  email         String         @unique
+  senhaHash     String         @map("senha_hash")
+  role          Role           @default(cliente)
+  clienteId     String?        @unique @map("cliente_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  refreshTokens RefreshToken[]
+  interacoes    Interacao[]
+  auditLogs     AuditLog[]
+  cliente       Cliente?       @relation(fields: [clienteId], references: [id])
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Cliente {
+  id                String      @id @default(uuid())
+  tipo              String
+  nome              String
+  cpf               String?     @unique
+  razaoSocial       String?     @map("razao_social")
+  nomeFantasia      String?     @map("nome_fantasia")
+  cnpj              String?     @unique
+  responsavel       String?
+  email             String
+  telefone          String
+  whatsapp          String?
+  endereco          Json        @default("{}")
+  status            String      @default("ativo")
+  consentimentoLgpd Boolean     @default(false) @map("consentimento_lgpd")
+  dataAceite        DateTime?   @map("data_aceite")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  user              User?
+  pedidos           Pedido[]
+  interacoes        Interacao[]
+  pagamentos        Pagamento[]
+  documentos        Documento[]
+
+  @@map("clientes")
+}
+
+model Lead {
+  id          String      @id @default(uuid())
+  nome        String
+  cpfCnpj     String?     @map("cpf_cnpj")
+  telefone    String
+  email       String
+  origem      String
+  interesse   String
+  responsavel String
+  etapa       String      @default("novo_lead")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  interacoes  Interacao[]
+
+  @@map("leads")
+}
+
+model Interacao {
+  id        String   @id @default(uuid())
+  leadId    String?  @map("lead_id")
+  clienteId String?  @map("cliente_id")
+  tipo      String
+  descricao String
+  data      DateTime @default(now())
+  usuarioId String   @map("usuario_id")
+  lead      Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  cliente   Cliente? @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario   User     @relation(fields: [usuarioId], references: [id])
+
+  @@map("interacoes")
+}
+
+model Pedido {
+  id           String        @id @default(uuid())
+  numero       String        @unique
+  clienteId    String        @map("cliente_id")
+  servicoId    String?       @map("servico_id")
+  valor        Decimal       @db.Decimal(12, 2)
+  responsavel  String
+  status       String        @default("recebido")
+  descricao    String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  cliente      Cliente       @relation(fields: [clienteId], references: [id])
+  servico      Servico?      @relation(fields: [servicoId], references: [id])
+  ordemServico OrdemServico?
+  pagamentos   Pagamento[]
+
+  @@map("pedidos")
+}
+
+model OrdemServico {
+  id          String   @id @default(uuid())
+  pedidoId    String   @unique @map("pedido_id")
+  etapa       String   @default("solicitacao")
+  observacoes String?
+  parceiro    String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  pedido      Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  @@map("ordens_servico")
+}
+
+model Pagamento {
+  id          String    @id @default(uuid())
+  clienteId   String    @map("cliente_id")
+  pedidoId    String?   @map("pedido_id")
+  asaasId     String?   @unique @map("asaas_id")
+  valor       Decimal   @db.Decimal(12, 2)
+  metodo      String
+  status      String    @default("PENDING")
+  dueDate     DateTime  @map("due_date")
+  paymentDate DateTime? @map("payment_date")
+  invoiceUrl  String?   @map("invoice_url")
+  pixCode     String?   @map("pix_code")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  cliente     Cliente   @relation(fields: [clienteId], references: [id])
+  pedido      Pedido?   @relation(fields: [pedidoId], references: [id])
+
+  @@map("pagamentos")
+}
+
+model Servico {
+  id          String   @id @default(uuid())
+  nome        String
+  categoria   String
+  descricao   String
+  preco       Decimal? @db.Decimal(12, 2)
+  parceiro    String?
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  pedidos     Pedido[]
+
+  @@map("servicos")
+}
+
+model Beneficio {
+  id        String   @id @default(uuid())
+  parceiro  String
+  categoria String
+  descricao String
+  cupom     String?
+  cashback  Decimal? @db.Decimal(12, 2)
+  desconto  Decimal? @db.Decimal(5, 2)
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("beneficios")
+}
+
+model Parceiro {
+  id        String   @id @default(uuid())
+  nome      String
+  cnpj      String?  @unique
+  email     String
+  telefone  String
+  categoria String
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("parceiros")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  acao      String
+  recurso   String
+  recursoId String?  @map("recurso_id")
+  detalhes  Json?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Notificacao {
+  id        String   @id @default(uuid())
+  tipo      String
+  canal     String
+  destino   String
+  assunto   String?
+  mensagem  String
+  status    String   @default("enviada")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notificacoes")
+}
+
+model Documento {
+  id         String   @id @default(uuid())
+  clienteId  String   @map("cliente_id")
+  nome       String
+  filename   String
+  mimetype   String
+  tamanho    Int
+  url        String
+  createdAt  DateTime @default(now()) @map("created_at")
+  cliente    Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@map("documentos")
+}

@@ -1,0 +1,13 @@
+{
+  "name": "abs-resolve",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plataforma ABS Resolve — gestão de clientes, CRM, operações e pagamentos",
+  "scripts": {
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "db:up": "docker compose up -d",
+    "db:migrate": "npm run db:migrate --prefix backend",
+    "db:seed": "npm run db:seed --prefix backend"
+  }
+}
