@@ -25,6 +25,22 @@ import { success, error } from './utils/response.js';
 import { prisma } from './utils/prisma.js';
 import { isSupabaseConfigured } from './utils/supabase.js';
 
+function databaseHint(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    return 'Defina DATABASE_URL em backend/.env (connection string do Supabase).';
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.username === 'abs') {
+      return 'DATABASE_URL ainda aponta para o Postgres local (Docker). Substitua pela connection string do Supabase → Settings → Database.';
+    }
+    return `Falha ao conectar em ${parsed.hostname}. Confira usuário/senha no Supabase e rode: npx prisma migrate deploy`;
+  } catch {
+    return 'DATABASE_URL inválida. Use o formato postgresql:// do Supabase.';
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || 'uploads';
@@ -69,8 +85,10 @@ app.get('/health', async (_req, res) => {
       storage: isSupabaseConfigured() ? 'supabase' : 'local',
       timestamp: new Date().toISOString(),
     });
-  } catch {
-    return error(res, 'Banco de dados indisponível', 503);
+  } catch (err) {
+    const hint = process.env.NODE_ENV !== 'production' ? databaseHint() : undefined;
+    console.error('Health check DB error:', err instanceof Error ? err.message : err);
+    return error(res, hint ?? 'Banco de dados indisponível', 503);
   }
 });
 

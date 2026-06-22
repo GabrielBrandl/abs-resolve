@@ -1,9 +1,25 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { cpf } from 'cpf-cnpj-validator';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../store/authStore';
 import { Logo, Input, Button, Card } from '../components/ui';
+
+function mensagemErro(err: unknown, fallback: string) {
+  if (axios.isAxiosError(err)) {
+    if (!err.response || err.response.status === 502) {
+      return 'Servidor offline. Abra um terminal, rode cd backend && npm run dev e tente novamente.';
+    }
+    if (err.response.status === 503) {
+      const api = err.response.data as { error?: string };
+      return api?.error ?? 'Banco de dados indisponível. Configure DATABASE_URL do Supabase em backend/.env.';
+    }
+    const api = err.response.data as { error?: string };
+    if (api?.error) return api.error;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
 
 export function CadastroPage() {
   const navigate = useNavigate();
@@ -50,7 +66,7 @@ export function CadastroPage() {
       setAuth(result.user, result.accessToken);
       navigate('/cliente/agendar');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao cadastrar');
+      setError(mensagemErro(err, 'Erro ao cadastrar'));
     } finally {
       setLoading(false);
     }

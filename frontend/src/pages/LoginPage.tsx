@@ -1,7 +1,19 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { Logo, Button } from '../components/ui';
+
+function mensagemErro(err: unknown) {
+  if (axios.isAxiosError(err)) {
+    if (!err.response || err.response.status === 502) {
+      return 'Servidor offline. Rode cd backend && npm run dev em outro terminal.';
+    }
+    const api = err.response.data as { error?: string };
+    if (api?.error) return api.error;
+  }
+  return err instanceof Error ? err.message : 'Erro ao fazer login';
+}
 
 export function LoginPage() {
   const [modo, setModo] = useState<'equipe' | 'cliente'>('cliente');
@@ -26,7 +38,7 @@ export function LoginPage() {
         navigate('/cliente/agendar');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao fazer login');
+      setError(mensagemErro(err));
     } finally {
       setLoading(false);
     }
@@ -40,15 +52,23 @@ export function LoginPage() {
           <p className="mt-2 text-sm italic text-white/90">Chamou. ConfioU. Resolveu.</p>
         </div>
 
-        <div className="mb-4 flex rounded-xl bg-white/10 p-1">
-          <button type="button" onClick={() => setModo('cliente')}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium ${modo === 'cliente' ? 'bg-accent-500 text-primary-900' : 'text-white'}`}>
-            Cliente
-          </button>
-          <button type="button" onClick={() => setModo('equipe')}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium ${modo === 'equipe' ? 'bg-white text-primary-900' : 'text-white'}`}>
-            Equipe
-          </button>
+        <div className="mb-4 flex rounded-xl bg-white/10 p-1 backdrop-blur-sm" role="tablist" aria-label="Tipo de acesso">
+          {(['cliente', 'equipe'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={modo === tab}
+              onClick={() => setModo(tab)}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${
+                modo === tab
+                  ? 'bg-accent-500 text-primary-900 shadow-md'
+                  : 'text-white/75 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              {tab === 'cliente' ? 'Cliente' : 'Equipe'}
+            </button>
+          ))}
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-2xl bg-white p-8 shadow-2xl">
