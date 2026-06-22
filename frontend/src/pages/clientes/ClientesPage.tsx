@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { clientesApi } from '../../services/modules.service';
+import { exportarCsv } from '../../utils/export';
+import { useToast } from '../../components/Toast';
 import type { Cliente } from '../../types';
 import { PageHeader, Loading, Badge, Button } from '../../components/ui';
 
@@ -10,6 +12,7 @@ export function ClientesPage() {
   const [busca, setBusca] = useState('');
   const [tipo, setTipo] = useState('');
   const [status, setStatus] = useState('');
+  const { toast } = useToast();
 
   const carregar = () => {
     setLoading(true);
@@ -29,7 +32,12 @@ export function ClientesPage() {
       <PageHeader
         title="Clientes"
         subtitle="Gestão de clientes PF e PJ"
-        action={<Link to="/clientes/novo"><Button>Novo Cliente</Button></Link>}
+        action={
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => exportarCsv(() => clientesApi.exportar(), 'clientes.csv').then(() => toast('Exportado!', 'success'))}>Exportar CSV</Button>
+            <Link to="/clientes/novo"><Button>Novo Cliente</Button></Link>
+          </div>
+        }
       />
 
       <div className="mb-4 flex flex-wrap gap-3">

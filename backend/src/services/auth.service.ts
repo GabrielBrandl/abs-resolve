@@ -111,6 +111,64 @@ export class AuthService {
 
     return this.login(cliente.user.email, senha);
   }
+
+  async registrarCliente(data: {
+    tipo: 'PF' | 'PJ';
+    nome: string;
+    cpf?: string;
+    cnpj?: string;
+    email: string;
+    telefone: string;
+    whatsapp?: string;
+    senha: string;
+    endereco?: object;
+    consentimentoLgpd: boolean;
+  }) {
+    if (!data.consentimentoLgpd) {
+      throw new Error('É necessário aceitar os termos LGPD');
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
+    if (existingUser) throw new Error('Email já cadastrado');
+
+    const doc = (data.cpf || data.cnpj || '').replace(/\D/g, '');
+    if (data.tipo === 'PF') {
+      const exists = await prisma.cliente.findUnique({ where: { cpf: doc } });
+      if (exists) throw new Error('CPF já cadastrado');
+    } else {
+      const exists = await prisma.cliente.findUnique({ where: { cnpj: doc } });
+      if (exists) throw new Error('CNPJ já cadastrado');
+    }
+
+    const senhaHash = await bcrypt.hash(data.senha, 10);
+
+    const cliente = await prisma.cliente.create({
+      data: {
+        tipo: data.tipo,
+        nome: data.nome,
+        cpf: data.tipo === 'PF' ? doc : undefined,
+        cnpj: data.tipo === 'PJ' ? doc : undefined,
+        email: data.email,
+        telefone: data.telefone,
+        whatsapp: data.whatsapp || data.telefone,
+        endereco: data.endereco || {},
+        consentimentoLgpd: true,
+        dataAceite: new Date(),
+      },
+    });
+
+    await prisma.user.create({
+      data: {
+        nome: data.nome,
+        email: data.email,
+        senhaHash,
+        role: 'cliente',
+        clienteId: cliente.id,
+      },
+    });
+
+    return this.login(data.email, data.senha);
+  }
 }
 
 export const authService = new AuthService();

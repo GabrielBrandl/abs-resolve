@@ -15,10 +15,15 @@ import dashboardRoutes from './routes/dashboard.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import clienteRoutes from './routes/cliente.routes.js';
 import documentosRoutes from './routes/documentos.routes.js';
+import movimentacaoRoutes from './routes/movimentacao.routes.js';
+import exportRoutes from './routes/export.routes.js';
+import solicitacaoRoutes from './routes/solicitacao.routes.js';
+import agendamentoRoutes from './routes/agendamento.routes.js';
 import { pagamentosController } from './controllers/pagamentos.controller.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { success, error } from './utils/response.js';
 import { prisma } from './utils/prisma.js';
+import { isSupabaseConfigured } from './utils/supabase.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -59,8 +64,9 @@ app.get('/health', async (_req, res) => {
     return success(res, {
       status: 'ok',
       service: 'ABS Resolve API',
-      version: '1.1.0',
+      version: '2.0.0',
       database: 'connected',
+      storage: isSupabaseConfigured() ? 'supabase' : 'local',
       timestamp: new Date().toISOString(),
     });
   } catch {
@@ -79,6 +85,10 @@ app.use('/dashboard', dashboardRoutes);
 app.use('/admin', adminRoutes);
 app.use('/cliente', clienteRoutes);
 app.use('/documentos', documentosRoutes);
+app.use('/movimentacao', movimentacaoRoutes);
+app.use('/export', exportRoutes);
+app.use('/solicitacao', solicitacaoRoutes);
+app.use('/agendamentos', agendamentoRoutes);
 app.post('/webhooks/asaas', (req, res) => pagamentosController.webhookAsaas(req, res));
 
 app.use((_req, res) => {

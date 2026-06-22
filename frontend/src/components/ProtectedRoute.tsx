@@ -41,7 +41,8 @@ export function PublicRoute() {
   }
 
   if (isAuthenticated && user) {
-    return <Navigate to={user.role === 'cliente' ? '/cliente' : '/'} replace />;
+    if (user.role === 'cliente') return <Navigate to="/cliente/agendar" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;

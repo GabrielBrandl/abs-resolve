@@ -1,17 +1,18 @@
-#!/bin/bash
-# Backup PostgreSQL — agendar via cron: 0 2 * * * /path/to/backup.sh
+#!/usr/bin/env bash
+# Backup do banco Supabase (PostgreSQL)
+# Requer pg_dump e DATABASE_URL
 
-set -e
+set -euo pipefail
 
-BACKUP_DIR="${BACKUP_DIR:-./backups}"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-FILENAME="abs_resolve_${TIMESTAMP}.sql.gz"
+DATABASE_URL="${DATABASE_URL:-}"
+if [ -z "$DATABASE_URL" ]; then
+  echo "Defina DATABASE_URL" >&2
+  exit 1
+fi
 
+BACKUP_DIR="$(dirname "$0")/../backups"
 mkdir -p "$BACKUP_DIR"
+FILENAME="abs_resolve_$(date +%Y%m%d_%H%M%S).sql.gz"
 
-docker exec abs_resolve_db pg_dump -U abs abs_resolve | gzip > "${BACKUP_DIR}/${FILENAME}"
-
-# Manter apenas últimos 7 backups
-ls -t "${BACKUP_DIR}"/abs_resolve_*.sql.gz | tail -n +8 | xargs -r rm
-
-echo "Backup criado: ${BACKUP_DIR}/${FILENAME}"
+pg_dump "$DATABASE_URL" | gzip > "${BACKUP_DIR}/${FILENAME}"
+echo "Backup salvo em ${BACKUP_DIR}/${FILENAME}"

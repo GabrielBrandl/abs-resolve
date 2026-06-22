@@ -1,4 +1,5 @@
 import multer from 'multer';
+import { isSupabaseConfigured } from '../utils/supabase.js';
 import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
@@ -9,7 +10,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-const storage = multer.diskStorage({
+const diskStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -26,11 +27,13 @@ const ALLOWED = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
 
+const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
+  if (ALLOWED.includes(file.mimetype)) cb(null, true);
+  else cb(new Error('Tipo de arquivo não permitido'));
+};
+
 export const upload = multer({
-  storage,
+  storage: isSupabaseConfigured() ? multer.memoryStorage() : diskStorage,
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Tipo de arquivo não permitido'));
-  },
+  fileFilter,
 });

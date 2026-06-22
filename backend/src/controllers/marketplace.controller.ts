@@ -95,6 +95,15 @@ export class DashboardController {
       return error(res, err instanceof Error ? err.message : 'Erro', 500);
     }
   }
+
+  async faturamentoDiario(_req: Request, res: Response) {
+    try {
+      const data = await dashboardService.getFaturamentoDiario();
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
 }
 
 export class AdminController {
@@ -148,6 +157,26 @@ export class AdminController {
   async notificacoes(_req: Request, res: Response) {
     try {
       const data = await adminService.listarNotificacoes();
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
+
+  async campanhas(req: Request, res: Response) {
+    try {
+      const { campanhaCrmService } = await import('../services/campanha-crm.service.js');
+      const data = await campanhaCrmService.listar(req.query.status as string | undefined);
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
+
+  async processarCampanhas(_req: Request, res: Response) {
+    try {
+      const { campanhaCrmService } = await import('../services/campanha-crm.service.js');
+      const data = await campanhaCrmService.processarPendentes();
       return success(res, data);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 500);

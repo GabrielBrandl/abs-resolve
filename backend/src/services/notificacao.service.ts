@@ -46,8 +46,42 @@ export class NotificacaoService {
   }
 
   async notificarNovoPedido(clienteNome: string, numero: string, email: string, telefone: string) {
-    const msg = `Novo pedido ${numero} criado para ${clienteNome}.`;
-    await this.enviarEmail(email, `Pedido ${numero} recebido`, `<p>${msg}</p>`);
+    const msg = `Seu pedido foi recebido. Número: ${numero}.`;
+    await this.enviarEmail(email, 'Pedido recebido — ABS Resolve', `<p>${msg}</p>`);
+    await this.enviarWhatsApp(telefone, msg);
+  }
+
+  async notificarPedidoCriado(clienteNome: string, numero: string, email: string, telefone: string) {
+    await this.notificarNovoPedido(clienteNome, numero, email, telefone);
+  }
+
+  async notificarPagamentoConfirmado(clienteNome: string, email: string, telefone: string) {
+    const msg = 'Pagamento aprovado. Seu atendimento será confirmado em breve.';
+    await this.enviarEmail(email, 'Pagamento confirmado — ABS Resolve', `<p>${msg}</p>`);
+    await this.enviarWhatsApp(telefone, msg);
+  }
+
+  async notificarTecnicoAgendado(clienteNome: string, email: string, telefone: string, horario: string) {
+    const msg = `Seu atendimento foi agendado para ${horario}.`;
+    await this.enviarEmail(email, 'Técnico agendado — ABS Resolve', `<p>${msg}</p>`);
+    await this.enviarWhatsApp(telefone, msg);
+  }
+
+  async notificarTecnicoACaminho(email: string, telefone: string) {
+    const msg = 'Seu técnico está a caminho.';
+    await this.enviarEmail(email, 'Técnico a caminho — ABS Resolve', `<p>${msg}</p>`);
+    await this.enviarWhatsApp(telefone, msg);
+  }
+
+  async notificarServicoFinalizado(email: string, telefone: string) {
+    const msg = 'Seu serviço foi concluído. Obrigado por confiar na ABS Resolve!';
+    await this.enviarEmail(email, 'Serviço finalizado — ABS Resolve', `<p>${msg}</p>`);
+    await this.enviarWhatsApp(telefone, msg);
+  }
+
+  async notificarGarantiaEmitida(numero: string, email: string, telefone: string) {
+    const msg = `Sua garantia ${numero} está disponível no portal do cliente.`;
+    await this.enviarEmail(email, 'Garantia emitida — ABS Resolve', `<p>${msg}</p>`);
     await this.enviarWhatsApp(telefone, msg);
   }
 

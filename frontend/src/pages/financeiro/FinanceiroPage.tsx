@@ -3,6 +3,7 @@ import { pagamentosApi, clientesApi } from '../../services/modules.service';
 import type { Pagamento, Cliente } from '../../types';
 import { formatCurrency, formatDate } from '../../types';
 import { PageHeader, Loading, Badge, Modal, Input, Select, Button, Card } from '../../components/ui';
+import { useToast } from '../../components/Toast';
 
 export function FinanceiroPage() {
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
@@ -10,8 +11,11 @@ export function FinanceiroPage() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
   const [modal, setModal] = useState(false);
+  const [modalVia, setModalVia] = useState(false);
+  const [viaData, setViaData] = useState<{ invoiceUrl?: string; pixCode?: string } | null>(null);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [form, setForm] = useState({ clienteId: '', valor: '', metodo: 'PIX', dueDate: '' });
+  const { toast } = useToast();
 
   const carregar = async () => {
     setLoading(true);
@@ -35,7 +39,18 @@ export function FinanceiroPage() {
   const cobrar = async () => {
     await pagamentosApi.cobrar({ ...form, valor: parseFloat(form.valor) });
     setModal(false);
+    toast('Cobrança gerada!', 'success');
     carregar();
+  };
+
+  const segundaVia = async (id: string) => {
+    try {
+      const data = await pagamentosApi.segundaVia(id) as Pagamento & { invoiceUrl?: string; pixCode?: string };
+      setViaData({ invoiceUrl: data.invoiceUrl, pixCode: data.pixCode });
+      setModalVia(true);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao gerar 2ª via', 'error');
+    }
   };
 
   const statusColor: Record<string, string> = {
@@ -80,6 +95,7 @@ export function FinanceiroPage() {
                 <th className="px-4 py-3">Método</th>
                 <th className="px-4 py-3">Vencimento</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -90,6 +106,11 @@ export function FinanceiroPage() {
                   <td className="px-4 py-3">{p.metodo}</td>
                   <td className="px-4 py-3">{formatDate(p.dueDate)}</td>
                   <td className="px-4 py-3"><Badge color={statusColor[p.status]}>{p.status}</Badge></td>
+                  <td className="px-4 py-3">
+                    {p.status !== 'RECEIVED' && (
+                      <Button variant="secondary" onClick={() => segundaVia(p.id)} className="text-xs">2ª via</Button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -110,6 +131,25 @@ export function FinanceiroPage() {
         </Select>
         <Input label="Vencimento" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
         <Button onClick={cobrar} className="mt-2">Gerar Cobrança</Button>
+      </Modal>
+
+      <Modal open={modalVia} onClose={() => setModalVia(false)} title="2ª Via de Cobrança">
+        {viaData?.invoiceUrl && (
+          <p className="mb-3">
+            <a href={viaData.invoiceUrl} target="_blank" rel="noreferrer" className="text-primary-600 underline">
+              Abrir fatura / boleto
+            </a>
+          </p>
+        )}
+        {viaData?.pixCode && (
+          <div>
+            <p className="mb-1 text-sm text-slate-500">Código PIX copia e cola:</p>
+            <textarea readOnly value={viaData.pixCode} className="w-full rounded border p-2 text-xs" rows={4} />
+          </div>
+        )}
+        {!viaData?.invoiceUrl && !viaData?.pixCode && (
+          <p className="text-slate-500">Nenhum link disponível para este pagamento.</p>
+        )}
       </Modal>
     </div>
   );

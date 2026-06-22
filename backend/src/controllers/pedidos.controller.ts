@@ -102,6 +102,15 @@ export class OrdemServicoController {
   async etapas(_req: Request, res: Response) {
     return success(res, ordemServicoService.getEtapas());
   }
+
+  async checklist(req: Request, res: Response) {
+    try {
+      const data = await ordemServicoService.atualizarChecklist(paramId(req.params.id), req.body);
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
 }
 
 export const pedidosController = new PedidosController();

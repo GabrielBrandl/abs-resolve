@@ -1,9 +1,5 @@
-import fs from 'fs';
-import path from 'path';
 import { prisma } from '../utils/prisma.js';
-
-const UPLOAD_DIR = process.env.UPLOAD_DIR || 'uploads';
-const BASE_URL = process.env.API_PUBLIC_URL || 'http://localhost:3001';
+import { storageService } from './storage.service.js';
 
 export class DocumentosService {
   async listarPorCliente(clienteId: string) {
@@ -17,16 +13,16 @@ export class DocumentosService {
     const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
     if (!cliente) throw new Error('Cliente não encontrado');
 
-    const url = `${BASE_URL}/uploads/${file.filename}`;
+    const stored = await storageService.upload(clienteId, file);
 
     return prisma.documento.create({
       data: {
         clienteId,
         nome: file.originalname,
-        filename: file.filename,
+        filename: stored.filename,
         mimetype: file.mimetype,
         tamanho: file.size,
-        url,
+        url: stored.url,
       },
     });
   }
@@ -37,16 +33,10 @@ export class DocumentosService {
     });
     if (!doc) throw new Error('Documento não encontrado');
 
-    const filepath = path.join(UPLOAD_DIR, doc.filename);
-    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    const storage = doc.url.includes('supabase') ? 'supabase' : 'local';
+    await storageService.delete(doc.filename, storage);
 
     return prisma.documento.delete({ where: { id } });
-  }
-
-  getFilePath(filename: string) {
-    const filepath = path.join(UPLOAD_DIR, filename);
-    if (!fs.existsSync(filepath)) throw new Error('Arquivo não encontrado');
-    return filepath;
   }
 }
 

@@ -23,5 +23,6 @@ ordemServicoRouter.use(checkRole('admin', 'operacional', 'comercial'));
 ordemServicoRouter.get('/etapas', (req, res) => ordemServicoController.etapas(req, res));
 ordemServicoRouter.get('/', (req, res) => ordemServicoController.listar(req, res));
 ordemServicoRouter.get('/:id', (req, res) => ordemServicoController.buscar(req, res));
+ordemServicoRouter.patch('/:id/checklist', (req, res) => ordemServicoController.checklist(req, res));
 ordemServicoRouter.patch('/:id/etapa', (req, res) => ordemServicoController.atualizarEtapa(req, res));
 ordemServicoRouter.put('/:id', (req, res) => ordemServicoController.atualizar(req, res));

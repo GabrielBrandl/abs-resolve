@@ -144,6 +144,82 @@ async function main() {
     ],
   });
 
+  await prisma.configSistema.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: { id: 'default' },
+  });
+
+  const catalogoData = [
+    { slug: 'tomada', nome: 'Tomada', tipo: 'A', pontos: 1 },
+    { slug: 'interruptor', nome: 'Interruptor', tipo: 'A', pontos: 1 },
+    { slug: 'disjuntor', nome: 'Disjuntor', tipo: 'B', pontos: 1 },
+    { slug: 'chuveiro', nome: 'Chuveiro', tipo: 'B', pontos: 2 },
+    { slug: 'luminaria', nome: 'Luminária', tipo: 'B', pontos: 2 },
+    { slug: 'ventilador', nome: 'Ventilador', tipo: 'B', pontos: 2 },
+    { slug: 'registro', nome: 'Registro', tipo: 'B', pontos: 2 },
+    { slug: 'ar-condicionado', nome: 'Ar-condicionado', tipo: 'B', pontos: 4 },
+  ];
+
+  for (const c of catalogoData) {
+    await prisma.catalogoServico.upsert({
+      where: { slug: c.slug },
+      update: {},
+      create: { ...c, categoria: 'eletrica', upsells: [] },
+    });
+  }
+
+  const tomada = await prisma.catalogoServico.findUnique({ where: { slug: 'tomada' } });
+  const interruptor = await prisma.catalogoServico.findUnique({ where: { slug: 'interruptor' } });
+  if (tomada) {
+    const precosTomada = [
+      { chave: 'simples_10a', label: 'Tomada Simples 10A', preco: 149 },
+      { chave: 'simples_20a', label: 'Tomada Simples 20A', preco: 159 },
+      { chave: 'dupla_10a', label: 'Tomada Dupla 10A', preco: 169 },
+      { chave: 'dupla_20a', label: 'Tomada Dupla 20A', preco: 179 },
+    ];
+    for (const p of precosTomada) {
+      await prisma.precoFixo.upsert({
+        where: { servicoId_chave: { servicoId: tomada.id, chave: p.chave } },
+        update: { preco: p.preco },
+        create: { servicoId: tomada.id, ...p },
+      });
+    }
+  }
+  if (interruptor) {
+    const precosInt = [
+      { chave: 'simples', label: 'Interruptor Simples', preco: 149 },
+      { chave: 'duplo', label: 'Interruptor Duplo', preco: 159 },
+      { chave: 'triplo', label: 'Interruptor Triplo', preco: 169 },
+    ];
+    for (const p of precosInt) {
+      await prisma.precoFixo.upsert({
+        where: { servicoId_chave: { servicoId: interruptor.id, chave: p.chave } },
+        update: { preco: p.preco },
+        create: { servicoId: interruptor.id, ...p },
+      });
+    }
+  }
+
+  await prisma.tecnico.createMany({
+    skipDuplicates: true,
+    data: [
+      { id: 'seed-tec-1', nome: 'Técnico 1', capacidadeDiaria: 6 },
+      { id: 'seed-tec-2', nome: 'Técnico 2', capacidadeDiaria: 6 },
+    ],
+  });
+
+  await prisma.produtoEstoque.createMany({
+    skipDuplicates: true,
+    data: [
+      { id: 'est-1', sku: 'tomada_simples_10a', nome: 'Tomada Simples 10A', quantidade: 50, servicoSlug: 'tomada' },
+      { id: 'est-2', sku: 'tomada_simples_20a', nome: 'Tomada Simples 20A', quantidade: 40, servicoSlug: 'tomada' },
+      { id: 'est-3', sku: 'interruptor_simples', nome: 'Interruptor Simples', quantidade: 45, servicoSlug: 'interruptor' },
+      { id: 'est-4', sku: 'disjuntor', nome: 'Disjuntor 20A', quantidade: 30, servicoSlug: 'disjuntor' },
+      { id: 'est-5', sku: 'chuveiro', nome: 'Chuveiro 5500W', quantidade: 20, servicoSlug: 'chuveiro' },
+    ],
+  });
+
   console.log('Seed concluído:');
   console.log(`  Admin: admin@absresolve.com.br / admin123`);
   console.log(`  Comercial: comercial@absresolve.com.br / comercial123`);

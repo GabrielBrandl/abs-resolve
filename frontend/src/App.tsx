@@ -6,6 +6,8 @@ import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
 import { Loading } from './components/ui';
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
+const CadastroPage = lazy(() => import('./pages/CadastroPage').then((m) => ({ default: m.CadastroPage })));
+const AgendarServicoPage = lazy(() => import('./pages/cliente/AgendarServicoPage').then((m) => ({ default: m.AgendarServicoPage })));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const ClientesPage = lazy(() => import('./pages/clientes/ClientesPage').then((m) => ({ default: m.ClientesPage })));
 const ClienteFormPage = lazy(() => import('./pages/clientes/ClienteFormPage').then((m) => ({ default: m.ClienteFormPage })));
@@ -16,6 +18,7 @@ const PedidoDetailPage = lazy(() => import('./pages/pedidos/PedidoDetailPage').t
 const OrdemServicoPage = lazy(() => import('./pages/pedidos/OrdemServicoPage').then((m) => ({ default: m.OrdemServicoPage })));
 const FinanceiroPage = lazy(() => import('./pages/financeiro/FinanceiroPage').then((m) => ({ default: m.FinanceiroPage })));
 const MarketplacePage = lazy(() => import('./pages/marketplace/MarketplacePage').then((m) => ({ default: m.MarketplacePage })));
+const MovimentacaoPage = lazy(() => import('./pages/movimentacao/MovimentacaoPage').then((m) => ({ default: m.MovimentacaoPage })));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage').then((m) => ({ default: m.AdminPage })));
 const ClienteLayout = lazy(() => import('./pages/cliente/ClienteLayout').then((m) => ({ default: m.ClienteLayout })));
 const ClientePedidosPage = lazy(() => import('./pages/cliente/ClientePedidosPage').then((m) => ({ default: m.ClientePedidosPage })));
@@ -27,7 +30,7 @@ const ClienteDocumentosPage = lazy(() => import('./pages/cliente/ClienteDocument
 
 function HomeRedirect() {
   const user = useAuthStore((s) => s.user);
-  if (user?.role === 'cliente') return <Navigate to="/cliente" replace />;
+  if (user?.role === 'cliente') return <Navigate to="/cliente/agendar" replace />;
   return <DashboardPage />;
 }
 
@@ -43,6 +46,7 @@ function AppRoutes() {
       <Routes>
         <Route element={<PublicRoute />}>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/cadastro" element={<CadastroPage />} />
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['admin', 'comercial', 'operacional', 'parceiro']} />}>
@@ -50,12 +54,14 @@ function AppRoutes() {
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/clientes" element={<ClientesPage />} />
             <Route path="/clientes/novo" element={<ClienteFormPage />} />
+            <Route path="/clientes/:id/editar" element={<ClienteFormPage />} />
             <Route path="/clientes/:id" element={<ClienteDetailPage />} />
             <Route path="/crm" element={<CRMPage />} />
             <Route path="/pedidos" element={<PedidosPage />} />
             <Route path="/pedidos/:id" element={<PedidoDetailPage />} />
             <Route path="/ordens-servico" element={<OrdemServicoPage />} />
             <Route path="/financeiro" element={<FinanceiroPage />} />
+            <Route path="/movimentacao" element={<MovimentacaoPage />} />
             <Route path="/marketplace" element={<MarketplacePage />} />
           </Route>
         </Route>
@@ -69,6 +75,7 @@ function AppRoutes() {
         <Route element={<ProtectedRoute allowedRoles={['cliente']} />}>
           <Route element={<ClienteLayout />}>
             <Route path="/cliente" element={<ClientePedidosPage />} />
+            <Route path="/cliente/agendar" element={<AgendarServicoPage />} />
             <Route path="/cliente/financeiro" element={<ClienteFinanceiroPage />} />
             <Route path="/cliente/solicitar" element={<ClienteSolicitarPage />} />
             <Route path="/cliente/cadastro" element={<ClienteCadastroPage />} />

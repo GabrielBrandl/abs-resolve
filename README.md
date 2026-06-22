@@ -1,6 +1,8 @@
-# ABS Resolve — Plataforma de Gestão
+# ABS Resolve Já — v2.0
 
-Plataforma web integrada para gestão de clientes, CRM, operações, pagamentos, marketplace e controle administrativo.
+Plataforma completa de serviços residenciais elétricos. O cliente escolhe o problema, recebe orçamento (IA ou preço fixo), agenda, paga e recebe atendimento — **sem contato humano**.
+
+> **Chamou. ConfioU. Resolveu.**
 
 ## Stack
 
@@ -8,46 +10,81 @@ Plataforma web integrada para gestão de clientes, CRM, operações, pagamentos,
 |--------|-----------|
 | Frontend | React 19 + Vite + Tailwind CSS 4 + TypeScript |
 | Backend | Node.js + Express 5 + TypeScript |
-| Banco | PostgreSQL 16 + Prisma ORM |
-| Auth | JWT (access + refresh token) |
-| Pagamentos | Asaas API (modo mock disponível) |
-| Gráficos | Recharts |
-| CRM | Kanban drag-and-drop (@hello-pangea/dnd) |
+| Banco | PostgreSQL (Supabase) + Prisma ORM |
+| Storage | Supabase Storage / local |
+| IA | OpenAI Vision (gpt-4o-mini) |
+| Pagamentos | Asaas (PIX, boleto, cartão) |
+
+## Identidade Visual
+
+| Cor | HEX | Uso |
+|-----|-----|-----|
+| Azul Principal | `#0033B5` | Textos, links, sidebar hover |
+| Azul Escuro | `#00288F` | Sidebar, rodapé |
+| Amarelo Principal | `#F7C400` | Botões CTA |
+| Amarelo Claro | `#FFD633` | Hover CTA |
+| Cinza Claro | `#E8E8E8` | Bordas, divisórias |
 
 ## Módulos
 
-- **Clientes** — PF/PJ com validação CPF/CNPJ, LGPD, portal de acesso
-- **CRM** — Pipeline Kanban, interações, conversão lead → cliente
-- **Pedidos** — Numeração automática, fluxo visual de status
-- **Ordens de Serviço** — Etapas operacionais com parceiros
-- **Financeiro** — Cobranças Asaas (PIX, boleto, cartão), dashboard
-- **Marketplace** — Catálogo de serviços
-- **Clube de Benefícios** — Cupons, cashback, descontos
-- **Portal do Cliente** — Pedidos, financeiro, documentos, solicitar serviço
-- **Admin** — Usuários, parceiros, auditoria, notificações
-- **Dashboard** — KPIs comerciais, operacionais e financeiros
+### Cliente (portal)
+- Cadastro **obrigatório** (`/cadastro`)
+- Fluxo automatizado (`/cliente/agendar`): Tipo A (preço fixo) e Tipo B (IA + fotos)
+- Upload real de fotos + análise OpenAI Vision
+- Upsells, Express (+R$29), horários com escassez
+- Pagamento PIX/Boleto/Cartão
+
+### Operação
+- Ordens de serviço com **checklist obrigatório** (foto antes/depois, materiais, assinatura)
+- Garantia automática + campanha CRM pós-serviço
+- Estoque com reserva/baixa automática
+- Capacidade operacional por pontos/técnico
+
+### Gestão
+- Dashboard executivo: faturamento diário/mensal, lucro estimado, margem por serviço
+- CRM Kanban + campanhas automáticas (ex.: revisão chuveiro em 6 meses)
+- Cancelamento (< 2h = taxa) e ausência (1ª grátis, 2ª = taxa)
+- Notificações automáticas em todo o fluxo
 
 ## Início rápido
 
-```bash
-# 1. PostgreSQL
-docker compose up -d
+### 1. Supabase
+- Crie projeto PostgreSQL + bucket `documentos`
+- Copie connection string e API keys
 
-# 2. Backend
+### 2. Backend
+
+```bash
 cd backend
 cp .env.example .env
 npm install
-npx prisma migrate dev --name init
+npx prisma migrate deploy
 npm run db:seed
 npm run dev
+```
 
-# 3. Frontend (outro terminal)
+### 3. Frontend
+
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
 Acesse: **http://localhost:5173**
+
+## Variáveis importantes
+
+```env
+# backend/.env
+DATABASE_URL="postgresql://..."
+SUPABASE_URL="https://xxx.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="..."
+OPENAI_API_KEY="sk-..."          # IA real; sem key usa simulação
+OPENAI_MODEL="gpt-4o-mini"
+JWT_SECRET="..."
+ASAAS_API_KEY=""                 # vazio = modo mock
+```
 
 ## Credenciais demo
 
@@ -57,34 +94,25 @@ Acesse: **http://localhost:5173**
 | Comercial | comercial@absresolve.com.br | comercial123 |
 | Cliente | CPF 529.982.247-25 | cliente123 |
 
-## Estrutura
+## Fluxo do cliente
 
 ```
-SISTEMA_LOVABLE/
-├── frontend/          # React SPA
-├── backend/           # API REST
-├── docker-compose.yml # PostgreSQL
-├── nginx/             # Config produção
-└── scripts/           # Backup do banco
+Cadastro → Escolhe serviço → [Tipo A: opções | Tipo B: fotos + IA]
+→ Orçamento → Upsells → Horário → Pagamento → OS criada → Técnico agendado
 ```
 
-## API
+## Integração Lovable
 
-Todas as respostas seguem: `{ success: true, data }` ou `{ success: false, error }`
+Adicione botão no header do app Lovable apontando para a URL deste sistema (`/cadastro` ou `/login`).
 
-Documentação completa das rotas em `backend/.env.example`.
+## Campanhas CRM
 
-## Produção
+Campanhas são agendadas automaticamente após serviços (chuveiro, ar-condicionado, etc.).
 
-- Configure SSL via `nginx/nginx.conf`
-- Defina `JWT_SECRET`, `JWT_REFRESH_SECRET` fortes
-- Configure `ASAAS_API_KEY` para pagamentos reais
-- Agende backup: `scripts/backup.ps1` ou `scripts/backup.sh`
+Processar pendentes: **Admin → Campanhas CRM → Processar Campanhas**
 
-## Segurança
+Ou via API: `POST /admin/campanhas/processar`
 
-- Helmet + rate limiting
-- bcrypt para senhas
-- Auditoria de ações (LGPD)
-- Cookies httpOnly para refresh token
-- Validação CPF/CNPJ antes de persistir
+## Versão
+
+**2.0.0** — Versão final MVP ABS Resolve Já

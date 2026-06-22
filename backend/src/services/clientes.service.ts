@@ -63,6 +63,8 @@ export class ClientesService {
         pedidos: { orderBy: { createdAt: 'desc' }, take: 10 },
         interacoes: { orderBy: { data: 'desc' }, take: 20, include: { usuario: { select: { nome: true } } } },
         pagamentos: { orderBy: { createdAt: 'desc' }, take: 10 },
+        garantias: { orderBy: { dataInicio: 'desc' }, take: 10 },
+        produtosInstalados: { orderBy: { data: 'desc' }, take: 20 },
         user: { select: { id: true, email: true } },
       },
     });
@@ -148,6 +150,26 @@ export class ClientesService {
       orderBy: { createdAt: 'desc' },
       include: { pedido: { select: { numero: true } } },
     });
+  }
+
+  async registrarInteracao(clienteId: string, data: { tipo: string; descricao: string; usuarioId: string }) {
+    await this.buscarPorId(clienteId);
+    return prisma.interacao.create({
+      data: { clienteId, ...data },
+      include: { usuario: { select: { nome: true } } },
+    });
+  }
+
+  async exportarCsv(filters: ClienteFilters) {
+    const { clientes } = await this.listar({ ...filters, limit: 10000 });
+    return clientes.map((c) => ({
+      nome: c.nome,
+      tipo: c.tipo,
+      documento: c.cpf || c.cnpj || '',
+      email: c.email,
+      telefone: c.telefone,
+      status: c.status,
+    }));
   }
 }
 

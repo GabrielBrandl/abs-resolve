@@ -14,5 +14,7 @@ router.get('/parceiros', (req, res) => adminController.listarParceiros(req, res)
 router.post('/parceiros', (req, res) => adminController.criarParceiro(req, res));
 router.get('/auditoria', (req, res) => adminController.auditoria(req, res));
 router.get('/notificacoes', (req, res) => adminController.notificacoes(req, res));
+router.get('/campanhas', (req, res) => adminController.campanhas(req, res));
+router.post('/campanhas/processar', (req, res) => adminController.processarCampanhas(req, res));
 
 export default router;

@@ -15,5 +15,6 @@ router.get('/:id', (req, res) => clientesController.buscar(req, res));
 router.put('/:id', auditLog('atualizar', 'cliente'), (req, res) => clientesController.atualizar(req, res));
 router.patch('/:id/status', auditLog('status', 'cliente'), (req, res) => clientesController.atualizarStatus(req, res));
 router.get('/:id/pagamentos', (req, res) => clientesController.pagamentos(req, res));
+router.post('/:id/interacoes', (req, res) => clientesController.interacao(req, res));
 
 export default router;

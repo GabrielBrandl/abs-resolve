@@ -63,6 +63,18 @@ export class ClientesController {
       return error(res, err instanceof Error ? err.message : 'Erro', 500);
     }
   }
+
+  async interacao(req: Request, res: Response) {
+    try {
+      const data = await clientesService.registrarInteracao(paramId(req.params.id), {
+        ...req.body,
+        usuarioId: req.user!.userId,
+      });
+      return success(res, data, 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
 }
 
 export const clientesController = new ClientesController();

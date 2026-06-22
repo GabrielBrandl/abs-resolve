@@ -132,18 +132,27 @@ export interface DashboardKPIs {
     taxaConversao: number;
     ticketMedio: number;
     totalClientes: number;
+    clientesRecorrentes: number;
+    campanhasPendentes: number;
   };
   operacional: {
     totalPedidos: number;
     pedidosFinalizados: number;
+    pedidosCancelados: number;
     osEmAndamento: number;
+    servicosExecutados: number;
+    cancelamentos: number;
     pedidosPorStatus: { status: string; _count: number }[];
+    servicosPorCategoria: { categoria: string; total: number }[];
   };
   financeiro: {
+    faturamentoDiario: number;
     receitaMes: number;
     receitaTotal: number;
+    lucroEstimado: number;
     inadimplencia: number;
     pagamentosMes: number;
+    margemPorServico: Array<{ servico: string; count: number; receita: number; margemEstimada: number; margemPct: number }>;
   };
   leadsPorEtapa: { etapa: string; _count: number }[];
 }

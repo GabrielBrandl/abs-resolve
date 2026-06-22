@@ -98,6 +98,18 @@ export class PedidosService {
   getStatusList() {
     return STATUS_PEDIDO;
   }
+
+  async exportarCsv(filters: { status?: string; busca?: string }) {
+    const pedidos = await this.listar(filters);
+    return pedidos.map((p) => ({
+      numero: p.numero,
+      cliente: p.cliente?.nome || '',
+      valor: Number(p.valor),
+      status: p.status,
+      responsavel: p.responsavel,
+      createdAt: p.createdAt.toISOString().split('T')[0],
+    }));
+  }
 }
 
 export const pedidosService = new PedidosService();

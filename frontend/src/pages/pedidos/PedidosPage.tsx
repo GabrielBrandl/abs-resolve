@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { pedidosApi, clientesApi } from '../../services/modules.service';
+import { exportarCsv } from '../../utils/export';
+import { useToast } from '../../components/Toast';
 import type { Pedido, Cliente } from '../../types';
 import { STATUS_PEDIDO, formatCurrency, formatDate } from '../../types';
 import { PageHeader, Loading, Badge, Modal, Input, Select, Button } from '../../components/ui';
@@ -13,6 +15,7 @@ export function PedidosPage() {
   const [modal, setModal] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [form, setForm] = useState({ clienteId: '', valor: '', responsavel: 'Comercial', descricao: '' });
+  const { toast } = useToast();
 
   useEffect(() => {
     pedidosApi.listar({ busca, status }).then(setPedidos).finally(() => setLoading(false));
@@ -35,7 +38,12 @@ export function PedidosPage() {
 
   return (
     <div>
-      <PageHeader title="Pedidos" subtitle="Acompanhamento de pedidos" action={<Button onClick={abrirModal}>Novo Pedido</Button>} />
+      <PageHeader title="Pedidos" subtitle="Acompanhamento de pedidos" action={
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => exportarCsv(() => pedidosApi.exportar(), 'pedidos.csv').then(() => toast('Exportado!', 'success'))}>Exportar CSV</Button>
+          <Button onClick={abrirModal}>Novo Pedido</Button>
+        </div>
+      } />
 
       <div className="mb-4 flex gap-3">
         <input placeholder="Buscar..." value={busca} onChange={(e) => setBusca(e.target.value)} className="rounded-lg border px-3 py-2 text-sm" />

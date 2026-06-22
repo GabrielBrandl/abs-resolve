@@ -25,4 +25,11 @@ export const authService = {
     if (!data.success || !data.data) throw new Error(data.error || 'Erro');
     return data.data.user;
   },
+
+  async registrar(body: unknown) {
+    const { data } = await api.post<ApiResponse<LoginResponse>>('/auth/registrar', body);
+    if (!data.success || !data.data) throw new Error(data.error || 'Erro ao cadastrar');
+    setAccessToken(data.data.accessToken);
+    return data.data;
+  },
 };

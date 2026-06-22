@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { User, Role } from '../types';
 import { authService } from '../services/auth.service';
-import { getAccessToken } from '../services/api';
+import { getAccessToken, setAccessToken } from '../services/api';
 
 interface AuthState {
   user: User | null;
@@ -12,6 +12,7 @@ interface AuthState {
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   hasRole: (...roles: Role[]) => boolean;
+  setAuth: (user: User, accessToken: string) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -52,5 +53,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hasRole: (...roles) => {
     const { user } = get();
     return user ? roles.includes(user.role) : false;
+  },
+
+  setAuth: (user, accessToken) => {
+    setAccessToken(accessToken);
+    set({ user, isAuthenticated: true, isLoading: false });
   },
 }));

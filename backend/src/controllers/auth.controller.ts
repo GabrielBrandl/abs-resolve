@@ -28,21 +28,13 @@ export class AuthController {
   async login(req: Request, res: Response) {
     try {
       const { email, senha } = req.body;
-
-      if (!email || !senha) {
-        return error(res, 'Email e senha são obrigatórios', 400);
-      }
+      if (!email || !senha) return error(res, 'Email e senha são obrigatórios', 400);
 
       const result = await authService.login(email, senha);
       setRefreshCookies(res, result.refreshToken, result.refreshTokenValue);
-
-      return success(res, {
-        user: result.user,
-        accessToken: result.accessToken,
-      });
+      return success(res, { user: result.user, accessToken: result.accessToken });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao fazer login';
-      return error(res, message, 401);
+      return error(res, err instanceof Error ? err.message : 'Erro ao fazer login', 401);
     }
   }
 
@@ -50,20 +42,13 @@ export class AuthController {
     try {
       const refreshTokenJwt = req.cookies[REFRESH_COOKIE];
       const refreshTokenValue = req.cookies[REFRESH_VALUE_COOKIE];
-
-      if (!refreshTokenJwt || !refreshTokenValue) {
-        return error(res, 'Refresh token não encontrado', 401);
-      }
+      if (!refreshTokenJwt || !refreshTokenValue) return error(res, 'Refresh token não encontrado', 401);
 
       const result = await authService.refresh(refreshTokenJwt, refreshTokenValue);
-      return success(res, {
-        user: result.user,
-        accessToken: result.accessToken,
-      });
+      return success(res, { user: result.user, accessToken: result.accessToken });
     } catch (err) {
       clearRefreshCookies(res);
-      const message = err instanceof Error ? err.message : 'Erro ao renovar token';
-      return error(res, message, 401);
+      return error(res, err instanceof Error ? err.message : 'Erro ao renovar token', 401);
     }
   }
 
@@ -74,42 +59,40 @@ export class AuthController {
       clearRefreshCookies(res);
       return success(res, { message: 'Logout realizado com sucesso' });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao fazer logout';
-      return error(res, message, 500);
+      return error(res, err instanceof Error ? err.message : 'Erro ao fazer logout', 500);
     }
   }
 
   async loginCliente(req: Request, res: Response) {
     try {
       const { cpfCnpj, senha } = req.body;
-      if (!cpfCnpj || !senha) {
-        return error(res, 'CPF/CNPJ e senha são obrigatórios', 400);
-      }
+      if (!cpfCnpj || !senha) return error(res, 'CPF/CNPJ e senha são obrigatórios', 400);
 
       const result = await authService.loginCliente(cpfCnpj, senha);
       setRefreshCookies(res, result.refreshToken, result.refreshTokenValue);
-
-      return success(res, {
-        user: result.user,
-        accessToken: result.accessToken,
-      });
+      return success(res, { user: result.user, accessToken: result.accessToken });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao fazer login';
-      return error(res, message, 401);
+      return error(res, err instanceof Error ? err.message : 'Erro ao fazer login', 401);
+    }
+  }
+
+  async registrarCliente(req: Request, res: Response) {
+    try {
+      const result = await authService.registrarCliente(req.body);
+      setRefreshCookies(res, result.refreshToken, result.refreshTokenValue);
+      return success(res, { user: result.user, accessToken: result.accessToken }, 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro ao cadastrar', 400);
     }
   }
 
   async me(req: Request, res: Response) {
     try {
-      if (!req.user) {
-        return error(res, 'Não autenticado', 401);
-      }
-
+      if (!req.user) return error(res, 'Não autenticado', 401);
       const user = await authService.getMe(req.user.userId);
       return success(res, { user });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao buscar usuário';
-      return error(res, message, 404);
+      return error(res, err instanceof Error ? err.message : 'Erro ao buscar usuário', 404);
     }
   }
 }

@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { Logo } from './ui';
 import type { Role } from '../types';
 
 interface NavItem {
@@ -16,6 +17,7 @@ const navItems: NavItem[] = [
   { label: 'Pedidos', path: '/pedidos', roles: ['admin', 'comercial', 'operacional'], icon: '📦' },
   { label: 'Ordens de Serviço', path: '/ordens-servico', roles: ['admin', 'operacional'], icon: '🔧' },
   { label: 'Financeiro', path: '/financeiro', roles: ['admin', 'comercial'], icon: '💰' },
+  { label: 'Movimentação', path: '/movimentacao', roles: ['admin', 'operacional'], icon: '📋' },
   { label: 'Marketplace', path: '/marketplace', icon: '🛒' },
   { label: 'Admin', path: '/admin', roles: ['admin'], icon: '⚙️' },
 ];
@@ -35,9 +37,9 @@ export function Sidebar() {
 
   return (
     <aside className="flex w-64 flex-col bg-sidebar text-white">
-      <div className="border-b border-slate-700 px-6 py-5">
-        <h1 className="text-xl font-bold tracking-tight">ABS Resolve</h1>
-        <p className="mt-1 text-xs text-slate-400">Plataforma de Gestão</p>
+      <div className="border-b border-primary-600/30 px-4 py-4">
+        <Logo className="h-12 brightness-0 invert" />
+        <p className="mt-1 text-xs text-accent-400">Plataforma de Gestão</p>
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
@@ -49,8 +51,8 @@ export function Sidebar() {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-primary-600 text-white'
-                  : 'text-slate-300 hover:bg-sidebar-hover hover:text-white'
+                  ? 'bg-accent-500 text-primary-900'
+                  : 'text-slate-200 hover:bg-sidebar-hover hover:text-white'
               }`
             }
           >
@@ -60,17 +62,17 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-slate-700 px-4 py-4">
+      <div className="border-t border-primary-600/30 px-4 py-4">
         <div className="mb-3 px-2">
           <p className="truncate text-sm font-medium">{user?.nome}</p>
           <p className="truncate text-xs text-slate-400">{user?.email}</p>
-          <span className="mt-1 inline-block rounded-full bg-primary-600/20 px-2 py-0.5 text-xs capitalize text-primary-300">
+          <span className="mt-1 inline-block rounded-full bg-accent-500/20 px-2 py-0.5 text-xs capitalize text-accent-400">
             {user?.role}
           </span>
         </div>
         <button
           onClick={handleLogout}
-          className="w-full rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-600"
+          className="w-full rounded-lg bg-primary-700 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-primary-600"
         >
           Sair
         </button>
