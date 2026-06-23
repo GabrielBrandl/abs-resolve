@@ -74,6 +74,16 @@ app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 app.use('/uploads', express.static(path.join(process.cwd(), UPLOAD_DIR)));
 
+app.get('/', (_req, res) => {
+  return success(res, {
+    service: 'ABS Resolve API',
+    version: '2.0.0',
+    status: 'online',
+    health: '/health',
+    hint: 'Use GET /health para testar conexão com o banco',
+  });
+});
+
 app.get('/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
