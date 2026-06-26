@@ -2,6 +2,7 @@ import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import { Role } from '@prisma/client';
 import { prisma } from '../src/utils/prisma.js';
+import { SERVICOS_CATALOGO } from '../src/config/catalogo-servicos.js';
 
 async function main() {
   const senhaAdmin = await bcrypt.hash('admin123', 10);
@@ -149,56 +150,46 @@ async function main() {
     create: { id: 'default' },
   });
 
-  const catalogoData = [
-    { slug: 'tomada', nome: 'Tomada', tipo: 'A', pontos: 1 },
-    { slug: 'interruptor', nome: 'Interruptor', tipo: 'A', pontos: 1 },
-    { slug: 'disjuntor', nome: 'Disjuntor', tipo: 'B', pontos: 1 },
-    { slug: 'chuveiro', nome: 'Chuveiro', tipo: 'B', pontos: 2 },
-    { slug: 'luminaria', nome: 'Luminária', tipo: 'B', pontos: 2 },
-    { slug: 'ventilador', nome: 'Ventilador', tipo: 'B', pontos: 2 },
-    { slug: 'registro', nome: 'Registro', tipo: 'B', pontos: 2 },
-    { slug: 'ar-condicionado', nome: 'Ar-condicionado', tipo: 'B', pontos: 4 },
-  ];
-
-  for (const c of catalogoData) {
+  for (const s of SERVICOS_CATALOGO) {
     await prisma.catalogoServico.upsert({
-      where: { slug: c.slug },
-      update: {},
-      create: { ...c, categoria: 'eletrica', upsells: [] },
+      where: { slug: s.slug },
+      update: {
+        nome: s.nome,
+        categoria: s.categoria,
+        tipo: 'C',
+        pontos: s.pontos,
+        descricao: s.descricao,
+        precoTexto: s.precoTexto,
+        precoMinimo: s.precoMinimo,
+        tipoPreco: s.tipoPreco,
+        garantiaDias: s.garantiaDias,
+        imagemUrl: s.imagemUrl,
+        ordem: s.ordem,
+        ativo: true,
+      },
+      create: {
+        slug: s.slug,
+        nome: s.nome,
+        categoria: s.categoria,
+        tipo: 'C',
+        pontos: s.pontos,
+        descricao: s.descricao,
+        precoTexto: s.precoTexto,
+        precoMinimo: s.precoMinimo,
+        tipoPreco: s.tipoPreco,
+        garantiaDias: s.garantiaDias,
+        imagemUrl: s.imagemUrl,
+        ordem: s.ordem,
+        upsells: [],
+        ativo: true,
+      },
     });
   }
 
-  const tomada = await prisma.catalogoServico.findUnique({ where: { slug: 'tomada' } });
-  const interruptor = await prisma.catalogoServico.findUnique({ where: { slug: 'interruptor' } });
-  if (tomada) {
-    const precosTomada = [
-      { chave: 'simples_10a', label: 'Tomada Simples 10A', preco: 149 },
-      { chave: 'simples_20a', label: 'Tomada Simples 20A', preco: 159 },
-      { chave: 'dupla_10a', label: 'Tomada Dupla 10A', preco: 169 },
-      { chave: 'dupla_20a', label: 'Tomada Dupla 20A', preco: 179 },
-    ];
-    for (const p of precosTomada) {
-      await prisma.precoFixo.upsert({
-        where: { servicoId_chave: { servicoId: tomada.id, chave: p.chave } },
-        update: { preco: p.preco },
-        create: { servicoId: tomada.id, ...p },
-      });
-    }
-  }
-  if (interruptor) {
-    const precosInt = [
-      { chave: 'simples', label: 'Interruptor Simples', preco: 149 },
-      { chave: 'duplo', label: 'Interruptor Duplo', preco: 159 },
-      { chave: 'triplo', label: 'Interruptor Triplo', preco: 169 },
-    ];
-    for (const p of precosInt) {
-      await prisma.precoFixo.upsert({
-        where: { servicoId_chave: { servicoId: interruptor.id, chave: p.chave } },
-        update: { preco: p.preco },
-        create: { servicoId: interruptor.id, ...p },
-      });
-    }
-  }
+  await prisma.catalogoServico.updateMany({
+    where: { slug: { notIn: SERVICOS_CATALOGO.map((s) => s.slug) } },
+    data: { ativo: false },
+  });
 
   await prisma.tecnico.createMany({
     skipDuplicates: true,

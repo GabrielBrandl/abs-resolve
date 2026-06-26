@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 140" role="img" aria-label="troca interruptor">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0033B5"/>
+      <stop offset="100%" stop-color="#001a5c"/>
+    </linearGradient>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="white" stroke-width="0.5" opacity="0.06"/>
+    </pattern>
+  </defs>
+  <rect width="240" height="140" fill="url(#bg)"/>
+  <rect width="240" height="140" fill="url(#grid)"/>
+  <circle cx="200" cy="28" r="40" fill="white" opacity="0.06"/>
+  <circle cx="40" cy="120" r="50" fill="white" opacity="0.04"/>
+  <rect x="88" y="48" width="64" height="64" rx="8" fill="none" stroke="#FFD100" stroke-width="3"/><circle cx="120" cy="72" r="6" fill="#FFD100"/><circle cx="120" cy="88" r="6" fill="#FFD100" opacity="0.5"/>
+</svg>

@@ -8,6 +8,7 @@ import { Loading } from './components/ui';
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const CadastroPage = lazy(() => import('./pages/CadastroPage').then((m) => ({ default: m.CadastroPage })));
 const AgendarServicoPage = lazy(() => import('./pages/cliente/AgendarServicoPage').then((m) => ({ default: m.AgendarServicoPage })));
+const DiagnosticoIAPage = lazy(() => import('./pages/cliente/DiagnosticoIAPage').then((m) => ({ default: m.DiagnosticoIAPage })));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const ClientesPage = lazy(() => import('./pages/clientes/ClientesPage').then((m) => ({ default: m.ClientesPage })));
 const ClienteFormPage = lazy(() => import('./pages/clientes/ClienteFormPage').then((m) => ({ default: m.ClienteFormPage })));
@@ -76,6 +77,7 @@ function AppRoutes() {
           <Route element={<ClienteLayout />}>
             <Route path="/cliente" element={<ClientePedidosPage />} />
             <Route path="/cliente/agendar" element={<AgendarServicoPage />} />
+            <Route path="/cliente/diagnostico" element={<DiagnosticoIAPage />} />
             <Route path="/cliente/financeiro" element={<ClienteFinanceiroPage />} />
             <Route path="/cliente/solicitar" element={<ClienteSolicitarPage />} />
             <Route path="/cliente/cadastro" element={<ClienteCadastroPage />} />

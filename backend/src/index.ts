@@ -19,6 +19,7 @@ import movimentacaoRoutes from './routes/movimentacao.routes.js';
 import exportRoutes from './routes/export.routes.js';
 import solicitacaoRoutes from './routes/solicitacao.routes.js';
 import agendamentoRoutes from './routes/agendamento.routes.js';
+import diagnosticoRoutes from './routes/diagnostico.routes.js';
 import { pagamentosController } from './controllers/pagamentos.controller.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { success, error } from './utils/response.js';
@@ -117,6 +118,7 @@ app.use('/movimentacao', movimentacaoRoutes);
 app.use('/export', exportRoutes);
 app.use('/solicitacao', solicitacaoRoutes);
 app.use('/agendamentos', agendamentoRoutes);
+app.use('/diagnostico', diagnosticoRoutes);
 app.post('/webhooks/asaas', (req, res) => pagamentosController.webhookAsaas(req, res));
 
 app.use((_req, res) => {

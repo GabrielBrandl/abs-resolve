@@ -261,9 +261,16 @@ model CatalogoServico {
   id           String              @id @default(uuid())
   slug         String              @unique
   nome         String
-  tipo         String
+  tipo         String              @default("C")
   pontos       Int                 @default(1)
-  categoria    String              @default("eletrica")
+  categoria    String              @default("eletricista")
+  descricao    String?             @db.Text
+  precoTexto   String?             @map("preco_texto")
+  precoMinimo  Decimal?            @map("preco_minimo") @db.Decimal(12, 2)
+  tipoPreco    String              @default("fixo") @map("tipo_preco")
+  garantiaDias Int                 @default(90) @map("garantia_dias")
+  imagemUrl    String?             @map("imagem_url")
+  ordem        Int                 @default(0)
   upsells      Json                @default("[]")
   ativo        Boolean             @default(true)
   createdAt    DateTime            @default(now()) @map("created_at")

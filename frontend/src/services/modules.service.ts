@@ -116,7 +116,32 @@ export const clientePortalApi = {
 };
 
 export const solicitacaoApi = {
-  catalogo: () => get<Array<{ id: string; slug: string; nome: string; tipo: string; pontos: number; precosFixos?: Array<{ chave: string; label: string; preco: number }> }>>('/solicitacao/catalogo'),
+  catalogo: () =>
+    get<{
+      categorias: Array<{
+        slug: string;
+        nome: string;
+        icone: string;
+        cor: string;
+        servicos: Array<{
+          id: string;
+          slug: string;
+          nome: string;
+          categoria: string;
+          precoMinimo: number | null;
+          precoTexto: string | null;
+          tipoPreco: string;
+          descricao: string | null;
+          garantiaDias: number;
+          imagemUrl: string | null;
+          pontos: number;
+        }>;
+      }>;
+      total: number;
+    }>('/solicitacao/catalogo'),
+  criarCarrinho: (body: { itens: Array<{ slug: string; quantidade: number }>; express?: boolean }) =>
+    post('/solicitacao/carrinho', body),
+  checkout: (id: string, express: boolean) => post(`/solicitacao/${id}/checkout`, { express }),
   upsells: (slug: string) => get<Array<{ id: string; nome: string; preco: number }>>(`/solicitacao/upsells/${slug}`),
   calcularTipoA: (body: unknown) => post<{ precoBase: number; precoFinal: number }>('/solicitacao/calcular-tipo-a', body),
   criar: (body: unknown) => post('/solicitacao', body),
@@ -135,6 +160,19 @@ export const solicitacaoApi = {
     });
     if (!data.success) throw new Error(data.error);
     return data.data;
+  },
+};
+
+export const diagnosticoApi = {
+  analisar: async (files: File[], contexto?: string) => {
+    const form = new FormData();
+    files.forEach((f) => form.append('fotos', f));
+    if (contexto) form.append('contexto', contexto);
+    const { data } = await api.post('/diagnostico/analisar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    if (!data.success) throw new Error(data.error);
+    return data.data as { analise: Record<string, unknown>; orientacao?: string };
   },
 };
 

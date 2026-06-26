@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma.js';
+import { Prisma } from '@prisma/client';
 import { toNumber } from '../utils/helpers.js';
 import {
   PRECO_FIXO_INTERRUPTOR,
@@ -6,6 +7,7 @@ import {
   PONTUACAO_SERVICO,
   UPSELLS,
 } from '../config/catalogo.js';
+import { CATEGORIAS, PONTUACAO_POR_SLUG } from '../config/catalogo-servicos.js';
 import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from '../engines/pricing.engine.js';
 import { listarHorariosDisponiveis, reservarCapacidade } from '../engines/capacity.engine.js';
 import { analisarFotos, custosParaServico } from '../services/ia-diagnostico.service.js';
@@ -18,12 +20,121 @@ function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
   return `${opcoes.tipo || 'simples'}_${opcoes.amperagem || '10a'}`.toLowerCase();
 }
 
+function pontosSolicitacao(sol: { opcoes: unknown; servico: { slug: string; pontos: number } }) {
+  const opcoes = sol.opcoes as { pontosTotal?: number };
+  if (opcoes.pontosTotal) return opcoes.pontosTotal;
+  return PONTUACAO_POR_SLUG[sol.servico.slug] || PONTUACAO_SERVICO[sol.servico.slug] || sol.servico.pontos;
+}
+
+function descricaoPedido(sol: { opcoes: unknown; servico: { nome: string } }) {
+  const opcoes = sol.opcoes as { itens?: Array<{ nome: string; quantidade: number }> };
+  if (opcoes.itens?.length) {
+    return opcoes.itens.map((i) => `${i.quantidade}x ${i.nome}`).join(', ');
+  }
+  return sol.servico.nome;
+}
+
 export class SolicitacaoService {
   async listarCatalogo() {
-    return prisma.catalogoServico.findMany({
+    const servicos = await prisma.catalogoServico.findMany({
       where: { ativo: true },
       include: { precosFixos: true },
-      orderBy: { nome: 'asc' },
+      orderBy: [{ categoria: 'asc' }, { ordem: 'asc' }, { nome: 'asc' }],
+    });
+
+    const categorias = CATEGORIAS.map((cat) => ({
+      ...cat,
+      servicos: servicos.filter((s) => s.categoria === cat.slug),
+    })).filter((c) => c.servicos.length > 0);
+
+    return { categorias, total: servicos.length, servicos };
+  }
+
+  async criarCarrinho(
+    clienteId: string,
+    itens: Array<{ slug: string; quantidade: number }>,
+    express = false
+  ) {
+    if (!itens.length) throw new Error('Adicione pelo menos um serviço ao carrinho');
+
+    const detalhes: Array<{
+      slug: string;
+      nome: string;
+      categoria: string;
+      quantidade: number;
+      precoUnitario: number;
+      precoTexto: string | null;
+      subtotal: number;
+    }> = [];
+
+    let precoSubtotal = 0;
+    let pontosTotal = 0;
+
+    for (const item of itens) {
+      const servico = await prisma.catalogoServico.findUnique({ where: { slug: item.slug } });
+      if (!servico?.ativo) throw new Error(`Serviço "${item.slug}" não encontrado`);
+      if (servico.tipoPreco === 'sob_orcamento') {
+        throw new Error(`${servico.nome} requer orçamento personalizado. Fale conosco pelo WhatsApp.`);
+      }
+      if (item.quantidade < 1) continue;
+
+      const precoUnit = toNumber(servico.precoMinimo || 0);
+      const subtotal = precoUnit * item.quantidade;
+      precoSubtotal += subtotal;
+      pontosTotal += servico.pontos * item.quantidade;
+
+      detalhes.push({
+        slug: servico.slug,
+        nome: servico.nome,
+        categoria: servico.categoria,
+        quantidade: item.quantidade,
+        precoUnitario: precoUnit,
+        precoTexto: servico.precoTexto,
+        subtotal,
+      });
+    }
+
+    const config = await getConfigPrecificacao();
+    const expressValor = express ? toNumber(config.expressValor) : 0;
+    const precoFinal = precoSubtotal + expressValor;
+
+    const anchor = await prisma.catalogoServico.findUnique({ where: { slug: itens[0].slug } });
+    if (!anchor) throw new Error('Serviço inválido');
+
+    return prisma.solicitacaoServico.create({
+      data: {
+        clienteId,
+        servicoId: anchor.id,
+        tipo: 'C',
+        opcoes: { itens: detalhes, pontosTotal },
+        precoBase: precoSubtotal,
+        precoFinal,
+        express,
+        status: 'checkout',
+      },
+      include: { servico: true },
+    });
+  }
+
+  async atualizarCheckout(id: string, clienteId: string, express: boolean) {
+    const sol = await prisma.solicitacaoServico.findFirst({ where: { id, clienteId } });
+    if (!sol) throw new Error('Solicitação não encontrada');
+    if (sol.status !== 'checkout') throw new Error('Checkout indisponível');
+
+    const opcoes = sol.opcoes as { itens?: unknown[]; pontosTotal?: number };
+    const config = await getConfigPrecificacao();
+    const base = toNumber(sol.precoBase || 0);
+    const expressValor = express ? toNumber(config.expressValor) : 0;
+
+    return prisma.solicitacaoServico.update({
+      where: { id },
+      data: {
+        express,
+        precoFinal: base + expressValor,
+        opcoes: { ...opcoes, pontosTotal: opcoes.pontosTotal } as Prisma.InputJsonValue,
+        status: 'checkout',
+      },
+      include: { servico: true },
     });
   }
 
@@ -173,7 +284,7 @@ export class SolicitacaoService {
     });
     if (!sol) throw new Error('Solicitação não encontrada');
 
-    const pontos = PONTUACAO_SERVICO[sol.servico.slug] || sol.servico.pontos;
+    const pontos = pontosSolicitacao(sol);
     return listarHorariosDisponiveis(pontos);
   }
 
@@ -187,11 +298,11 @@ export class SolicitacaoService {
       include: { servico: true, cliente: true },
     });
     if (!sol) throw new Error('Solicitação não encontrada');
-    if (!['aprovado', 'orcamento'].includes(sol.status)) {
-      throw new Error('Aprove o orçamento antes de agendar');
+    if (sol.status !== 'pago') {
+      throw new Error('Realize o pagamento antes de agendar');
     }
 
-    const pontos = PONTUACAO_SERVICO[sol.servico.slug] || sol.servico.pontos;
+    const pontos = pontosSolicitacao(sol);
     const dataAgenda = new Date(data.data + 'T12:00:00');
 
     const agendamento = await reservarCapacidade(
@@ -203,6 +314,13 @@ export class SolicitacaoService {
       data.horarioFim,
       sol.express
     );
+
+    if (sol.pedidoId) {
+      await prisma.agendamento.update({
+        where: { id: agendamento.id },
+        data: { pedidoId: sol.pedidoId },
+      });
+    }
 
     await prisma.solicitacaoServico.update({
       where: { id },
@@ -225,7 +343,9 @@ export class SolicitacaoService {
       include: { servico: true, cliente: true, agendamento: true },
     });
     if (!sol) throw new Error('Solicitação não encontrada');
-    if (sol.status !== 'agendado') throw new Error('Agende antes de pagar');
+    if (!['checkout', 'aprovado', 'orcamento'].includes(sol.status)) {
+      throw new Error('Checkout inválido para pagamento');
+    }
 
     const valor = toNumber(sol.precoFinal || 0);
     const numero = `ABS-${Date.now().toString().slice(-8)}`;
@@ -237,7 +357,7 @@ export class SolicitacaoService {
         valor,
         responsavel: 'Automático',
         status: 'recebido',
-        descricao: `${sol.servico.nome} — solicitação ${id.slice(0, 8)}`,
+        descricao: descricaoPedido(sol),
       },
     });
 
@@ -246,16 +366,16 @@ export class SolicitacaoService {
       data: { pedidoId: pedido.id, status: 'pago' },
     });
 
-    if (sol.agendamento) {
-      await prisma.agendamento.update({
-        where: { id: sol.agendamento.id },
-        data: { pedidoId: pedido.id },
-      });
+    const opcoes = sol.opcoes as { itens?: Array<{ slug: string }> };
+    if (opcoes.itens?.length) {
+      for (const item of opcoes.itens) {
+        await estoqueService.reservarPorServico(item.slug, 'padrao').catch(() => {});
+      }
+    } else {
+      const op = sol.opcoes as Record<string, string>;
+      const chave = sol.servico.slug === 'tomada' ? chaveOpcoesTomada(op) : op.tipo;
+      await estoqueService.reservarPorServico(sol.servico.slug, chave).catch(() => {});
     }
-
-    const opcoes = sol.opcoes as Record<string, string>;
-    const chave = sol.servico.slug === 'tomada' ? chaveOpcoesTomada(opcoes) : opcoes.tipo;
-    await estoqueService.reservarPorServico(sol.servico.slug, chave).catch(() => {});
 
     await prisma.ordemServico.create({
       data: { pedidoId: pedido.id, etapa: 'execucao' },

@@ -13,7 +13,9 @@ router.post('/calcular-tipo-a', (req, res) => solicitacaoController.calcularTipo
 router.use(authMiddleware, checkRole('cliente'));
 
 router.get('/minhas', (req, res) => solicitacaoController.minhas(req, res));
+router.post('/carrinho', (req, res) => solicitacaoController.criarCarrinho(req, res));
 router.post('/', (req, res) => solicitacaoController.criar(req, res));
+router.post('/:id/checkout', (req, res) => solicitacaoController.checkout(req, res));
 router.post('/:id/fotos', (req, res) => solicitacaoController.fotos(req, res));
 router.post('/:id/fotos/upload', upload.array('fotos', 5), (req, res) => solicitacaoController.uploadFotos(req, res));
 router.post('/:id/upsells', (req, res) => solicitacaoController.upsellsAplicar(req, res));

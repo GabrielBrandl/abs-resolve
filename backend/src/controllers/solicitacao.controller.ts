@@ -29,6 +29,31 @@ export class SolicitacaoController {
     }
   }
 
+  async criarCarrinho(req: Request, res: Response) {
+    try {
+      const clienteId = await clienteIdFromReq(req);
+      const { itens, express } = req.body as {
+        itens: Array<{ slug: string; quantidade: number }>;
+        express?: boolean;
+      };
+      const data = await solicitacaoService.criarCarrinho(clienteId, itens || [], !!express);
+      return success(res, data, 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async checkout(req: Request, res: Response) {
+    try {
+      const clienteId = await clienteIdFromReq(req);
+      const { express } = req.body;
+      const data = await solicitacaoService.atualizarCheckout(paramId(req.params.id), clienteId, !!express);
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async criar(req: Request, res: Response) {
     try {
       const clienteId = await clienteIdFromReq(req);

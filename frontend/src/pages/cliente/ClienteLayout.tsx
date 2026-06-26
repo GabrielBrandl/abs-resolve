@@ -3,7 +3,8 @@ import { useAuthStore } from '../../store/authStore';
 import { Logo } from '../../components/ui';
 
 const navItems = [
-  { label: 'Solicitar Serviço', path: '/cliente/agendar', icon: '⚡' },
+  { label: 'Solicitar Serviço', path: '/cliente/agendar', icon: '🛒' },
+  { label: 'Diagnóstico IA', path: '/cliente/diagnostico', icon: '📷' },
   { label: 'Meus Pedidos', path: '/cliente', icon: '📦', end: true },
   { label: 'Financeiro', path: '/cliente/financeiro', icon: '💰' },
   { label: 'Meu Cadastro', path: '/cliente/cadastro', icon: '👤' },
