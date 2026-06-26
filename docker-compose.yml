@@ -1,0 +1,66 @@
+# ABS Resolve — deploy EasyPanel (Docker Compose)
+# 1. Crie projeto "Compose" no EasyPanel apontando para este repositório
+# 2. Cole o conteúdo de deploy/easypanel.env em Environment
+# 3. Domínio no serviço "web", porta 80
+# 4. Deploy
+
+name: abs-resolve
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      PORT: "3001"
+      FRONTEND_URL: ${FRONTEND_URL}
+      API_PUBLIC_URL: ${API_PUBLIC_URL}
+      UPLOAD_DIR: uploads
+      NODE_ENV: production
+      ASAAS_API_KEY: ${ASAAS_API_KEY}
+      ASAAS_API_URL: ${ASAAS_API_URL}
+      ASAAS_CNPJ: ${ASAAS_CNPJ:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@absresolve.com.br}
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
+      RUN_SEED: ${RUN_SEED:-false}
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - abs_net
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - abs_net
+
+networks:
+  abs_net:
+
+volumes:
+  backend_uploads:

@@ -116,7 +116,28 @@ export function Tabs({ tabs, active, onChange }: { tabs: { key: string; label: s
   );
 }
 
-export function Logo({ className = 'h-16' }: { className?: string }) {
+export function Logo({
+  className = 'h-16',
+  variant = 'light',
+}: {
+  className?: string;
+  /** Use "dark" em fundos azuis (sidebar, dashboard). Evita o retângulo branco do PNG. */
+  variant?: 'light' | 'dark';
+}) {
+  if (variant === 'dark') {
+    return (
+      <div className={className} aria-label="ABS Resolve — Chamou. ConfioU. Resolveu.">
+        <p className="text-lg font-extrabold leading-tight tracking-tight text-white">
+          <span className="text-accent-400">A</span>BS{' '}
+          <span className="text-white">RESOLVE</span>
+        </p>
+        <p className="mt-0.5 text-[10px] font-medium italic leading-tight text-white/75">
+          Chamou. ConfioU. Resolveu.
+        </p>
+      </div>
+    );
+  }
+
   return <img src="/logo.png" alt="ABS Resolve — Chamou. ConfioU. Resolveu." className={className} />;
 }
 

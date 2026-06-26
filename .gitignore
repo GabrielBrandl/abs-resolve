@@ -14,3 +14,5 @@ backend/dist/
 generated/
 .vscode/
 .idea/
+deploy/easypanel.env.local
+deploy/secrets.env

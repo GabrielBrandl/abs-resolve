@@ -34,7 +34,7 @@ export function DashboardPage() {
   return (
     <div>
       <div className="mb-6 flex items-center gap-4 rounded-xl abs-gradient p-6 text-white">
-        <Logo className="h-14 brightness-0 invert" />
+        <Logo variant="dark" className="h-14" />
         <div>
           <h1 className="text-2xl font-bold">Dashboard Executivo</h1>
           <p className="text-sm text-white/80">ABS Resolve Já — operação em tempo real</p>

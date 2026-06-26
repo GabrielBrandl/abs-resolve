@@ -24,7 +24,7 @@ export function ClienteLayout() {
     <div className="flex min-h-screen bg-white">
       <aside className="flex w-56 flex-col bg-sidebar text-white">
         <div className="border-b border-primary-600/30 px-4 py-4">
-          <Logo className="h-10 brightness-0 invert" />
+          <Logo variant="dark" className="h-10" />
           <p className="mt-1 text-xs text-accent-400">Portal do Cliente</p>
         </div>
         <nav className="flex-1 space-y-1 px-2 py-4">

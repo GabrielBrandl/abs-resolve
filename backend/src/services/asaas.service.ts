@@ -2,7 +2,7 @@ import axios from 'axios';
 import { prisma } from '../utils/prisma.js';
 
 const asaasApi = axios.create({
-  baseURL: process.env.ASAAS_API_URL || 'https://sandbox.asaas.com/api/v3',
+  baseURL: process.env.ASAAS_API_URL || 'https://api-sandbox.asaas.com/v3',
   headers: {
     access_token: process.env.ASAAS_API_KEY || '',
     'Content-Type': 'application/json',

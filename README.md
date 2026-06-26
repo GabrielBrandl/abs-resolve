@@ -46,7 +46,22 @@ Plataforma completa de serviços residenciais elétricos. O cliente escolhe o pr
 - Cancelamento (< 2h = taxa) e ausência (1ª grátis, 2ª = taxa)
 - Notificações automáticas em todo o fluxo
 
-## Início rápido
+## Deploy (EasyPanel)
+
+Deploy pronto com Docker Compose — **sem alterar código**.
+
+```bash
+# Ver guia completo:
+deploy/EASYPANEL.md
+
+# Variáveis prontas para colar no EasyPanel (local, não commitado):
+deploy/easypanel.env.local
+
+# Template com placeholders (no repositório):
+deploy/easypanel.env
+```
+
+## Início rápido (local)
 
 ### 1. Supabase
 - Crie projeto PostgreSQL + bucket `documentos`
