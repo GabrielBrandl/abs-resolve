@@ -5,8 +5,14 @@ Repositório **pronto para deploy** — sem alterar código.
 ## Pré-requisitos
 
 - VPS com [EasyPanel](https://easypanel.io) instalado
-- Repositório GitHub conectado
-- Supabase e Asaas já configurados (variáveis em `deploy/easypanel.env`)
+- Repositório GitHub conectado (recomendado: **privado**)
+- Supabase e Asaas já configurados
+
+### Tornar o repositório privado (recomendado)
+
+1. Acesse: https://github.com/GabrielBrandl/abs-resolve/settings
+2. Role até **Danger Zone** → **Change repository visibility**
+3. Selecione **Private** → confirme
 
 ---
 
