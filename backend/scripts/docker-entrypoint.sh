@@ -1,6 +1,20 @@
 #!/bin/sh
 set -e
 
+if [ -z "$DATABASE_URL" ] && [ -z "$DIRECT_URL" ]; then
+  echo ""
+  echo "❌ ERRO: DATABASE_URL não está definida no container."
+  echo ""
+  echo "No EasyPanel:"
+  echo "  1. Abra o serviço BACKEND (não só o projeto)"
+  echo "  2. Aba Ambiente → cole deploy/easypanel.env.local"
+  echo "  3. Salvar → Deploy"
+  echo ""
+  exit 1
+fi
+
+export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}"
+
 echo "==> Prisma migrate deploy..."
 npx prisma migrate deploy
 

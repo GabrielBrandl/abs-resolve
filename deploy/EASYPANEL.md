@@ -37,12 +37,15 @@ npx prisma migrate deploy   # no backend — migrations aplicadas
 
 ### 2. Configurar variáveis de ambiente (obrigatório)
 
-Se aparecer erro *"variable is not set. Defaulting to a blank string"*, é porque esta etapa não foi feita.
+Se aparecer erro *"variable is not set"* ou *"datasource.url property is required"*, as variáveis não estão no serviço correto.
 
-1. Na sua máquina, abra o arquivo **`deploy/easypanel.env.local`** (credenciais reais — **não** vai para o GitHub)
-2. Copie **todo** o conteúdo (sem linhas de comentário `#` no início, se preferir)
-3. No EasyPanel → serviço `abs-resolve` → menu **Ambiente**
+1. Na sua máquina, abra **`deploy/easypanel.env.local`** (credenciais reais — **não** vai para o GitHub)
+2. Copie **todo** o conteúdo
+3. No EasyPanel → projeto → serviço **`backend`** → aba **Ambiente** (não apenas o projeto pai)
 4. Cole o conteúdo e clique em **Salvar**
+5. Clique em **Deploy** / **Rebuild**
+
+> **Importante:** as variáveis devem estar no serviço **`backend`**. O `docker-compose.yml` não repassa secrets via compose — o EasyPanel injeta direto no container do backend.
 
 > Se não tiver o `.local`, use o template `deploy/easypanel.env` e preencha com os valores do `backend/.env`, trocando:
 > - `JWT_SECRET` e `JWT_REFRESH_SECRET` por strings longas e únicas (produção)
@@ -158,7 +161,8 @@ Internet → web (nginx :80)
 |----------|---------|
 | Build falha | Veja logs do serviço que falhou (`backend` ou `web`) |
 | 502 Bad Gateway na API | Aguarde o healthcheck do `backend` (até 90s no primeiro start). Veja logs |
-| `/api/health` retorna 503 | Verifique `DATABASE_URL` e `DIRECT_URL` no Environment |
+| `/api/health` retorna 503 | `DATABASE_URL` e `DIRECT_URL` na aba **Ambiente do serviço backend** → Salvar → Deploy |
+| `datasource.url property is required` (Prisma) | Mesmo: variáveis no serviço **backend**, não só no projeto. Redeploy após Salvar |
 | Login não funciona / cookies | Confirme SSL ativo no domínio. API e frontend estão no mesmo domínio via nginx |
 | CORS (raro em produção) | `FRONTEND_URL=https://$(PRIMARY_DOMAIN)` no Environment |
 | PIX não gera | `ASAAS_MOCK=false` e `ASAAS_API_KEY` correta. Veja logs do backend |
