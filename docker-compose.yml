@@ -36,7 +36,8 @@ services:
         VITE_API_URL: /api
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     expose:
       - "80"
 

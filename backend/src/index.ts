@@ -51,10 +51,27 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || 'uploads';
 
 app.set('trust proxy', 1);
 
+function corsAllowedOrigins(): string[] {
+  const origins = [process.env.FRONTEND_URL, process.env.API_PUBLIC_URL].filter(
+    (v): v is string => !!v && !v.includes('$(PRIMARY_DOMAIN)')
+  );
+  if (process.env.NODE_ENV !== 'production') {
+    origins.push('http://localhost:5173', 'http://localhost:5174');
+  }
+  return origins;
+}
+
+const allowedOrigins = corsAllowedOrigins();
+
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (!allowedOrigins.length) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   })
 );

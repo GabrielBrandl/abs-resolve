@@ -37,24 +37,25 @@ npx prisma migrate deploy   # no backend — migrations aplicadas
 
 ### 2. Configurar variáveis de ambiente (obrigatório)
 
-Se aparecer erro *"variable is not set"* ou *"datasource.url property is required"*, as variáveis não estão no serviço correto.
+Se aparecer erro *"variable is not set"*, *"datasource.url property is required"* ou *"DATABASE_URL não está definida"*, siga **exatamente**:
 
-1. Na sua máquina, abra **`deploy/easypanel.env.local`** (credenciais reais — **não** vai para o GitHub)
-2. Copie **todo** o conteúdo
-3. No EasyPanel → projeto → serviço **`backend`** → aba **Ambiente** (não apenas o projeto pai)
-4. Cole o conteúdo e clique em **Salvar**
-5. Clique em **Deploy** / **Rebuild**
+1. Abra **`deploy/easypanel.env.local`** na sua máquina (credenciais reais)
+2. Copie **todo** o conteúdo (Ctrl+A → Ctrl+C)
+3. EasyPanel → projeto (ex.: `crm-app`) → serviço **`backend`** → aba **Ambiente**
+4. **Apague** o conteúdo antigo, **cole** o novo
+5. **Salvar**
+6. **Deploy** / **Rebuild** (aguarde 5–15 min)
 
-> **Importante:** as variáveis devem estar no serviço **`backend`**. O `docker-compose.yml` não repassa secrets via compose — o EasyPanel injeta direto no container do backend.
+> **Onde colar:** sempre no serviço **`backend`**, aba **Ambiente**. Não basta colar só no projeto pai.
 
-> **Chave Asaas:** se a API key começa com `$`, use **`$$`** no Environment (ex.: `ASAAS_API_KEY=$$aact_prod_...`). Um `$` só faz o Docker Compose interpretar o resto como nome de variável.
+> **Chave Asaas:** use **`$$`** no início: `ASAAS_API_KEY=$$aact_prod_...`
 
-> Se não tiver o `.local`, use o template `deploy/easypanel.env` e preencha com os valores do `backend/.env`, trocando:
-> - `JWT_SECRET` e `JWT_REFRESH_SECRET` por strings longas e únicas (produção)
-> - `FRONTEND_URL` e `API_PUBLIC_URL` para `https://$(PRIMARY_DOMAIN)`
-> - `ASAAS_MOCK=false`
+> **URLs:** use o domínio real no backend: `FRONTEND_URL=https://app.absresolve.com.br`  
+> `$(PRIMARY_DOMAIN)` **não funciona** no serviço backend (só no web).
 
-**Variável mágica:** `$(PRIMARY_DOMAIN)` é substituída automaticamente pelo domínio que você configurar no serviço **web**.
+> **Seed:** `RUN_SEED=true` só no 1º deploy. Depois mude para `false` e redeploy.
+
+**Alternativa (se Ambiente não aplicar):** backend → **Mounts** → **File** → mountPath `/app/.env.production` → cole o mesmo conteúdo (com `$` simples na Asaas, entre aspas se necessário).
 
 ### 3. Configurar domínio e SSL
 
