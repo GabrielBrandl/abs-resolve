@@ -1,8 +1,15 @@
 import 'dotenv/config';
 import bcrypt from 'bcrypt';
+import { existsSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { Role } from '@prisma/client';
-import { prisma } from '../src/utils/prisma.js';
-import { SERVICOS_CATALOGO } from '../src/config/catalogo-servicos.js';
+
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
+const codeDir = existsSync(join(rootDir, 'dist/utils/prisma.js')) ? 'dist' : 'src';
+
+const { prisma } = await import(`../${codeDir}/utils/prisma.js`);
+const { SERVICOS_CATALOGO } = await import(`../${codeDir}/config/catalogo-servicos.js`);
 
 async function main() {
   const senhaAdmin = await bcrypt.hash('admin123', 10);
