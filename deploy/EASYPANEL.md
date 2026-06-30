@@ -47,6 +47,8 @@ Se aparecer erro *"variable is not set"* ou *"datasource.url property is require
 
 > **Importante:** as variáveis devem estar no serviço **`backend`**. O `docker-compose.yml` não repassa secrets via compose — o EasyPanel injeta direto no container do backend.
 
+> **Chave Asaas:** se a API key começa com `$`, use **`$$`** no Environment (ex.: `ASAAS_API_KEY=$$aact_prod_...`). Um `$` só faz o Docker Compose interpretar o resto como nome de variável.
+
 > Se não tiver o `.local`, use o template `deploy/easypanel.env` e preencha com os valores do `backend/.env`, trocando:
 > - `JWT_SECRET` e `JWT_REFRESH_SECRET` por strings longas e únicas (produção)
 > - `FRONTEND_URL` e `API_PUBLIC_URL` para `https://$(PRIMARY_DOMAIN)`
@@ -161,6 +163,7 @@ Internet → web (nginx :80)
 |----------|---------|
 | Build falha | Veja logs do serviço que falhou (`backend` ou `web`) |
 | 502 Bad Gateway na API | Aguarde o healthcheck do `backend` (até 90s no primeiro start). Veja logs |
+| `aact_prod_... variable is not set` | `ASAAS_API_KEY` com **`$$`** no início (ex.: `$$aact_prod_...`), não `$` único |
 | `/api/health` retorna 503 | `DATABASE_URL` e `DIRECT_URL` na aba **Ambiente do serviço backend** → Salvar → Deploy |
 | `datasource.url property is required` (Prisma) | Mesmo: variáveis no serviço **backend**, não só no projeto. Redeploy após Salvar |
 | Login não funciona / cookies | Confirme SSL ativo no domínio. API e frontend estão no mesmo domínio via nginx |
