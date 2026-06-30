@@ -5,6 +5,20 @@ import {
   CUSTO_PRODUTO_NIVEL,
 } from '../config/catalogo.js';
 
+export interface EspecificacaoDisjuntor {
+  marca: string | null;
+  modelo: string | null;
+  nomeComercial: string | null;
+  amperagem: string | null;
+  tipo: string | null;
+  curva: string | null;
+  tensao: string | null;
+  polos: number | null;
+  estadoAparente: string | null;
+  observacoes: string | null;
+  compativelSubstituto: string | null;
+}
+
 export interface AnaliseIaResult {
   confianca: number;
   produtoIdentificado: string;
@@ -13,7 +27,10 @@ export interface AnaliseIaResult {
   acao: 'aprovacao_automatica' | 'solicitar_nova_foto' | 'nao_gerar_orcamento';
   validacaoOk: boolean;
   fonte: 'openai' | 'simulacao';
+  especificacao?: EspecificacaoDisjuntor;
 }
+
+export type TipoDiagnostico = 'geral' | 'disjuntor' | 'chuveiro' | 'quadro';
 
 const DESCRICOES: Record<number, string> = {
   1: 'Troca simples',
@@ -27,11 +44,88 @@ function acaoFromConfianca(confianca: number): AnaliseIaResult['acao'] {
   return 'nao_gerar_orcamento';
 }
 
-function parseIaResponse(raw: string, servicoSlug: string): Omit<AnaliseIaResult, 'fonte'> {
+function isDisjuntorContext(servicoSlug: string, opcoes?: Record<string, string>): boolean {
+  const tipo = opcoes?.tipoDiagnostico?.toLowerCase();
+  if (tipo === 'disjuntor') return true;
+  return ['disjuntor', 'troca-disjuntor', 'diagnostico-disjuntor'].includes(servicoSlug);
+}
+
+function buildPrompt(servicoSlug: string, opcoes?: Record<string, string>): string {
+  const contexto = opcoes?.descricao || opcoes?.contexto || '';
+  const modeloInformado = opcoes?.modelo;
+
+  if (isDisjuntorContext(servicoSlug, opcoes)) {
+    return `Você é especialista elétrico da ABS Resolve Já. Analise as fotos de DISJUNTORES (quadro elétrico, etiqueta, frente do disjuntor).
+${modeloInformado ? `Cliente informou: ${modeloInformado}. Valide se confere com a foto.` : ''}
+${contexto ? `Contexto adicional: ${contexto}` : ''}
+
+Identifique o máximo possível: marca (Schneider, Siemens, Steck, WEG, ABB etc.), modelo/código, nome comercial, amperagem (A), tipo (monopolar/bipolar/tripolar/DR/DPS), curva (B/C/D), tensão, número de polos, estado (ok/queimado/desgastado/antigo) e um substituto compatível sugerido.
+
+Responda APENAS JSON válido:
+{
+  "confianca": number (0-100),
+  "produtoIdentificado": string (nome resumido ex: "Disjuntor monopolar 20A curva C Steck"),
+  "nivelComplexidade": 1|2|3,
+  "descricao": string (diagnóstico em linguagem simples para o cliente),
+  "especificacao": {
+    "marca": string|null,
+    "modelo": string|null,
+    "nomeComercial": string|null,
+    "amperagem": string|null,
+    "tipo": string|null,
+    "curva": string|null,
+    "tensao": string|null,
+    "polos": number|null,
+    "estadoAparente": string|null,
+    "observacoes": string|null,
+    "compativelSubstituto": string|null
+  }
+}
+
+Nível 1=troca simples mesmo modelo; 2=ajuste/conector ou modelo próximo; 3=quadro antigo/fiação/material extra.
+Confiança >=90 se amperagem e tipo legíveis; 70-89 se parcial; <70 se foto ilegível.`;
+  }
+
+  return `Você é especialista elétrico/residencial da ABS Resolve Já. Analise as fotos do serviço "${servicoSlug}".
+${modeloInformado ? `Cliente informou modelo: ${modeloInformado}. Valide se confere com a foto.` : ''}
+${contexto ? `Contexto: ${contexto}` : ''}
+
+Responda APENAS JSON válido:
+{
+  "confianca": number (0-100),
+  "produtoIdentificado": string,
+  "nivelComplexidade": 1|2|3,
+  "descricao": string
+}
+
+Nível 1=troca simples, 2=ajustes/conector, 3=fiação/material extra.
+Confiança >=90 se produto e complexidade claros; 70-89 se incerto; <70 se foto inadequada.`;
+}
+
+function parseEspecificacaoDisjuntor(raw: unknown): EspecificacaoDisjuntor | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const e = raw as Record<string, unknown>;
+  return {
+    marca: e.marca != null ? String(e.marca) : null,
+    modelo: e.modelo != null ? String(e.modelo) : null,
+    nomeComercial: e.nomeComercial != null ? String(e.nomeComercial) : null,
+    amperagem: e.amperagem != null ? String(e.amperagem) : null,
+    tipo: e.tipo != null ? String(e.tipo) : null,
+    curva: e.curva != null ? String(e.curva) : null,
+    tensao: e.tensao != null ? String(e.tensao) : null,
+    polos: e.polos != null ? Number(e.polos) || null : null,
+    estadoAparente: e.estadoAparente != null ? String(e.estadoAparente) : null,
+    observacoes: e.observacoes != null ? String(e.observacoes) : null,
+    compativelSubstituto: e.compativelSubstituto != null ? String(e.compativelSubstituto) : null,
+  };
+}
+
+function parseIaResponse(raw: string, servicoSlug: string, opcoes?: Record<string, string>): Omit<AnaliseIaResult, 'fonte'> {
   try {
     const json = JSON.parse(raw.replace(/```json\n?|\n?```/g, '').trim());
     const confianca = Math.min(100, Math.max(0, Number(json.confianca) || 0));
     const nivel = Math.min(3, Math.max(1, Number(json.nivelComplexidade) || 1)) as 1 | 2 | 3;
+    const especificacao = parseEspecificacaoDisjuntor(json.especificacao);
     return {
       confianca,
       produtoIdentificado: String(json.produtoIdentificado || servicoSlug),
@@ -39,9 +133,10 @@ function parseIaResponse(raw: string, servicoSlug: string): Omit<AnaliseIaResult
       descricao: String(json.descricao || DESCRICOES[nivel]),
       acao: acaoFromConfianca(confianca),
       validacaoOk: confianca >= 70,
+      especificacao,
     };
   } catch {
-    return analisarFotosSimulado(servicoSlug, ['fallback']);
+    return analisarFotosSimulado(servicoSlug, ['fallback'], opcoes);
   }
 }
 
@@ -81,19 +176,7 @@ async function analisarComOpenAI(
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
   const imageParts = await Promise.all(fotos.map(fotoParaOpenAI));
 
-  const prompt = `Você é especialista elétrico da ABS Resolve Já. Analise as fotos do serviço "${servicoSlug}".
-${opcoesInformadas?.modelo ? `Cliente informou modelo: ${opcoesInformadas.modelo}. Valide se confere com a foto.` : ''}
-
-Responda APENAS JSON válido:
-{
-  "confianca": number (0-100),
-  "produtoIdentificado": string,
-  "nivelComplexidade": 1|2|3,
-  "descricao": string
-}
-
-Nível 1=troca simples, 2=ajustes/conector, 3=fiação/material extra.
-Confiança >=90 se produto e complexidade claros; 70-89 se incerto; <70 se foto inadequada.`;
+  const prompt = buildPrompt(servicoSlug, opcoesInformadas);
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -103,7 +186,7 @@ Confiança >=90 se produto e complexidade claros; 70-89 se incerto; <70 se foto 
     },
     body: JSON.stringify({
       model,
-      max_tokens: 500,
+      max_tokens: 800,
       messages: [{
         role: 'user',
         content: [{ type: 'text', text: prompt }, ...imageParts],
@@ -118,7 +201,31 @@ Confiança >=90 se produto e complexidade claros; 70-89 se incerto; <70 se foto 
 
   const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
   const content = data.choices?.[0]?.message?.content || '{}';
-  return { ...parseIaResponse(content, servicoSlug), fonte: 'openai' };
+  return { ...parseIaResponse(content, servicoSlug, opcoesInformadas), fonte: 'openai' };
+}
+
+function simularDisjuntor(seed: number): EspecificacaoDisjuntor {
+  const marcas = ['Steck', 'Schneider', 'Siemens', 'WEG'];
+  const amps = ['16A', '20A', '25A', '32A', '40A'];
+  const curvas = ['B', 'C', 'D'];
+  const tipos = ['Monopolar', 'Bipolar', 'Tripolar'];
+  const marca = marcas[seed % marcas.length];
+  const amperagem = amps[seed % amps.length];
+  const curva = curvas[seed % curvas.length];
+  const tipo = tipos[seed % tipos.length];
+  return {
+    marca,
+    modelo: `DW${100 + (seed % 50)}`,
+    nomeComercial: `Disjuntor ${tipo} ${amperagem} curva ${curva}`,
+    amperagem,
+    tipo,
+    curva,
+    tensao: '127/220V',
+    polos: tipo === 'Monopolar' ? 1 : tipo === 'Bipolar' ? 2 : 3,
+    estadoAparente: seed % 4 === 0 ? 'Desgaste visível — recomendada troca' : 'Aparentemente operacional',
+    observacoes: 'Identificação simulada — configure OPENAI_API_KEY para análise real por foto.',
+    compativelSubstituto: `${marca} ${tipo} ${amperagem} curva ${curva} (padrão DIN)`,
+  };
 }
 
 function analisarFotosSimulado(
@@ -129,8 +236,23 @@ function analisarFotosSimulado(
   const seed = fotos.join('').length + servicoSlug.length + (opcoesInformadas?.modelo?.length || 0);
   const confianca = Math.min(95, 55 + (seed % 45) + fotos.length * 5);
   const nivelComplexidade = ((seed % 3) + 1) as 1 | 2 | 3;
+
+  if (isDisjuntorContext(servicoSlug, opcoesInformadas)) {
+    const especificacao = simularDisjuntor(seed);
+    return {
+      confianca,
+      produtoIdentificado: `${especificacao.marca} — ${especificacao.nomeComercial}`,
+      nivelComplexidade,
+      descricao: `Disjuntor identificado como ${especificacao.tipo} ${especificacao.amperagem}, curva ${especificacao.curva}. ${especificacao.estadoAparente}.`,
+      acao: acaoFromConfianca(confianca),
+      validacaoOk: confianca >= 70,
+      especificacao,
+    };
+  }
+
   const produtos: Record<string, string> = {
     disjuntor: 'Disjuntor monopolar 20A',
+    'troca-disjuntor': 'Disjuntor monopolar 20A',
     chuveiro: 'Chuveiro elétrico 5500W',
     luminaria: 'Luminária de teto LED',
     ventilador: 'Ventilador de teto',

@@ -8,7 +8,9 @@ export class DiagnosticoService {
   async analisarComFotos(
     clienteId: string,
     files: Express.Multer.File[],
-    contexto?: string
+    contexto?: string,
+    tipoDiagnostico = 'geral',
+    servicoSlug = 'diagnostico-geral'
   ) {
     if (!files.length) throw new Error('Envie pelo menos uma foto');
 
@@ -18,8 +20,10 @@ export class DiagnosticoService {
       urls.push(url);
     }
 
-    const analise = await analisarFotos('diagnostico-geral', urls, {
+    const analise = await analisarFotos(servicoSlug, urls, {
       descricao: contexto || '',
+      contexto: contexto || '',
+      tipoDiagnostico,
     });
 
     return {
@@ -45,7 +49,9 @@ export class DiagnosticoController {
 
       const files = req.files as Express.Multer.File[];
       const contexto = typeof req.body.contexto === 'string' ? req.body.contexto : undefined;
-      const data = await diagnosticoService.analisarComFotos(user.clienteId, files, contexto);
+      const tipo = typeof req.body.tipo === 'string' ? req.body.tipo : 'geral';
+      const slug = tipo === 'disjuntor' ? 'diagnostico-disjuntor' : 'diagnostico-geral';
+      const data = await diagnosticoService.analisarComFotos(user.clienteId, files, contexto, tipo, slug);
       return success(res, data);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro no diagnóstico', 400);

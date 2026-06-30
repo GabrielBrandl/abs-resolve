@@ -212,10 +212,11 @@ export const solicitacaoApi = {
 };
 
 export const diagnosticoApi = {
-  analisar: async (files: File[], contexto?: string) => {
+  analisar: async (files: File[], contexto?: string, tipo?: string) => {
     const form = new FormData();
     files.forEach((f) => form.append('fotos', f));
     if (contexto) form.append('contexto', contexto);
+    if (tipo) form.append('tipo', tipo);
     const { data } = await api.post('/diagnostico/analisar', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });

@@ -35,12 +35,14 @@ npx prisma migrate deploy   # no backend — migrations aplicadas
 5. O EasyPanel detecta automaticamente o `docker-compose.yml` na raiz
 6. Salve o projeto (ainda **não** faça deploy)
 
-### 2. Configurar variáveis de ambiente
+### 2. Configurar variáveis de ambiente (obrigatório)
+
+Se aparecer erro *"variable is not set. Defaulting to a blank string"*, é porque esta etapa não foi feita.
 
 1. Na sua máquina, abra o arquivo **`deploy/easypanel.env.local`** (credenciais reais — **não** vai para o GitHub)
-2. Copie **todo** o conteúdo
-3. No EasyPanel → projeto `abs-resolve` → aba **Environment**
-4. Cole o conteúdo e **salve**
+2. Copie **todo** o conteúdo (sem linhas de comentário `#` no início, se preferir)
+3. No EasyPanel → serviço `abs-resolve` → menu **Ambiente**
+4. Cole o conteúdo e clique em **Salvar**
 
 > Se não tiver o `.local`, use o template `deploy/easypanel.env` e preencha com os valores do `backend/.env`, trocando:
 > - `JWT_SECRET` e `JWT_REFRESH_SECRET` por strings longas e únicas (produção)
