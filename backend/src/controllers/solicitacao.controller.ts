@@ -156,6 +156,35 @@ export class SolicitacaoController {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
     }
   }
+
+  async statusPagamento(req: Request, res: Response) {
+    try {
+      const clienteId = await clienteIdFromReq(req);
+      return success(res, await solicitacaoService.statusPagamento(paramId(req.params.id), clienteId));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async solicitarOrcamento(req: Request, res: Response) {
+    try {
+      const clienteId = await clienteIdFromReq(req);
+      const { slug, descricao, endereco } = req.body;
+      const data = await solicitacaoService.solicitarOrcamento(clienteId, slug, descricao, endereco);
+      return success(res, data, 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async configPublica(_req: Request, res: Response) {
+    try {
+      const { clientePortalService } = await import('../services/cliente-portal.service.js');
+      return success(res, await clientePortalService.configPublica());
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
 }
 
 export const solicitacaoController = new SolicitacaoController();

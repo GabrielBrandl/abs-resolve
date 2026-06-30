@@ -13,6 +13,18 @@ router.get('/', (req, res) => clientesController.listar(req, res));
 router.post('/', auditLog('criar', 'cliente'), (req, res) => clientesController.criar(req, res));
 router.get('/:id', (req, res) => clientesController.buscar(req, res));
 router.put('/:id', auditLog('atualizar', 'cliente'), (req, res) => clientesController.atualizar(req, res));
+router.put(
+  '/:id/acesso-portal',
+  checkRole('admin', 'comercial'),
+  auditLog('atualizar', 'cliente_portal'),
+  (req, res) => clientesController.atualizarAcessoPortal(req, res)
+);
+router.delete(
+  '/:id',
+  checkRole('admin'),
+  auditLog('excluir', 'cliente'),
+  (req, res) => clientesController.excluir(req, res)
+);
 router.patch('/:id/status', auditLog('status', 'cliente'), (req, res) => clientesController.atualizarStatus(req, res));
 router.get('/:id/pagamentos', (req, res) => clientesController.pagamentos(req, res));
 router.post('/:id/interacoes', (req, res) => clientesController.interacao(req, res));

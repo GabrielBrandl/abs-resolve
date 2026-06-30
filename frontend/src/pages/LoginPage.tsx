@@ -11,6 +11,7 @@ function mensagemErro(err: unknown) {
     }
     const api = err.response.data as { error?: string };
     if (api?.error) return api.error;
+    if (err.response.status === 429) return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
   }
   return err instanceof Error ? err.message : 'Erro ao fazer login';
 }

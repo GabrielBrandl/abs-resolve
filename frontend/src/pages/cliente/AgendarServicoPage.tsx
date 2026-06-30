@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { solicitacaoApi } from '../../services/modules.service';
 import { useCartStore } from '../../store/cartStore';
 import { formatCurrency } from '../../types';
-import { PageHeader, Loading, Card, Button, ScarcityBadge } from '../../components/ui';
+import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 
-type Step = 'catalogo' | 'carrinho' | 'pagamento' | 'horario' | 'concluido';
+type Step = 'catalogo' | 'carrinho' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
 
 interface ServicoCatalogo {
   id: string;
@@ -60,6 +60,34 @@ function ServicoCardMedia({ servico, icone }: { servico: ServicoCatalogo; icone:
   );
 }
 
+function PixQrArea({ pixCode, invoiceUrl }: { pixCode?: string; invoiceUrl?: string }) {
+  if (!pixCode && !invoiceUrl) return null;
+
+  return (
+    <div className="mb-4 rounded-xl border-2 border-green-200 bg-green-50 p-4">
+      <p className="mb-2 text-sm font-semibold text-green-800">Pagamento PIX</p>
+      {pixCode && (
+        <>
+          <div className="mb-3 flex justify-center">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(pixCode)}`}
+              alt="QR Code PIX"
+              className="rounded-lg border bg-white p-2"
+            />
+          </div>
+          <p className="mb-1 text-xs font-medium text-green-800">PIX copia e cola:</p>
+          <textarea readOnly value={pixCode} className="w-full rounded border p-2 text-xs" rows={3} />
+        </>
+      )}
+      {invoiceUrl && (
+        <a href={invoiceUrl} target="_blank" rel="noreferrer" className="mt-2 block text-center text-sm text-primary-600 underline">
+          Abrir link de pagamento
+        </a>
+      )}
+    </div>
+  );
+}
+
 export function AgendarServicoPage() {
   const { toast } = useToast();
   const cart = useCartStore();
@@ -71,20 +99,31 @@ export function AgendarServicoPage() {
   const [solicitacaoId, setSolicitacaoId] = useState('');
   const [preco, setPreco] = useState(0);
   const [express, setExpress] = useState(false);
+  const [expressValor, setExpressValor] = useState(29);
   const [slots, setSlots] = useState<Array<{ data: string; horarioInicio: string; horarioFim: string; label: string; escassez: string }>>([]);
   const [proxima, setProxima] = useState<string | null>(null);
   const [slotSel, setSlotSel] = useState<{ data: string; horarioInicio: string; horarioFim: string } | null>(null);
-  const [pagamento, setPagamento] = useState<{ invoiceUrl?: string; pixCode?: string } | null>(null);
+  const [pagamento, setPagamento] = useState<{ id?: string; invoiceUrl?: string; pixCode?: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [aguardandoPagamento, setAguardandoPagamento] = useState(false);
+  const [orcamentoModal, setOrcamentoModal] = useState<ServicoCatalogo | null>(null);
+  const [orcamentoDesc, setOrcamentoDesc] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    solicitacaoApi
-      .catalogo()
-      .then((data) => {
+    Promise.all([solicitacaoApi.catalogo(), solicitacaoApi.config()])
+      .then(([data, config]) => {
         setCategorias(data.categorias || []);
         if (data.categorias?.[0]) setCatAtiva(data.categorias[0].slug);
+        setExpressValor(config.expressValor);
       })
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
   const servicosFiltrados = useMemo(() => {
@@ -98,6 +137,43 @@ export function AgendarServicoPage() {
       (s) => s.nome.toLowerCase().includes(q) || s.descricao?.toLowerCase().includes(q)
     );
   }, [categorias, catAtiva, busca]);
+
+  const carregarHorarios = async (solId: string) => {
+    const h = await solicitacaoApi.horarios(solId);
+    setSlots(h.slots);
+    setProxima(h.proximaDisponibilidade);
+  };
+
+  const iniciarPolling = (solId: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    setAguardandoPagamento(true);
+
+    const verificar = async () => {
+      try {
+        const status = await solicitacaoApi.status(solId);
+        if (status.pagamento) {
+          setPagamento((prev) => ({
+            ...prev,
+            id: status.pagamento!.id,
+            invoiceUrl: status.pagamento!.invoiceUrl,
+            pixCode: status.pagamento!.pixCode,
+          }));
+        }
+        if (status.podeAgendar) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setAguardandoPagamento(false);
+          await carregarHorarios(solId);
+          setStep('horario');
+          toast('Pagamento confirmado! Escolha o horário.', 'success');
+        }
+      } catch {
+        /* retry on next interval */
+      }
+    };
+
+    verificar();
+    pollRef.current = setInterval(verificar, 2000);
+  };
 
   const irCarrinho = () => {
     if (!cart.count()) {
@@ -126,15 +202,13 @@ export function AgendarServicoPage() {
     setSubmitting(true);
     try {
       const res = await solicitacaoApi.pagar(solicitacaoId, metodo) as {
-        pagamento: { invoiceUrl?: string; pixCode?: string };
+        pagamento: { id?: string; invoiceUrl?: string; pixCode?: string };
       };
       setPagamento(res.pagamento);
-      const h = await solicitacaoApi.horarios(solicitacaoId);
-      setSlots(h.slots);
-      setProxima(h.proximaDisponibilidade);
       cart.clear();
-      toast('Pagamento gerado! Escolha o horário.', 'success');
-      setStep('horario');
+      setStep('aguardando');
+      iniciarPolling(solicitacaoId);
+      toast('Pagamento gerado! Aguardando confirmação...', 'success');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro no pagamento', 'error');
     } finally {
@@ -147,6 +221,7 @@ export function AgendarServicoPage() {
     setSubmitting(true);
     try {
       await solicitacaoApi.agendar(solicitacaoId, slotSel);
+      if (pollRef.current) clearInterval(pollRef.current);
       setStep('concluido');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao agendar', 'error');
@@ -163,7 +238,31 @@ export function AgendarServicoPage() {
     }
   };
 
+  const enviarOrcamento = async () => {
+    if (!orcamentoModal || !orcamentoDesc.trim()) {
+      toast('Descreva o que você precisa', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await solicitacaoApi.solicitarOrcamento({ slug: orcamentoModal.slug, descricao: orcamentoDesc });
+      toast('Orçamento solicitado! Entraremos em contato.', 'success');
+      setOrcamentoModal(null);
+      setOrcamentoDesc('');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao solicitar orçamento', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) return <Loading />;
+
+  const stepLabels: Record<Step, string> = {
+    catalogo: 'Catálogo', carrinho: 'Carrinho', pagamento: 'Pagamento',
+    aguardando: 'Confirmação', horario: 'Horário', concluido: 'Pronto',
+  };
+  const stepOrder: Step[] = ['catalogo', 'carrinho', 'pagamento', 'aguardando', 'horario', 'concluido'];
 
   return (
     <div className="pb-24">
@@ -172,12 +271,10 @@ export function AgendarServicoPage() {
         subtitle="Escolha os serviços, finalize o pagamento e agende o atendimento"
       />
 
-      {/* Steps indicator */}
       <div className="mb-6 flex flex-wrap gap-2 text-xs font-medium">
-        {(['catalogo', 'carrinho', 'pagamento', 'horario', 'concluido'] as Step[]).map((s, i) => {
-          const labels = ['Catálogo', 'Carrinho', 'Pagamento', 'Horário', 'Pronto'];
+        {stepOrder.map((s, i) => {
           const active = step === s;
-          const done = ['catalogo', 'carrinho', 'pagamento', 'horario', 'concluido'].indexOf(step) > i;
+          const done = stepOrder.indexOf(step) > i;
           return (
             <span
               key={s}
@@ -185,7 +282,7 @@ export function AgendarServicoPage() {
                 active ? 'bg-accent-500 text-primary-900' : done ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-400'
               }`}
             >
-              {i + 1}. {labels[i]}
+              {i + 1}. {stepLabels[s]}
             </span>
           );
         })}
@@ -251,7 +348,13 @@ export function AgendarServicoPage() {
                       )}
                     </div>
                     {s.tipoPreco === 'sob_orcamento' ? (
-                      <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">Sob orçamento</span>
+                      <Button
+                        variant="cta"
+                        className="shrink-0 text-sm"
+                        onClick={() => { setOrcamentoModal(s); setOrcamentoDesc(''); }}
+                      >
+                        Solicitar orçamento
+                      </Button>
                     ) : (
                       <Button
                         variant="cta"
@@ -309,12 +412,12 @@ export function AgendarServicoPage() {
 
           <label className="mt-4 flex items-center gap-2 rounded-lg border-2 border-accent-400 bg-accent-50 p-3">
             <input type="checkbox" checked={express} onChange={(e) => setExpress(e.target.checked)} />
-            <span className="font-medium">Atendimento Express (+ R$ 29)</span>
+            <span className="font-medium">Atendimento Express (+ {formatCurrency(expressValor)})</span>
           </label>
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <p className="text-xl font-bold text-primary-800">
-              Total: {formatCurrency(cart.total() + (express ? 29 : 0))}
+              Total: {formatCurrency(cart.total() + (express ? expressValor : 0))}
             </p>
             <div className="flex gap-2">
               <Button onClick={() => setStep('catalogo')}>Continuar comprando</Button>
@@ -332,7 +435,7 @@ export function AgendarServicoPage() {
           <p className="mb-4 text-2xl font-bold text-primary-700">{formatCurrency(preco)}</p>
           <label className="mb-4 flex items-center gap-2 rounded-lg border p-3">
             <input type="checkbox" checked={express} onChange={(e) => toggleExpress(e.target.checked)} />
-            <span>Express (+ R$ 29)</span>
+            <span>Express (+ {formatCurrency(expressValor)})</span>
           </label>
           <div className="flex flex-wrap gap-2">
             <Button variant="cta" disabled={submitting} onClick={() => pagar('PIX')}>PIX</Button>
@@ -342,20 +445,23 @@ export function AgendarServicoPage() {
         </Card>
       )}
 
+      {step === 'aguardando' && (
+        <Card>
+          <h3 className="mb-2 font-bold text-primary-800">Aguardando confirmação do pagamento</h3>
+          <PixQrArea pixCode={pagamento?.pixCode} invoiceUrl={pagamento?.invoiceUrl} />
+          {aguardandoPagamento && (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+              Verificando pagamento a cada 2 segundos...
+            </div>
+          )}
+        </Card>
+      )}
+
       {step === 'horario' && (
         <Card>
           <h3 className="mb-2 font-bold text-primary-800">Escolha o horário de atendimento</h3>
-          {pagamento?.pixCode && (
-            <div className="mb-4 rounded-lg bg-green-50 p-3">
-              <p className="mb-1 text-xs font-medium text-green-800">PIX copia e cola:</p>
-              <textarea readOnly value={pagamento.pixCode} className="w-full rounded border p-2 text-xs" rows={2} />
-            </div>
-          )}
-          {pagamento?.invoiceUrl && (
-            <a href={pagamento.invoiceUrl} target="_blank" rel="noreferrer" className="mb-4 block text-primary-600 underline">
-              Abrir link de pagamento
-            </a>
-          )}
+          <p className="mb-4 text-sm text-green-600">✓ Pagamento confirmado</p>
           {slots.length === 0 ? (
             <p className="text-slate-500">Próxima disponibilidade: {proxima || 'Em breve'}</p>
           ) : (
@@ -391,12 +497,32 @@ export function AgendarServicoPage() {
       )}
 
       {step === 'catalogo' && cart.count() > 0 && (
-        <div className="fixed bottom-6 left-1/2 z-20 -translate-x-1/2">
+        <div className="fixed bottom-20 left-1/2 z-20 -translate-x-1/2 md:bottom-6">
           <Button variant="cta" className="shadow-xl" onClick={irCarrinho}>
             Ver carrinho ({cart.count()}) — {formatCurrency(cart.total())}
           </Button>
         </div>
       )}
+
+      <Modal
+        open={!!orcamentoModal}
+        onClose={() => setOrcamentoModal(null)}
+        title={`Solicitar orçamento — ${orcamentoModal?.nome || ''}`}
+      >
+        <p className="mb-3 text-sm text-slate-500">
+          Descreva o que você precisa. Nossa equipe entrará em contato com o valor.
+        </p>
+        <textarea
+          value={orcamentoDesc}
+          onChange={(e) => setOrcamentoDesc(e.target.value)}
+          className="w-full rounded-lg border px-3 py-2 text-sm"
+          rows={4}
+          placeholder="Ex: preciso instalar 3 tomadas na sala..."
+        />
+        <Button variant="cta" className="mt-4 w-full" disabled={submitting} onClick={enviarOrcamento}>
+          {submitting ? 'Enviando...' : 'Enviar solicitação'}
+        </Button>
+      </Modal>
     </div>
   );
 }

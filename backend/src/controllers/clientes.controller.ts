@@ -75,6 +75,24 @@ export class ClientesController {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
     }
   }
+
+  async atualizarAcessoPortal(req: Request, res: Response) {
+    try {
+      const data = await clientesService.atualizarAcessoPortal(paramId(req.params.id), req.body);
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async excluir(req: Request, res: Response) {
+    try {
+      const data = await clientesService.excluir(paramId(req.params.id));
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
 }
 
 export const clientesController = new ClientesController();

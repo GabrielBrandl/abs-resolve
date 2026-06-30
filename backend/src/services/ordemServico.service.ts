@@ -61,7 +61,7 @@ export class OrdemServicoService {
     });
 
     notificacaoService
-      .notificarMudancaStatus('OS', os.pedido.numero, etapa, os.pedido.cliente.email)
+      .notificarMudancaStatus('serviço', os.pedido.numero, etapa, os.pedido.cliente.email, os.pedido.cliente.telefone)
       .catch(() => {});
 
     return os;
@@ -80,8 +80,14 @@ export class OrdemServicoService {
   }
 
   async atualizarChecklist(id: string, checklist: Record<string, unknown>) {
-    const required = ['fotoAntes', 'fotoDepois', 'materiais', 'observacoes', 'assinaturaCliente'];
-    const completo = required.every((k) => Boolean(checklist[k]));
+    const temFoto = Boolean(checklist.fotoDepois || checklist.fotoConclusao);
+
+    const completo =
+      temFoto &&
+      Boolean(checklist.fotoAntes || checklist.fotoConclusao) &&
+      (Boolean(checklist.assinaturaCliente) || Boolean(
+        typeof checklist.descricaoConclusao === 'string' && checklist.descricaoConclusao.trim().length >= 5
+      ));
 
     const os = await prisma.ordemServico.update({
       where: { id },

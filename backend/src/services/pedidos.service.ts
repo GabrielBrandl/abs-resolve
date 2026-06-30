@@ -89,7 +89,7 @@ export class PedidosService {
     });
 
     notificacaoService
-      .notificarMudancaStatus('pedido', pedido.numero, status, pedido.cliente.email)
+      .notificarMudancaStatus('pedido', pedido.numero, status, pedido.cliente.email, pedido.cliente.telefone)
       .catch(() => {});
 
     return pedido;

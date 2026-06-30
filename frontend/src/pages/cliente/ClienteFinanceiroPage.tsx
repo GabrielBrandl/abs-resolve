@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { clientePortalApi } from '../../services/modules.service';
 import type { Pagamento } from '../../types';
-import { formatCurrency, formatDate } from '../../types';
+import { formatCurrency, formatDate, pagamentoStatusLabel, pagamentoStatusColor } from '../../types';
 import { PageHeader, Loading, Badge, Card, Button } from '../../components/ui';
 
 export function ClienteFinanceiroPage() {
@@ -14,12 +14,6 @@ export function ClienteFinanceiroPage() {
 
   if (loading) return <Loading />;
 
-  const statusColor: Record<string, string> = {
-    PENDING: 'bg-amber-100 text-amber-700',
-    RECEIVED: 'bg-green-100 text-green-700',
-    OVERDUE: 'bg-red-100 text-red-700',
-  };
-
   return (
     <div>
       <PageHeader title="Financeiro" subtitle="Suas cobranças e pagamentos" />
@@ -27,7 +21,7 @@ export function ClienteFinanceiroPage() {
         <Card key={p.id} className="mb-3">
           <div className="flex items-center justify-between">
             <div>
-              <Badge color={statusColor[p.status]}>{p.status}</Badge>
+              <Badge color={pagamentoStatusColor(p.status)}>{pagamentoStatusLabel(p.status)}</Badge>
               <p className="mt-1 font-medium">{formatCurrency(p.valor)}</p>
               <p className="text-sm text-slate-500">{p.metodo} · Venc. {formatDate(p.dueDate)}</p>
             </div>

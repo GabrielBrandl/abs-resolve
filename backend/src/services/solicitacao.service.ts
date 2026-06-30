@@ -11,7 +11,6 @@ import { CATEGORIAS, PONTUACAO_POR_SLUG } from '../config/catalogo-servicos.js';
 import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from '../engines/pricing.engine.js';
 import { listarHorariosDisponiveis, reservarCapacidade } from '../engines/capacity.engine.js';
 import { analisarFotos, custosParaServico } from '../services/ia-diagnostico.service.js';
-import { estoqueService } from './estoque.service.js';
 import { notificacaoService } from './notificacao.service.js';
 import { storageService } from './storage.service.js';
 import { pagamentosService } from './pagamentos.service.js';
@@ -32,6 +31,39 @@ function descricaoPedido(sol: { opcoes: unknown; servico: { nome: string } }) {
     return opcoes.itens.map((i) => `${i.quantidade}x ${i.nome}`).join(', ');
   }
   return sol.servico.nome;
+}
+
+function buildTimeline(
+  pedido: { status: string; createdAt: Date; ordemServico?: { etapa: string } | null },
+  pagamento?: { status: string; paymentDate: Date | null } | null,
+  agendamento?: { data: Date; horarioInicio: string; status: string } | null
+) {
+  const steps = [
+    { key: 'pedido', label: 'Pedido criado', done: true, date: pedido.createdAt },
+    {
+      key: 'pagamento',
+      label: pagamento?.status === 'RECEIVED' ? 'Pagamento confirmado' : 'Aguardando pagamento',
+      done: pagamento?.status === 'RECEIVED',
+      date: pagamento?.paymentDate,
+    },
+    {
+      key: 'agendamento',
+      label: agendamento ? `Agendado ${agendamento.horarioInicio}` : 'Aguardando agendamento',
+      done: !!agendamento && agendamento.status === 'confirmado',
+      date: agendamento?.data,
+    },
+    {
+      key: 'execucao',
+      label: 'Em execução',
+      done: ['em_execucao', 'finalizado'].includes(pedido.status) || pedido.ordemServico?.etapa === 'execucao',
+    },
+    {
+      key: 'concluido',
+      label: 'Concluído',
+      done: pedido.status === 'finalizado' || pedido.ordemServico?.etapa === 'conclusao',
+    },
+  ];
+  return steps;
 }
 
 export class SolicitacaoService {
@@ -356,29 +388,14 @@ export class SolicitacaoService {
         clienteId,
         valor,
         responsavel: 'Automático',
-        status: 'recebido',
+        status: 'aguardando_pagamento',
         descricao: descricaoPedido(sol),
       },
     });
 
     await prisma.solicitacaoServico.update({
       where: { id },
-      data: { pedidoId: pedido.id, status: 'pago' },
-    });
-
-    const opcoes = sol.opcoes as { itens?: Array<{ slug: string }> };
-    if (opcoes.itens?.length) {
-      for (const item of opcoes.itens) {
-        await estoqueService.reservarPorServico(item.slug, 'padrao').catch(() => {});
-      }
-    } else {
-      const op = sol.opcoes as Record<string, string>;
-      const chave = sol.servico.slug === 'tomada' ? chaveOpcoesTomada(op) : op.tipo;
-      await estoqueService.reservarPorServico(sol.servico.slug, chave).catch(() => {});
-    }
-
-    await prisma.ordemServico.create({
-      data: { pedidoId: pedido.id, etapa: 'execucao' },
+      data: { pedidoId: pedido.id, status: 'aguardando_pagamento' },
     });
 
     const dueDate = new Date();
@@ -390,11 +407,91 @@ export class SolicitacaoService {
       valor,
       metodo,
       dueDate: dueDate.toISOString().split('T')[0],
+      solicitacaoId: id,
     });
 
     await notificacaoService.notificarPedidoCriado(sol.cliente.nome, numero, sol.cliente.email, sol.cliente.telefone);
 
-    return { pedido, pagamento, solicitacao: sol };
+    return { pedido, pagamento, solicitacao: { ...sol, status: 'aguardando_pagamento', pedidoId: pedido.id } };
+  }
+
+  async statusPagamento(id: string, clienteId: string) {
+    const sol = await prisma.solicitacaoServico.findFirst({
+      where: { id, clienteId },
+      include: {
+        pedido: {
+          include: {
+            pagamentos: { orderBy: { createdAt: 'desc' }, take: 1 },
+            ordemServico: true,
+          },
+        },
+        agendamento: true,
+        servico: true,
+      },
+    });
+    if (!sol) throw new Error('Solicitação não encontrada');
+
+    const pagamento = sol.pedido?.pagamentos[0];
+    return {
+      solicitacaoId: sol.id,
+      status: sol.status,
+      pedidoNumero: sol.pedido?.numero,
+      pagamento: pagamento
+        ? {
+            id: pagamento.id,
+            status: pagamento.status,
+            metodo: pagamento.metodo,
+            invoiceUrl: pagamento.invoiceUrl,
+            pixCode: pagamento.pixCode,
+          }
+        : null,
+      podeAgendar: sol.status === 'pago',
+      agendamento: sol.agendamento,
+    };
+  }
+
+  async solicitarOrcamento(clienteId: string, slug: string, descricao: string, endereco?: Record<string, string>) {
+    const servico = await prisma.catalogoServico.findUnique({ where: { slug } });
+    if (!servico?.ativo) throw new Error('Serviço não encontrado');
+    if (servico.tipoPreco !== 'sob_orcamento') throw new Error('Este serviço possui preço fixo — adicione ao carrinho');
+
+    if (endereco && Object.keys(endereco).length) {
+      await prisma.cliente.update({
+        where: { id: clienteId },
+        data: { endereco: endereco as Prisma.InputJsonValue },
+      });
+    }
+
+    return prisma.solicitacaoServico.create({
+      data: {
+        clienteId,
+        servicoId: servico.id,
+        tipo: 'C',
+        opcoes: { descricaoCliente: descricao, tipoSolicitacao: 'orcamento_comercial' },
+        status: 'orcamento_pendente',
+      },
+      include: { servico: true },
+    });
+  }
+
+  async acompanhamentoPedidos(clienteId: string) {
+    const pedidos = await prisma.pedido.findMany({
+      where: { clienteId },
+      include: {
+        ordemServico: true,
+        pagamentos: { orderBy: { createdAt: 'desc' }, take: 1 },
+        solicitacao: { include: { servico: true, agendamento: true } },
+        agendamentos: { orderBy: { data: 'desc' }, take: 1 },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return pedidos.map((p) => {
+      const pag = p.pagamentos[0];
+      const ag = p.solicitacao?.agendamento || p.agendamentos[0];
+      const timeline = buildTimeline(p, pag, ag);
+      return { ...p, timeline, agendamento: ag };
+    });
   }
 
   async minhasSolicitacoes(clienteId: string) {

@@ -20,12 +20,14 @@ model User {
   email         String         @unique
   senhaHash     String         @map("senha_hash")
   role          Role           @default(cliente)
+  ativo         Boolean        @default(true)
   clienteId     String?        @unique @map("cliente_id")
   createdAt     DateTime       @default(now()) @map("created_at")
   refreshTokens RefreshToken[]
   interacoes    Interacao[]
   auditLogs     AuditLog[]
   cliente       Cliente?       @relation(fields: [clienteId], references: [id])
+  tecnico       Tecnico?
 
   @@map("users")
 }
@@ -135,10 +137,13 @@ model OrdemServico {
   parceiro          String?
   checklist         Json     @default("{}")
   checklistCompleto Boolean  @default(false) @map("checklist_completo")
-  garantiaId        String?  @map("garantia_id")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  pedido            Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  garantiaId        String?     @map("garantia_id")
+  tecnicoId         String?     @map("tecnico_id")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  pedido            Pedido      @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  tecnico           Tecnico?    @relation(fields: [tecnicoId], references: [id])
+  avaliacao         Avaliacao?
 
   @@map("ordens_servico")
 }
@@ -319,11 +324,14 @@ model ProdutoEstoque {
 }
 
 model Tecnico {
-  id               String        @id @default(uuid())
+  id               String          @id @default(uuid())
   nome             String
-  capacidadeDiaria Int           @default(6) @map("capacidade_diaria")
-  ativo            Boolean       @default(true)
+  userId           String?         @unique @map("user_id")
+  capacidadeDiaria Int             @default(6) @map("capacidade_diaria")
+  ativo            Boolean         @default(true)
   agendamentos     Agendamento[]
+  ordensServico    OrdemServico[]
+  user             User?           @relation(fields: [userId], references: [id])
 
   @@map("tecnicos")
 }
@@ -401,6 +409,18 @@ model ProdutoInstalado {
   cliente    Cliente  @relation(fields: [clienteId], references: [id])
 
   @@map("produtos_instalados")
+}
+
+model Avaliacao {
+  id             String       @id @default(uuid())
+  ordemServicoId String       @unique @map("ordem_servico_id")
+  clienteId      String       @map("cliente_id")
+  nota           Int
+  comentario     String?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  ordemServico   OrdemServico @relation(fields: [ordemServicoId], references: [id], onDelete: Cascade)
+
+  @@map("avaliacoes")
 }
 
 model CampanhaCrm {

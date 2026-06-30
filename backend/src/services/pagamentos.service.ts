@@ -1,7 +1,7 @@
 import { prisma } from '../utils/prisma.js';
+import { confirmarPagamentoRecebido } from './pagamento-confirmacao.service.js';
 import { asaasService } from './asaas.service.js';
 import { notificacaoService } from './notificacao.service.js';
-import { toNumber } from '../utils/helpers.js';
 
 export class PagamentosService {
   async listar(filters: { status?: string; clienteId?: string; dataInicio?: string; dataFim?: string }) {
@@ -30,6 +30,7 @@ export class PagamentosService {
     valor: number;
     metodo: 'PIX' | 'BOLETO' | 'CARTAO';
     dueDate: string;
+    solicitacaoId?: string;
   }) {
     const cliente = await prisma.cliente.findUnique({ where: { id: data.clienteId } });
     if (!cliente) throw new Error('Cliente não encontrado');
@@ -43,10 +44,10 @@ export class PagamentosService {
       billingType: billingMap[data.metodo],
       value: data.valor,
       dueDate: data.dueDate,
-      description: data.pedidoId ? `Cobrança pedido` : 'Cobrança ABS Resolve',
+      description: data.pedidoId ? `Pedido ABS Resolve` : 'Cobrança ABS Resolve',
     });
 
-    const pagamento = await prisma.pagamento.create({
+    let pagamento = await prisma.pagamento.create({
       data: {
         clienteId: data.clienteId,
         pedidoId: data.pedidoId,
@@ -58,10 +59,45 @@ export class PagamentosService {
         invoiceUrl: cobranca.invoiceUrl || cobranca.bankSlipUrl,
         pixCode: cobranca.pixTransaction?.payload,
       },
-      include: { cliente: true },
+      include: { cliente: true, pedido: { select: { numero: true } } },
     });
 
+    notificacaoService
+      .notificarCobrancaGerada({
+        clienteNome: cliente.nome,
+        valor: data.valor,
+        metodo: data.metodo,
+        vencimento: data.dueDate,
+        email: cliente.email,
+        telefone: cliente.telefone,
+        pedidoNumero: pagamento.pedido?.numero,
+        linkPagamento: pagamento.invoiceUrl,
+      })
+      .catch(() => {});
+
+    // Mock/dev: confirma pagamento automaticamente após 2s
+    const isMock = !process.env.ASAAS_API_KEY || process.env.ASAAS_MOCK === 'true' || cobranca.id.startsWith('pay_mock');
+    if (isMock && data.pedidoId) {
+      pagamento = await prisma.pagamento.update({
+        where: { id: pagamento.id },
+        data: { status: 'RECEIVED', paymentDate: new Date() },
+        include: { cliente: true, pedido: { select: { numero: true } } },
+      });
+      await confirmarPagamentoRecebido(pagamento.id);
+    }
+
     return pagamento;
+  }
+
+  async simularConfirmacao(pagamentoId: string, clienteId: string) {
+    const pagamento = await prisma.pagamento.findFirst({ where: { id: pagamentoId, clienteId } });
+    if (!pagamento) throw new Error('Pagamento não encontrado');
+
+    await prisma.pagamento.update({
+      where: { id: pagamentoId },
+      data: { status: 'RECEIVED', paymentDate: new Date() },
+    });
+    return confirmarPagamentoRecebido(pagamentoId);
   }
 
   async segundaVia(id: string) {
@@ -90,7 +126,8 @@ export class PagamentosService {
       }),
     ]);
 
-    const soma = (arr: { valor: unknown }[]) => arr.reduce((s, p) => s + toNumber(p.valor), 0);
+    const soma = (arr: { valor: unknown }[]) =>
+      arr.reduce((s, p) => s + Number(p.valor), 0);
 
     return {
       receitaMes: soma(totalMes),

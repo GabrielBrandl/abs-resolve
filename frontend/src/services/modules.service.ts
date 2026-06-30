@@ -1,5 +1,9 @@
 import { api } from './api';
-import type { ApiResponse, Cliente, Lead, Pedido, Pagamento, Servico, Beneficio, OrdemServico, DashboardKPIs } from '../types';
+import type {
+  ApiResponse, Cliente, Lead, Pedido, Pagamento, Servico, OrdemServico, DashboardKPIs,
+  PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
+  EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, TecnicoOs, AgendamentoTecnico,
+} from '../types';
 
 async function get<T>(url: string) {
   const { data } = await api.get<ApiResponse<T>>(url);
@@ -25,12 +29,21 @@ async function patch<T>(url: string, body?: unknown) {
   return data.data!;
 }
 
+async function del<T>(url: string) {
+  const { data } = await api.delete<ApiResponse<T>>(url);
+  if (!data.success) throw new Error(data.error);
+  return data.data!;
+}
+
 export const clientesApi = {
   listar: (params?: Record<string, string>) =>
     get<{ clientes: Cliente[]; total: number }>(`/clientes?${new URLSearchParams(params)}`),
   buscar: (id: string) => get<Cliente>(`/clientes/${id}`),
   criar: (body: unknown) => post<Cliente>('/clientes', body),
   atualizar: (id: string, body: unknown) => put<Cliente>(`/clientes/${id}`, body),
+  atualizarAcessoPortal: (id: string, body: { email?: string; senha?: string; nome?: string }) =>
+    put<Cliente>(`/clientes/${id}/acesso-portal`, body),
+  excluir: (id: string) => del(`/clientes/${id}`),
   status: (id: string, status: string) => patch<Cliente>(`/clientes/${id}/status`, { status }),
   interacao: (id: string, body: unknown) => post(`/clientes/${id}/interacoes`, body),
   exportar: () => api.get('/export/clientes', { responseType: 'blob' }),
@@ -68,12 +81,10 @@ export const pagamentosApi = {
 
 export const marketplaceApi = {
   servicos: (params?: Record<string, string>) => get<Servico[]>(`/marketplace/servicos?${new URLSearchParams(params)}`),
-  beneficios: (params?: Record<string, string>) => get<Beneficio[]>(`/marketplace/beneficios?${new URLSearchParams(params)}`),
   solicitar: (body: unknown) => post('/marketplace/servicos/solicitar', body),
   criarServico: (body: unknown) => post<Servico>('/marketplace/servicos', body),
   atualizarServico: (id: string, body: unknown) => put<Servico>(`/marketplace/servicos/${id}`, body),
-  criarBeneficio: (body: unknown) => post<Beneficio>('/marketplace/beneficios', body),
-  atualizarBeneficio: (id: string, body: unknown) => put<Beneficio>(`/marketplace/beneficios/${id}`, body),
+  excluirServico: (id: string) => del(`/marketplace/servicos/${id}`),
 };
 
 export const movimentacaoApi = {
@@ -89,20 +100,53 @@ export const dashboardApi = {
 };
 
 export const adminApi = {
-  usuarios: () => get('/admin/usuarios'),
+  usuarios: () => get<Array<{
+    id: string; nome: string; email: string; role: string; ativo: boolean; createdAt: string;
+    tecnico?: { id: string; nome: string; ativo: boolean; capacidadeDiaria: number };
+  }>>('/admin/usuarios'),
   criarUsuario: (body: unknown) => post('/admin/usuarios', body),
-  parceiros: () => get('/admin/parceiros'),
-  criarParceiro: (body: unknown) => post('/admin/parceiros', body),
+  atualizarUsuario: (id: string, body: unknown) => put(`/admin/usuarios/${id}`, body),
+  excluirUsuario: (id: string) => del(`/admin/usuarios/${id}`),
+  alterarStatus: (id: string, ativo: boolean) => patch(`/admin/usuarios/${id}/status`, { ativo }),
+  criarCliente: (body: unknown) => post('/admin/clientes', body),
+  atribuicoes: () => get<Array<{
+    id: string; data: string; horarioInicio: string; horarioFim: string; status: string;
+    cliente: { nome: string; telefone: string; endereco?: Record<string, string> };
+    tecnico?: { id: string; nome: string };
+    pedido: {
+      id: string; numero: string; descricao?: string; status: string;
+      ordemServico?: {
+        id: string; etapa: string; checklistCompleto: boolean;
+        checklist?: Record<string, string>;
+        tecnico?: { id: string; nome: string };
+      };
+    };
+    solicitacao?: { servico?: { nome: string; categoria: string } };
+  }>>('/admin/atribuicoes'),
+  tecnicosCarga: () => get<Array<{
+    id: string; nome: string; email?: string; capacidadeDiaria: number;
+    agendamentosAtivos: number; osEmAndamento: number;
+  }>>('/admin/tecnicos-carga'),
+  atribuirTecnico: (agendamentoId: string, tecnicoId: string | null) =>
+    patch(`/admin/agendamentos/${agendamentoId}/tecnico`, { tecnicoId }),
   auditoria: () => get('/admin/auditoria'),
   notificacoes: () => get('/admin/notificacoes'),
 };
 
 export const clientePortalApi = {
-  pedidos: () => get<Pedido[]>('/cliente/pedidos'),
+  pedidos: () => get<PedidoTimeline[]>('/cliente/pedidos'),
   financeiro: () => get<Pagamento[]>('/cliente/financeiro'),
   cadastro: () => get<Cliente>('/cliente/cadastro'),
   atualizarCadastro: (body: unknown) => put<Cliente>('/cliente/cadastro', body),
-  solicitarServico: (body: unknown) => post('/cliente/solicitar-servico', body),
+  garantias: () => get<Garantia[]>('/cliente/garantias'),
+  avaliacoesPendentes: () => get<AvaliacaoPendente[]>('/cliente/avaliacoes/pendentes'),
+  avaliar: (osId: string, body: { nota: number; comentario?: string }) =>
+    post(`/cliente/avaliacoes/${osId}`, body),
+  atualizarEndereco: (endereco: EnderecoCliente) =>
+    put<Cliente>('/cliente/endereco', { endereco }),
+  config: () => get<SolicitacaoConfig>('/cliente/config'),
+  simularPagamento: (pagamentoId: string) =>
+    post(`/cliente/pagamentos/${pagamentoId}/simular`),
   documentos: () => get<Array<{ id: string; nome: string; url: string; tamanho: number; createdAt: string }>>('/cliente/documentos'),
   uploadDocumento: async (file: File) => {
     const form = new FormData();
@@ -145,12 +189,16 @@ export const solicitacaoApi = {
   upsells: (slug: string) => get<Array<{ id: string; nome: string; preco: number }>>(`/solicitacao/upsells/${slug}`),
   calcularTipoA: (body: unknown) => post<{ precoBase: number; precoFinal: number }>('/solicitacao/calcular-tipo-a', body),
   criar: (body: unknown) => post('/solicitacao', body),
-  minhas: () => get('/solicitacao/minhas'),
+  minhas: () => get<SolicitacaoMinha[]>('/solicitacao/minhas'),
   fotos: (id: string, fotos: string[]) => post(`/solicitacao/${id}/fotos`, { fotos }),
   upsellsAplicar: (id: string, body: unknown) => post(`/solicitacao/${id}/upsells`, body),
   horarios: (id: string) => get<{ slots: Array<{ data: string; horarioInicio: string; horarioFim: string; label: string; escassez: string }>; proximaDisponibilidade: string | null }>(`/solicitacao/${id}/horarios`),
   agendar: (id: string, body: unknown) => post(`/solicitacao/${id}/agendar`, body),
   pagar: (id: string, metodo: string) => post(`/solicitacao/${id}/pagar`, { metodo }),
+  status: (id: string) => get<SolicitacaoStatus>(`/solicitacao/${id}/status`),
+  config: () => get<SolicitacaoConfig>('/solicitacao/config'),
+  solicitarOrcamento: (body: { slug: string; descricao: string; endereco?: EnderecoCliente }) =>
+    post('/solicitacao/orcamento', body),
   uploadFotos: async (id: string, files: File[], servicoSlug?: string) => {
     const form = new FormData();
     files.forEach((f) => form.append('fotos', f));
@@ -179,6 +227,62 @@ export const diagnosticoApi = {
 export const agendamentoApi = {
   cancelar: (id: string) => post(`/agendamentos/${id}/cancelar`),
   ausencia: (id: string) => post(`/agendamentos/${id}/ausencia`),
+  reagendar: (id: string, body: { data: string; horarioInicio: string; horarioFim: string }) =>
+    post(`/agendamentos/${id}/reagendar`, body),
+};
+
+export const catalogoAdminApi = {
+  servicos: () => get<CatalogoServicoAdmin[]>('/admin/catalogo/servicos'),
+  atualizarServico: (id: string, body: Partial<CatalogoServicoAdmin>) =>
+    put<CatalogoServicoAdmin>(`/admin/catalogo/servicos/${id}`, body),
+  excluirServico: (id: string) => del(`/admin/catalogo/servicos/${id}`),
+  config: () => get<Record<string, number>>('/admin/catalogo/config'),
+  atualizarConfig: (body: Record<string, number>) => put('/admin/catalogo/config', body),
+  estoque: () => get<ProdutoEstoque[]>('/admin/catalogo/estoque'),
+  atualizarEstoque: (id: string, body: { quantidade: number; minimo?: number }) =>
+    put(`/admin/catalogo/estoque/${id}`, body),
+  tecnicos: () => get<Array<{ id: string; nome: string; capacidadeDiaria: number; ativo: boolean }>>('/admin/catalogo/tecnicos'),
+  criarTecnico: (body: { nome: string; capacidadeDiaria?: number }) => post('/admin/catalogo/tecnicos', body),
+  agenda: (dataInicio?: string) =>
+    get<{
+      agendamentos: Array<{
+        id: string; data: string; horarioInicio: string; horarioFim: string; status: string;
+        cliente: { nome: string; telefone: string }; tecnico?: { nome: string };
+        pedido: { numero: string; descricao?: string };
+      }>;
+      tecnicos: Array<{ id: string; nome: string }>;
+      periodo: { inicio: string; fim: string };
+    }>(`/admin/catalogo/agenda${dataInicio ? `?dataInicio=${dataInicio}` : ''}`),
+  orcamentos: () => get<Array<{
+    id: string; status: string; createdAt: string; opcoes?: Record<string, unknown>;
+    servico?: { nome: string }; cliente?: { nome: string; email: string; telefone: string };
+  }>>('/admin/catalogo/orcamentos'),
+  responderOrcamento: (id: string, body: { precoFinal: number; observacao?: string }) =>
+    post(`/admin/catalogo/orcamentos/${id}/responder`, body),
+};
+
+export const tecnicoApi = {
+  os: () => get<TecnicoOs[]>('/tecnico/os'),
+  buscarOs: (id: string) => get<TecnicoOs>(`/tecnico/os/${id}`),
+  etapa: (id: string, etapa: string) => patch(`/tecnico/os/${id}/etapa`, { etapa }),
+  voltarEtapaOs: (id: string) => post(`/tecnico/os/${id}/voltar-etapa`),
+  checklist: (id: string, body: Record<string, string>) => patch(`/tecnico/os/${id}/checklist`, body),
+  concluir: (id: string, body: { descricaoConclusao?: string; materiais?: string }) =>
+    post(`/tecnico/os/${id}/concluir`, body),
+  uploadFoto: async (osId: string, file: File, campo: 'fotoAntes' | 'fotoDepois' | 'fotoConclusao' | 'assinaturaCliente') => {
+    const form = new FormData();
+    form.append('foto', file);
+    form.append('campo', campo);
+    const { data } = await api.post(`/tecnico/os/${osId}/foto`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    if (!data.success) throw new Error(data.error);
+    return data.data;
+  },
+  agenda: () => get<AgendamentoTecnico[]>('/tecnico/agenda'),
+  aCaminho: (agendamentoId: string) => post(`/tecnico/agendamentos/${agendamentoId}/a-caminho`),
+  chegada: (agendamentoId: string) => post(`/tecnico/agendamentos/${agendamentoId}/chegada`),
+  voltarAgendamento: (agendamentoId: string) => post(`/tecnico/agendamentos/${agendamentoId}/voltar`),
 };
 
 export const adminApiExtra = {

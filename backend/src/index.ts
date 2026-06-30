@@ -20,11 +20,14 @@ import exportRoutes from './routes/export.routes.js';
 import solicitacaoRoutes from './routes/solicitacao.routes.js';
 import agendamentoRoutes from './routes/agendamento.routes.js';
 import diagnosticoRoutes from './routes/diagnostico.routes.js';
+import catalogoAdminRoutes from './routes/catalogo-admin.routes.js';
+import tecnicoRoutes from './routes/tecnico.routes.js';
 import { pagamentosController } from './controllers/pagamentos.controller.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { success, error } from './utils/response.js';
 import { prisma } from './utils/prisma.js';
 import { isSupabaseConfigured } from './utils/supabase.js';
+import { iniciarCronJobs } from './services/cron.service.js';
 
 function databaseHint(): string {
   const url = process.env.DATABASE_URL;
@@ -64,12 +67,6 @@ const limiter = rateLimit({
   message: { success: false, error: 'Muitas requisições. Tente novamente em alguns minutos.' },
 });
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { success: false, error: 'Muitas tentativas de login.' },
-});
-
 app.use(limiter);
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
@@ -103,7 +100,7 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-app.use('/auth', authLimiter, authRoutes);
+app.use('/auth', authRoutes);
 app.use('/clientes', clientesRoutes);
 app.use('/leads', leadsRoutes);
 app.use('/pedidos', pedidosRoutes);
@@ -119,6 +116,8 @@ app.use('/export', exportRoutes);
 app.use('/solicitacao', solicitacaoRoutes);
 app.use('/agendamentos', agendamentoRoutes);
 app.use('/diagnostico', diagnosticoRoutes);
+app.use('/admin/catalogo', catalogoAdminRoutes);
+app.use('/tecnico', tecnicoRoutes);
 app.post('/webhooks/asaas', (req, res) => pagamentosController.webhookAsaas(req, res));
 
 app.use((_req, res) => {
@@ -128,5 +127,6 @@ app.use((_req, res) => {
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`ABS Resolve API v1.1 rodando em http://localhost:${PORT}`);
+  console.log(`ABS Resolve API v2.0 rodando em http://localhost:${PORT}`);
+  iniciarCronJobs();
 });

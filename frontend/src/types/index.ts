@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'comercial' | 'operacional' | 'cliente' | 'parceiro';
+export type Role = 'admin' | 'comercial' | 'operacional' | 'cliente';
 
 export interface User {
   id: string;
@@ -40,6 +40,7 @@ export interface Cliente {
   pedidos?: Pedido[];
   interacoes?: Interacao[];
   pagamentos?: Pagamento[];
+  user?: { id: string; email: string };
 }
 
 export interface Lead {
@@ -98,6 +99,7 @@ export interface Pagamento {
   status: string;
   dueDate: string;
   paymentDate?: string;
+  createdAt?: string;
   invoiceUrl?: string;
   pixCode?: string;
   cliente?: { id: string; nome: string };
@@ -194,4 +196,174 @@ export function formatCurrency(val: number | string) {
 
 export function formatDate(d: string) {
   return new Date(d).toLocaleDateString('pt-BR');
+}
+
+export function formatEndereco(endereco?: Record<string, string> | null) {
+  if (!endereco || Object.keys(endereco).length === 0) return '—';
+  const { rua, numero, bairro, cidade, uf, cep } = endereco;
+  const parts = [
+    [rua, numero].filter(Boolean).join(', '),
+    bairro,
+    [cidade, uf].filter(Boolean).join('/'),
+    cep ? `CEP ${cep}` : '',
+  ].filter(Boolean);
+  return parts.join(' — ') || '—';
+}
+
+export function mapsLink(endereco?: Record<string, string> | null) {
+  if (!endereco) return null;
+  const q = [endereco.rua, endereco.numero, endereco.bairro, endereco.cidade, endereco.uf, endereco.cep]
+    .filter(Boolean)
+    .join(', ');
+  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : null;
+}
+
+export const PAGAMENTO_STATUS = [
+  { key: 'PENDING', label: 'Pendente', color: 'bg-amber-100 text-amber-700' },
+  { key: 'RECEIVED', label: 'Recebido', color: 'bg-green-100 text-green-700' },
+  { key: 'CONFIRMED', label: 'Confirmado', color: 'bg-green-100 text-green-700' },
+  { key: 'OVERDUE', label: 'Vencido', color: 'bg-red-100 text-red-700' },
+  { key: 'REFUNDED', label: 'Estornado', color: 'bg-slate-100 text-slate-700' },
+  { key: 'CANCELLED', label: 'Cancelado', color: 'bg-red-100 text-red-700' },
+] as const;
+
+export function pagamentoStatusLabel(status: string) {
+  return PAGAMENTO_STATUS.find((s) => s.key === status)?.label ?? status;
+}
+
+export function pagamentoStatusColor(status: string) {
+  return PAGAMENTO_STATUS.find((s) => s.key === status)?.color ?? 'bg-slate-100 text-slate-700';
+}
+
+export interface TimelineStep {
+  key: string;
+  label: string;
+  done: boolean;
+  date?: string | null;
+}
+
+export interface PedidoTimeline extends Pedido {
+  timeline: TimelineStep[];
+  agendamento?: {
+    id: string;
+    data: string;
+    horarioInicio: string;
+    horarioFim: string;
+    status: string;
+  } | null;
+  solicitacao?: {
+    servico?: { nome: string };
+    agendamento?: { id: string; data: string; horarioInicio: string; status: string };
+  };
+}
+
+export interface Garantia {
+  id: string;
+  clienteId: string;
+  servicoNome: string;
+  dataInicio: string;
+  dataFim: string;
+  ativa: boolean;
+  diasRestantes: number;
+  pedidoId?: string;
+}
+
+export interface SolicitacaoMinha {
+  id: string;
+  status: string;
+  precoFinal: number | string;
+  createdAt: string;
+  servico?: { nome: string; slug: string };
+  agendamento?: {
+    id: string;
+    data: string;
+    horarioInicio: string;
+    horarioFim: string;
+    status: string;
+  } | null;
+  pedido?: { numero: string; id: string };
+}
+
+export interface SolicitacaoStatus {
+  solicitacaoId: string;
+  status: string;
+  pedidoNumero?: string;
+  pagamento: {
+    id: string;
+    status: string;
+    metodo: string;
+    invoiceUrl?: string;
+    pixCode?: string;
+  } | null;
+  podeAgendar: boolean;
+  agendamento?: { id: string; data: string; horarioInicio: string } | null;
+}
+
+export interface SolicitacaoConfig {
+  expressValor: number;
+  taxaCancelamento: number;
+  taxaAusencia: number;
+}
+
+export interface AvaliacaoPendente {
+  id: string;
+  pedido: { numero: string; descricao?: string };
+}
+
+export interface EnderecoCliente {
+  cep: string;
+  rua: string;
+  numero: string;
+  complemento?: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+}
+
+export interface CatalogoServicoAdmin {
+  id: string;
+  slug: string;
+  nome: string;
+  categoria: string;
+  precoMinimo: number | string | null;
+  precoTexto: string | null;
+  tipoPreco: string;
+  descricao: string | null;
+  garantiaDias: number;
+  pontos: number;
+  ativo: boolean;
+  ordem: number;
+}
+
+export interface ProdutoEstoque {
+  id: string;
+  nome: string;
+  sku: string;
+  quantidade: number;
+  minimo: number;
+  status?: string;
+}
+
+export interface TecnicoOs {
+  id: string;
+  etapa: string;
+  checklist?: Record<string, string> | null;
+  checklistCompleto?: boolean;
+  pedido: {
+    numero: string;
+    descricao?: string;
+    cliente: { nome: string; telefone: string; endereco: Record<string, string> };
+    agendamentos: Array<{ id: string; data: string; horarioInicio: string; status: string }>;
+    solicitacao?: { servico?: { nome: string } };
+  };
+}
+
+export interface AgendamentoTecnico {
+  id: string;
+  data: string;
+  horarioInicio: string;
+  horarioFim: string;
+  status: string;
+  cliente: { nome: string; telefone: string; endereco: Record<string, string> };
+  pedido: { numero: string; descricao?: string };
 }

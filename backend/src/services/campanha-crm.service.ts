@@ -2,20 +2,35 @@ import { prisma } from '../utils/prisma.js';
 import { notificacaoService } from './notificacao.service.js';
 
 const CAMPANHAS_POR_SERVICO: Record<string, { meses: number; titulo: string; mensagem: string }> = {
+  'instalacao-chuveiro': {
+    meses: 6,
+    titulo: 'Revisão preventiva do chuveiro',
+    mensagem: 'Faz 6 meses desde a instalação do seu chuveiro. Que tal uma revisão preventiva? Evite surpresas e garantia elétrica.',
+  },
   chuveiro: {
     meses: 6,
     titulo: 'Revisão preventiva do chuveiro',
-    mensagem: 'Faz 6 meses desde a instalação do seu chuveiro. Que tal uma revisão preventiva? Evite surpresas e garanta segurança elétrica.',
+    mensagem: 'Faz 6 meses desde a instalação do seu chuveiro. Que tal uma revisão preventiva?',
   },
-  'ar-condicionado': {
+  'limpeza-ar-split': {
     meses: 12,
     titulo: 'Higienização do ar-condicionado',
     mensagem: 'Recomendamos higienização anual do seu ar-condicionado para melhor desempenho e economia.',
   },
-  disjuntor: {
+  'ar-condicionado': {
+    meses: 12,
+    titulo: 'Higienização do ar-condicionado',
+    mensagem: 'Recomendamos higienização anual do seu ar-condicionado.',
+  },
+  'troca-disjuntor': {
     meses: 12,
     titulo: 'Revisão do quadro elétrico',
     mensagem: 'Revisão preventiva do quadro elétrico — verifique se tudo está em ordem.',
+  },
+  disjuntor: {
+    meses: 12,
+    titulo: 'Revisão do quadro elétrico',
+    mensagem: 'Revisão preventiva do quadro elétrico.',
   },
 };
 

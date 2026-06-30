@@ -29,6 +29,8 @@ services:
       NODE_ENV: production
       ASAAS_API_KEY: ${ASAAS_API_KEY}
       ASAAS_API_URL: ${ASAAS_API_URL}
+      ASAAS_MOCK: ${ASAAS_MOCK:-false}
+      ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}
       ASAAS_CNPJ: ${ASAAS_CNPJ:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
@@ -42,6 +44,12 @@ services:
       RUN_SEED: ${RUN_SEED:-false}
     volumes:
       - backend_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
     networks:
       - abs_net
 
@@ -53,7 +61,8 @@ services:
         VITE_API_URL: /api
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "80:80"
     networks:

@@ -21,17 +21,24 @@ const FinanceiroPage = lazy(() => import('./pages/financeiro/FinanceiroPage').th
 const MarketplacePage = lazy(() => import('./pages/marketplace/MarketplacePage').then((m) => ({ default: m.MarketplacePage })));
 const MovimentacaoPage = lazy(() => import('./pages/movimentacao/MovimentacaoPage').then((m) => ({ default: m.MovimentacaoPage })));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage').then((m) => ({ default: m.AdminPage })));
+const CatalogoAdminPage = lazy(() => import('./pages/admin/CatalogoAdminPage').then((m) => ({ default: m.CatalogoAdminPage })));
+const EstoqueAdminPage = lazy(() => import('./pages/admin/EstoqueAdminPage').then((m) => ({ default: m.EstoqueAdminPage })));
+const AgendaAdminPage = lazy(() => import('./pages/admin/AgendaAdminPage').then((m) => ({ default: m.AgendaAdminPage })));
+const OrcamentosAdminPage = lazy(() => import('./pages/admin/OrcamentosAdminPage').then((m) => ({ default: m.OrcamentosAdminPage })));
 const ClienteLayout = lazy(() => import('./pages/cliente/ClienteLayout').then((m) => ({ default: m.ClienteLayout })));
 const ClientePedidosPage = lazy(() => import('./pages/cliente/ClientePedidosPage').then((m) => ({ default: m.ClientePedidosPage })));
 const ClienteFinanceiroPage = lazy(() => import('./pages/cliente/ClienteFinanceiroPage').then((m) => ({ default: m.ClienteFinanceiroPage })));
-const ClienteSolicitarPage = lazy(() => import('./pages/cliente/ClientePortalPages').then((m) => ({ default: m.ClienteSolicitarPage })));
 const ClienteCadastroPage = lazy(() => import('./pages/cliente/ClientePortalPages').then((m) => ({ default: m.ClienteCadastroPage })));
-const ClienteBeneficiosPage = lazy(() => import('./pages/cliente/ClienteBeneficiosPage').then((m) => ({ default: m.ClienteBeneficiosPage })));
 const ClienteDocumentosPage = lazy(() => import('./pages/cliente/ClienteDocumentosPage').then((m) => ({ default: m.ClienteDocumentosPage })));
+const ClienteGarantiasPage = lazy(() => import('./pages/cliente/ClienteGarantiasPage').then((m) => ({ default: m.ClienteGarantiasPage })));
+const ClienteAgendamentosPage = lazy(() => import('./pages/cliente/ClienteAgendamentosPage').then((m) => ({ default: m.ClienteAgendamentosPage })));
+const TecnicoLayout = lazy(() => import('./pages/tecnico/TecnicoLayout').then((m) => ({ default: m.TecnicoLayout })));
+const TecnicoHomePage = lazy(() => import('./pages/tecnico/TecnicoHomePage').then((m) => ({ default: m.TecnicoHomePage })));
 
 function HomeRedirect() {
   const user = useAuthStore((s) => s.user);
   if (user?.role === 'cliente') return <Navigate to="/cliente/agendar" replace />;
+  if (user?.role === 'operacional') return <Navigate to="/tecnico" replace />;
   return <DashboardPage />;
 }
 
@@ -50,7 +57,7 @@ function AppRoutes() {
           <Route path="/cadastro" element={<CadastroPage />} />
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['admin', 'comercial', 'operacional', 'parceiro']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['admin', 'comercial', 'operacional']} />}>
           <Route element={<AppLayout />}>
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/clientes" element={<ClientesPage />} />
@@ -67,9 +74,24 @@ function AppRoutes() {
           </Route>
         </Route>
 
+        <Route element={<ProtectedRoute allowedRoles={['admin', 'comercial']} />}>
+          <Route element={<AppLayout />}>
+            <Route path="/admin/catalogo" element={<CatalogoAdminPage />} />
+            <Route path="/admin/estoque" element={<EstoqueAdminPage />} />
+            <Route path="/admin/agenda" element={<AgendaAdminPage />} />
+            <Route path="/admin/orcamentos" element={<OrcamentosAdminPage />} />
+          </Route>
+        </Route>
+
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
           <Route element={<AppLayout />}>
             <Route path="/admin" element={<AdminPage />} />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['operacional', 'admin']} />}>
+          <Route element={<TecnicoLayout />}>
+            <Route path="/tecnico" element={<TecnicoHomePage />} />
           </Route>
         </Route>
 
@@ -79,10 +101,11 @@ function AppRoutes() {
             <Route path="/cliente/agendar" element={<AgendarServicoPage />} />
             <Route path="/cliente/diagnostico" element={<DiagnosticoIAPage />} />
             <Route path="/cliente/financeiro" element={<ClienteFinanceiroPage />} />
-            <Route path="/cliente/solicitar" element={<ClienteSolicitarPage />} />
+            <Route path="/cliente/solicitar" element={<Navigate to="/cliente/agendar" replace />} />
             <Route path="/cliente/cadastro" element={<ClienteCadastroPage />} />
-            <Route path="/cliente/beneficios" element={<ClienteBeneficiosPage />} />
             <Route path="/cliente/documentos" element={<ClienteDocumentosPage />} />
+            <Route path="/cliente/garantias" element={<ClienteGarantiasPage />} />
+            <Route path="/cliente/agendamentos" element={<ClienteAgendamentosPage />} />
           </Route>
         </Route>
       </Routes>

@@ -19,6 +19,10 @@ const navItems: NavItem[] = [
   { label: 'Financeiro', path: '/financeiro', roles: ['admin', 'comercial'], icon: '💰' },
   { label: 'Movimentação', path: '/movimentacao', roles: ['admin', 'operacional'], icon: '📋' },
   { label: 'Marketplace', path: '/marketplace', icon: '🛒' },
+  { label: 'Catálogo', path: '/admin/catalogo', roles: ['admin', 'comercial'], icon: '📚' },
+  { label: 'Estoque', path: '/admin/estoque', roles: ['admin', 'comercial'], icon: '📦' },
+  { label: 'Agenda', path: '/admin/agenda', roles: ['admin', 'comercial'], icon: '📅' },
+  { label: 'Orçamentos', path: '/admin/orcamentos', roles: ['admin', 'comercial'], icon: '📝' },
   { label: 'Admin', path: '/admin', roles: ['admin'], icon: '⚙️' },
 ];
 

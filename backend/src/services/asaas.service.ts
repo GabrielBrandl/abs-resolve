@@ -1,5 +1,6 @@
 import axios, { isAxiosError } from 'axios';
 import { prisma } from '../utils/prisma.js';
+import { confirmarPagamentoRecebido } from './pagamento-confirmacao.service.js';
 
 const asaasApi = axios.create({
   baseURL: process.env.ASAAS_API_URL || 'https://api-sandbox.asaas.com/v3',
@@ -119,7 +120,7 @@ export class AsaasService {
 
     const novoStatus = statusMap[payment.status] || pagamento.status;
 
-    return prisma.pagamento.update({
+    const updated = await prisma.pagamento.update({
       where: { id: pagamento.id },
       data: {
         status: novoStatus,
@@ -127,6 +128,14 @@ export class AsaasService {
       },
       include: { cliente: true },
     });
+
+    if (novoStatus === 'RECEIVED') {
+      await confirmarPagamentoRecebido(updated.id).catch((err) =>
+        console.warn('[Asaas webhook] confirmar pagamento:', err)
+      );
+    }
+
+    return updated;
   }
 }
 

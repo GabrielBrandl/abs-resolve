@@ -160,6 +160,56 @@ export class ClientesService {
     });
   }
 
+  async atualizarAcessoPortal(
+    clienteId: string,
+    data: { email?: string; senha?: string; nome?: string }
+  ) {
+    const cliente = await this.buscarPorId(clienteId);
+    if (!cliente.user) throw new Error('Cliente não possui acesso ao portal');
+
+    if (data.email && data.email !== cliente.user.email) {
+      const dup = await prisma.user.findFirst({
+        where: { email: data.email, NOT: { id: cliente.user.id } },
+      });
+      if (dup) throw new Error('Email já cadastrado');
+    }
+
+    const userUpdate: { nome?: string; email?: string; senhaHash?: string } = {};
+    if (data.nome) userUpdate.nome = data.nome;
+    if (data.email) userUpdate.email = data.email;
+    if (data.senha) userUpdate.senhaHash = await bcrypt.hash(data.senha, 10);
+
+    if (Object.keys(userUpdate).length) {
+      await prisma.user.update({ where: { id: cliente.user.id }, data: userUpdate });
+    }
+
+    const clienteUpdate: { nome?: string; email?: string } = {};
+    if (data.nome) clienteUpdate.nome = data.nome;
+    if (data.email) clienteUpdate.email = data.email;
+
+    if (Object.keys(clienteUpdate).length) {
+      await prisma.cliente.update({ where: { id: clienteId }, data: clienteUpdate });
+    }
+
+    return this.buscarPorId(clienteId);
+  }
+
+  async excluir(clienteId: string) {
+    const cliente = await this.buscarPorId(clienteId);
+    const pedidos = await prisma.pedido.count({ where: { clienteId } });
+    if (pedidos > 0) {
+      throw new Error('Cliente possui pedidos vinculados. Bloqueie o cadastro em vez de excluir.');
+    }
+
+    if (cliente.user) {
+      await prisma.refreshToken.deleteMany({ where: { userId: cliente.user.id } });
+      await prisma.user.delete({ where: { id: cliente.user.id } });
+    }
+
+    await prisma.cliente.delete({ where: { id: clienteId } });
+    return { id: clienteId, deleted: true };
+  }
+
   async exportarCsv(filters: ClienteFilters) {
     const { clientes } = await this.listar({ ...filters, limit: 10000 });
     return clientes.map((c) => ({

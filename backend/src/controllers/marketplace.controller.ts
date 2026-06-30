@@ -1,6 +1,6 @@
 import { paramId } from '../utils/params.js';
 import type { Request, Response } from 'express';
-import { servicosService, beneficiosService, parceirosService } from '../services/marketplace.service.js';
+import { servicosService } from '../services/marketplace.service.js';
 import { dashboardService, adminService } from '../services/dashboard.service.js';
 import { prisma } from '../utils/prisma.js';
 import { success, error } from '../utils/response.js';
@@ -37,40 +37,19 @@ export class MarketplaceController {
     }
   }
 
+  async excluirServico(req: Request, res: Response) {
+    try {
+      const data = await servicosService.excluir(paramId(req.params.id));
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async solicitarServico(req: Request, res: Response) {
     try {
       const data = await servicosService.solicitar(req.body);
       return success(res, data, 201);
-    } catch (err) {
-      return error(res, err instanceof Error ? err.message : 'Erro', 400);
-    }
-  }
-
-  async listarBeneficios(req: Request, res: Response) {
-    try {
-      const data = await beneficiosService.listar({
-        categoria: req.query.categoria as string,
-        ativo: req.query.ativo === 'true' ? true : undefined,
-      });
-      return success(res, data);
-    } catch (err) {
-      return error(res, err instanceof Error ? err.message : 'Erro', 500);
-    }
-  }
-
-  async criarBeneficio(req: Request, res: Response) {
-    try {
-      const data = await beneficiosService.criar(req.body);
-      return success(res, data, 201);
-    } catch (err) {
-      return error(res, err instanceof Error ? err.message : 'Erro', 400);
-    }
-  }
-
-  async atualizarBeneficio(req: Request, res: Response) {
-    try {
-      const data = await beneficiosService.atualizar(paramId(req.params.id), req.body);
-      return success(res, data);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
     }
@@ -119,24 +98,6 @@ export class AdminController {
   async criarUsuario(req: Request, res: Response) {
     try {
       const data = await adminService.criarUsuario(req.body);
-      return success(res, data, 201);
-    } catch (err) {
-      return error(res, err instanceof Error ? err.message : 'Erro', 400);
-    }
-  }
-
-  async listarParceiros(_req: Request, res: Response) {
-    try {
-      const data = await parceirosService.listar();
-      return success(res, data);
-    } catch (err) {
-      return error(res, err instanceof Error ? err.message : 'Erro', 500);
-    }
-  }
-
-  async criarParceiro(req: Request, res: Response) {
-    try {
-      const data = await parceirosService.criar(req.body);
       return success(res, data, 201);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);

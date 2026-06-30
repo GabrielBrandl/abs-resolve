@@ -14,7 +14,11 @@ export class AuthService {
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      throw new Error('Credenciais inválidas');
+      throw new Error('Credenciais inv?lidas');
+    }
+
+    if (user.ativo === false) {
+      throw new Error('Usu?rio desativado. Contate o administrador.');
     }
 
     const senhaValida = await bcrypt.compare(senha, user.senhaHash);
@@ -125,7 +129,7 @@ export class AuthService {
     consentimentoLgpd: boolean;
   }) {
     if (!data.consentimentoLgpd) {
-      throw new Error('É necessário aceitar os termos LGPD');
+      throw new Error('�� necessário aceitar os termos LGPD');
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email: data.email } });

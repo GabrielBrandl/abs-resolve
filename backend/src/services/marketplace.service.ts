@@ -36,6 +36,10 @@ export class ServicosService {
     return prisma.servico.update({ where: { id }, data });
   }
 
+  async excluir(id: string) {
+    return prisma.servico.update({ where: { id }, data: { ativo: false } });
+  }
+
   async solicitar(data: {
     servicoId: string;
     clienteId: string;
@@ -60,49 +64,3 @@ export class ServicosService {
 }
 
 export const servicosService = new ServicosService();
-
-export class BeneficiosService {
-  async listar(filters: { categoria?: string; ativo?: boolean }) {
-    const where: Record<string, unknown> = {};
-    if (filters.categoria) where.categoria = filters.categoria;
-    if (filters.ativo !== undefined) where.ativo = filters.ativo;
-    return prisma.beneficio.findMany({ where, orderBy: { parceiro: 'asc' } });
-  }
-
-  async criar(data: {
-    parceiro: string;
-    categoria: string;
-    descricao: string;
-    cupom?: string;
-    cashback?: number;
-    desconto?: number;
-  }) {
-    return prisma.beneficio.create({ data });
-  }
-
-  async atualizar(id: string, data: Partial<{ parceiro: string; categoria: string; descricao: string; cupom: string; cashback: number; desconto: number; ativo: boolean }>) {
-    return prisma.beneficio.update({ where: { id }, data });
-  }
-
-  async excluir(id: string) {
-    return prisma.beneficio.delete({ where: { id } });
-  }
-}
-
-export const beneficiosService = new BeneficiosService();
-
-export class ParceirosService {
-  async listar() {
-    return prisma.parceiro.findMany({ orderBy: { nome: 'asc' } });
-  }
-
-  async criar(data: { nome: string; cnpj?: string; email: string; telefone: string; categoria: string }) {
-    return prisma.parceiro.create({ data });
-  }
-
-  async atualizar(id: string, data: Partial<{ nome: string; email: string; telefone: string; categoria: string; ativo: boolean }>) {
-    return prisma.parceiro.update({ where: { id }, data });
-  }
-}
-
-export const parceirosService = new ParceirosService();

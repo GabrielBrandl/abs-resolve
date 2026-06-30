@@ -2,9 +2,7 @@ import { paramId } from '../utils/params.js';
 import type { Request, Response } from 'express';
 import { pagamentosService } from '../services/pagamentos.service.js';
 import { asaasService } from '../services/asaas.service.js';
-import { notificacaoService } from '../services/notificacao.service.js';
 import { success, error } from '../utils/response.js';
-import { toNumber } from '../utils/helpers.js';
 
 export class PagamentosController {
   async listar(req: Request, res: Response) {
@@ -50,21 +48,16 @@ export class PagamentosController {
 
   async webhookAsaas(req: Request, res: Response) {
     try {
+      const token = process.env.ASAAS_WEBHOOK_TOKEN;
+      if (token && req.headers['asaas-access-token'] !== token) {
+        return error(res, 'Webhook não autorizado', 401);
+      }
+
       const { event, payment } = req.body;
       const pagamento = await asaasService.processarWebhook(event, payment);
 
-      if (pagamento) {
-        notificacaoService
-          .notificarPagamento(
-            pagamento.cliente.nome,
-            toNumber(pagamento.valor),
-            pagamento.status,
-            pagamento.cliente.email
-          )
-          .catch(() => {});
-      }
-
-      return success(res, { received: true });
+      // E-mail enviado em confirmarPagamentoRecebido quando status = RECEIVED
+      return success(res, { received: true, pagamentoId: pagamento?.id });
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
     }

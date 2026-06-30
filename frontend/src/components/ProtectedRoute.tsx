@@ -23,6 +23,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     if (user.role === 'cliente') return <Navigate to="/cliente" replace />;
+    if (user.role === 'operacional') return <Navigate to="/tecnico" replace />;
     return <Navigate to="/" replace />;
   }
 
@@ -42,6 +43,7 @@ export function PublicRoute() {
 
   if (isAuthenticated && user) {
     if (user.role === 'cliente') return <Navigate to="/cliente/agendar" replace />;
+    if (user.role === 'operacional') return <Navigate to="/tecnico" replace />;
     return <Navigate to="/" replace />;
   }
 

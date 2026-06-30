@@ -127,23 +127,6 @@ async function main() {
     ],
   });
 
-  await prisma.beneficio.createMany({
-    skipDuplicates: true,
-    data: [
-      { id: 'seed-ben-1', parceiro: 'Drogasil', categoria: 'farmacia', descricao: '10% de desconto em medicamentos', desconto: 10, cupom: 'ABS10' },
-      { id: 'seed-ben-2', parceiro: 'Smart Fit', categoria: 'academia', descricao: 'Cashback de R$ 50 na matrícula', cashback: 50 },
-      { id: 'seed-ben-3', parceiro: 'Extra', categoria: 'mercado', descricao: '5% de desconto nas compras', desconto: 5, cupom: 'ABSEXTRA' },
-    ],
-  });
-
-  await prisma.parceiro.createMany({
-    skipDuplicates: true,
-    data: [
-      { id: 'seed-par-1', nome: 'CleanPro', email: 'contato@cleanpro.com', telefone: '11999990001', categoria: 'limpeza' },
-      { id: 'seed-par-2', nome: 'PinturaFácil', email: 'contato@pinturafacil.com', telefone: '11999990002', categoria: 'pintura' },
-    ],
-  });
-
   await prisma.configSistema.upsert({
     where: { id: 'default' },
     update: {},
@@ -194,19 +177,42 @@ async function main() {
   await prisma.tecnico.createMany({
     skipDuplicates: true,
     data: [
-      { id: 'seed-tec-1', nome: 'Técnico 1', capacidadeDiaria: 6 },
       { id: 'seed-tec-2', nome: 'Técnico 2', capacidadeDiaria: 6 },
     ],
+  });
+
+  const tecnicoUser = await prisma.user.upsert({
+    where: { email: 'tecnico@absresolve.com.br' },
+    update: { ativo: true },
+    create: {
+      nome: 'Técnico Campo',
+      email: 'tecnico@absresolve.com.br',
+      senhaHash: await bcrypt.hash('tecnico123', 10),
+      role: Role.operacional,
+      ativo: true,
+    },
+  });
+
+  await prisma.tecnico.upsert({
+    where: { id: 'seed-tec-1' },
+    update: { userId: tecnicoUser.id, nome: 'Técnico Campo', ativo: true },
+    create: {
+      id: 'seed-tec-1',
+      nome: 'Técnico Campo',
+      userId: tecnicoUser.id,
+      capacidadeDiaria: 6,
+      ativo: true,
+    },
   });
 
   await prisma.produtoEstoque.createMany({
     skipDuplicates: true,
     data: [
-      { id: 'est-1', sku: 'tomada_simples_10a', nome: 'Tomada Simples 10A', quantidade: 50, servicoSlug: 'tomada' },
-      { id: 'est-2', sku: 'tomada_simples_20a', nome: 'Tomada Simples 20A', quantidade: 40, servicoSlug: 'tomada' },
-      { id: 'est-3', sku: 'interruptor_simples', nome: 'Interruptor Simples', quantidade: 45, servicoSlug: 'interruptor' },
-      { id: 'est-4', sku: 'disjuntor', nome: 'Disjuntor 20A', quantidade: 30, servicoSlug: 'disjuntor' },
-      { id: 'est-5', sku: 'chuveiro', nome: 'Chuveiro 5500W', quantidade: 20, servicoSlug: 'chuveiro' },
+      { id: 'est-1', sku: 'troca-tomada_padrao', nome: 'Tomada Simples 10A', quantidade: 50, servicoSlug: 'troca-tomada' },
+      { id: 'est-2', sku: 'troca-interruptor_padrao', nome: 'Interruptor Simples', quantidade: 45, servicoSlug: 'troca-interruptor' },
+      { id: 'est-3', sku: 'troca-disjuntor_padrao', nome: 'Disjuntor 20A', quantidade: 30, servicoSlug: 'troca-disjuntor' },
+      { id: 'est-4', sku: 'instalacao-chuveiro_padrao', nome: 'Kit Chuveiro', quantidade: 20, servicoSlug: 'instalacao-chuveiro' },
+      { id: 'est-5', sku: 'troca-torneira_padrao', nome: 'Torneira Padrão', quantidade: 35, servicoSlug: 'troca-torneira' },
     ],
   });
 
@@ -214,6 +220,7 @@ async function main() {
   console.log(`  Admin: admin@absresolve.com.br / admin123`);
   console.log(`  Comercial: comercial@absresolve.com.br / comercial123`);
   console.log(`  Cliente portal: CPF 529.982.247-25 / cliente123`);
+  console.log(`  Técnico: tecnico@absresolve.com.br / tecnico123`);
 }
 
 main()
