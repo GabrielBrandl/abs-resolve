@@ -237,7 +237,10 @@ export class SolicitacaoService {
     if (sol.servico.tipo !== 'B') throw new Error('Este serviço não exige fotos');
 
     const opcoes = sol.opcoes as Record<string, string>;
-    const analise = await analisarFotos(sol.servico.slug, fotos, opcoes);
+    const analise = await analisarFotos(sol.servico.slug, fotos, {
+      ...opcoes,
+      servicoCatalogoSlug: sol.servico.slug,
+    });
 
     if (analise.acao === 'nao_gerar_orcamento') {
       return prisma.solicitacaoServico.update({

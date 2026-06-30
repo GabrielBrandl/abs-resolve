@@ -212,11 +212,12 @@ export const solicitacaoApi = {
 };
 
 export const diagnosticoApi = {
-  analisar: async (files: File[], contexto?: string, tipo?: string) => {
+  catalogo: () => get<Array<{ slug: string; nome: string; icone: string; cor: string; servicos: Array<{ slug: string; nome: string; dicaFoto: string }> }>>('/diagnostico/catalogo'),
+  analisar: async (files: File[], contexto?: string, servicoSlug?: string) => {
     const form = new FormData();
     files.forEach((f) => form.append('fotos', f));
     if (contexto) form.append('contexto', contexto);
-    if (tipo) form.append('tipo', tipo);
+    if (servicoSlug) form.append('servicoSlug', servicoSlug);
     const { data } = await api.post('/diagnostico/analisar', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });

@@ -4,20 +4,29 @@ import {
   CUSTO_OPERACIONAL_BASE,
   CUSTO_PRODUTO_NIVEL,
 } from '../config/catalogo.js';
+import { CATEGORIAS, SERVICOS_CATALOGO } from '../config/catalogo-servicos.js';
 
-export interface EspecificacaoDisjuntor {
+export interface AtributoProduto {
+  label: string;
+  valor: string;
+}
+
+export interface EspecificacaoProduto {
+  categoriaProduto: string | null;
+  servicoCatalogoSlug: string | null;
+  servicoCatalogoNome: string | null;
   marca: string | null;
   modelo: string | null;
   nomeComercial: string | null;
-  amperagem: string | null;
   tipo: string | null;
-  curva: string | null;
-  tensao: string | null;
-  polos: number | null;
+  atributos: AtributoProduto[];
   estadoAparente: string | null;
-  observacoes: string | null;
   compativelSubstituto: string | null;
+  observacoes: string | null;
 }
+
+/** @deprecated use EspecificacaoProduto */
+export type EspecificacaoDisjuntor = EspecificacaoProduto;
 
 export interface AnaliseIaResult {
   confianca: number;
@@ -27,10 +36,31 @@ export interface AnaliseIaResult {
   acao: 'aprovacao_automatica' | 'solicitar_nova_foto' | 'nao_gerar_orcamento';
   validacaoOk: boolean;
   fonte: 'openai' | 'simulacao';
-  especificacao?: EspecificacaoDisjuntor;
+  especificacao?: EspecificacaoProduto;
 }
 
-export type TipoDiagnostico = 'geral' | 'disjuntor' | 'chuveiro' | 'quadro';
+const SLUG_ALIASES: Record<string, string> = {
+  disjuntor: 'troca-disjuntor',
+  chuveiro: 'instalacao-chuveiro',
+  tomada: 'troca-tomada',
+  interruptor: 'troca-interruptor',
+  luminaria: 'instalacao-luminaria',
+  ventilador: 'instalacao-ventilador-teto',
+  registro: 'troca-registro',
+  'ar-condicionado': 'instalacao-ar-split',
+};
+
+const DICAS_FOTO: Record<string, string> = {
+  'troca-disjuntor': 'Frente do disjuntor, etiqueta/código e visão do quadro',
+  'instalacao-chuveiro': 'Chuveiro completo, resistência/etiqueta de potência e registro',
+  'troca-tomada': 'Tomada de frente, lateral (pinos) e caixa de luz se possível',
+  'troca-interruptor': 'Interruptor, modelo e quantidade de teclas',
+  'instalacao-luminaria': 'Luminária, soquete/lâmpada e ponto no teto',
+  'instalacao-ventilador-teto': 'Ventilador, hélices, controle e fixação',
+  'troca-torneira': 'Torneira, bica, marca e tipo de encaixe',
+  'troca-registro': 'Registro, volante e tubulação visível',
+  'instalacao-ar-split': 'Unidade interna/externa, etiqueta BTU e modelo',
+};
 
 const DESCRICOES: Record<number, string> = {
   1: 'Troca simples',
@@ -44,79 +74,135 @@ function acaoFromConfianca(confianca: number): AnaliseIaResult['acao'] {
   return 'nao_gerar_orcamento';
 }
 
-function isDisjuntorContext(servicoSlug: string, opcoes?: Record<string, string>): boolean {
-  const tipo = opcoes?.tipoDiagnostico?.toLowerCase();
-  if (tipo === 'disjuntor') return true;
-  return ['disjuntor', 'troca-disjuntor', 'diagnostico-disjuntor'].includes(servicoSlug);
+function resolverSlugCatalogo(servicoSlug: string, opcoes?: Record<string, string>): string | null {
+  const hint = opcoes?.servicoCatalogoSlug || opcoes?.tipoDiagnostico;
+  if (hint && hint !== 'geral' && hint !== 'auto') {
+    return SLUG_ALIASES[hint] || hint;
+  }
+  const mapped = SLUG_ALIASES[servicoSlug] || servicoSlug;
+  if (SERVICOS_CATALOGO.some((s) => s.slug === mapped)) return mapped;
+  if (servicoSlug.startsWith('diagnostico-')) return null;
+  return null;
+}
+
+function catalogoResumo(): string {
+  return CATEGORIAS.map((cat) => {
+    const servicos = SERVICOS_CATALOGO.filter((s) => s.categoria === cat.slug)
+      .map((s) => `  - ${s.slug}: ${s.nome}`)
+      .join('\n');
+    return `${cat.nome}:\n${servicos}`;
+  }).join('\n\n');
+}
+
+function camposPorServico(slug: string | null): string {
+  const guias: Record<string, string> = {
+    'troca-disjuntor': 'amperagem, curva (B/C/D), polos, tensão, tipo (DR/monopolar/bipolar/tripolar)',
+    'instalacao-chuveiro': 'potência (W), tensão (127/220V), tipo (duo/turbo/eletrônico), material',
+    'troca-tomada': 'amperagem (10A/20A), padrão (2P/2P+T), tipo (simples/dupla/USB), cor',
+    'troca-interruptor': 'teclas (simples/duplo/triplo), linha, tensão',
+    'instalacao-luminaria': 'tipo (plafon/pendente/spot), soquete, potência',
+    'instalacao-ventilador-teto': 'pás, controle (parede/remoto), lâmpada integrada',
+    'troca-torneira': 'tipo (parede/bancada/cozinha), bica, acabamento',
+    'troca-registro': 'tipo (gaveta/pressão/esfera), diâmetro, material',
+    'instalacao-ar-split': 'BTUs, modelo split, gas refrigerante, inverter',
+  };
+  if (slug && guias[slug]) {
+    return `Priorize identificar: ${guias[slug]}.`;
+  }
+  return 'Identifique atributos técnicos relevantes ao produto (amperagem, potência, dimensão, material, etc.).';
 }
 
 function buildPrompt(servicoSlug: string, opcoes?: Record<string, string>): string {
   const contexto = opcoes?.descricao || opcoes?.contexto || '';
   const modeloInformado = opcoes?.modelo;
+  const slugCatalogo = resolverSlugCatalogo(servicoSlug, opcoes);
+  const servicoNome = slugCatalogo
+    ? SERVICOS_CATALOGO.find((s) => s.slug === slugCatalogo)?.nome
+    : null;
 
-  if (isDisjuntorContext(servicoSlug, opcoes)) {
-    return `Você é especialista elétrico da ABS Resolve Já. Analise as fotos de DISJUNTORES (quadro elétrico, etiqueta, frente do disjuntor).
-${modeloInformado ? `Cliente informou: ${modeloInformado}. Valide se confere com a foto.` : ''}
-${contexto ? `Contexto adicional: ${contexto}` : ''}
+  return `Você é especialista técnico da ABS Resolve Já (elétrica, hidráulica, montagem, ar-condicionado).
+Analise as fotos e IDENTIFIQUE O PRODUTO/EQUIPAMENTO com o máximo de detalhes possível.
+${servicoNome ? `O cliente indica que a foto é de: "${servicoNome}" (${slugCatalogo}). Confirme ou corrija.` : 'Determine automaticamente qual produto das categorias abaixo melhor corresponde à foto.'}
+${modeloInformado ? `Cliente informou modelo: ${modeloInformado}. Valide com a foto.` : ''}
+${contexto ? `Contexto: ${contexto}` : ''}
 
-Identifique o máximo possível: marca (Schneider, Siemens, Steck, WEG, ABB etc.), modelo/código, nome comercial, amperagem (A), tipo (monopolar/bipolar/tripolar/DR/DPS), curva (B/C/D), tensão, número de polos, estado (ok/queimado/desgastado/antigo) e um substituto compatível sugerido.
+${camposPorServico(slugCatalogo)}
+
+Catálogo de serviços ABS Resolve (associe o produto ao slug mais próximo):
+${catalogoResumo()}
 
 Responda APENAS JSON válido:
 {
   "confianca": number (0-100),
-  "produtoIdentificado": string (nome resumido ex: "Disjuntor monopolar 20A curva C Steck"),
+  "produtoIdentificado": string (nome resumido legível),
   "nivelComplexidade": 1|2|3,
-  "descricao": string (diagnóstico em linguagem simples para o cliente),
+  "descricao": string (diagnóstico simples para o cliente),
   "especificacao": {
+    "categoriaProduto": string|null (ex: disjuntor, chuveiro, tomada, torneira),
+    "servicoCatalogoSlug": string|null (slug do catálogo acima),
+    "servicoCatalogoNome": string|null,
     "marca": string|null,
     "modelo": string|null,
     "nomeComercial": string|null,
-    "amperagem": string|null,
-    "tipo": string|null,
-    "curva": string|null,
-    "tensao": string|null,
-    "polos": number|null,
+    "tipo": string|null (tipo/subtipo do produto),
+    "atributos": [{"label": string, "valor": string}] (amperagem, potência, BTU, etc.),
     "estadoAparente": string|null,
-    "observacoes": string|null,
-    "compativelSubstituto": string|null
+    "compativelSubstituto": string|null,
+    "observacoes": string|null
   }
 }
 
-Nível 1=troca simples mesmo modelo; 2=ajuste/conector ou modelo próximo; 3=quadro antigo/fiação/material extra.
-Confiança >=90 se amperagem e tipo legíveis; 70-89 se parcial; <70 se foto ilegível.`;
+Nível 1=troca/instalação simples; 2=ajustes ou peça próxima; 3=material extra/fiação/reparo maior.
+Confiança >=90 identificação clara; 70-89 parcial; <70 foto inadequada.`;
+}
+
+function parseAtributos(raw: unknown): AtributoProduto[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((a) => a && typeof a === 'object')
+    .map((a) => {
+      const item = a as Record<string, unknown>;
+      const label = item.label != null ? String(item.label) : '';
+      const valor = item.valor != null ? String(item.valor) : '';
+      return { label, valor };
+    })
+    .filter((a) => a.label && a.valor);
+}
+
+function legadoDisjuntorParaAtributos(e: Record<string, unknown>): AtributoProduto[] {
+  const map: Array<[string, string]> = [
+    ['Amperagem', 'amperagem'],
+    ['Curva', 'curva'],
+    ['Tensão', 'tensao'],
+    ['Polos', 'polos'],
+  ];
+  const attrs: AtributoProduto[] = [];
+  for (const [label, key] of map) {
+    const val = e[key];
+    if (val != null && val !== '') attrs.push({ label, valor: String(val) });
   }
-
-  return `Você é especialista elétrico/residencial da ABS Resolve Já. Analise as fotos do serviço "${servicoSlug}".
-${modeloInformado ? `Cliente informou modelo: ${modeloInformado}. Valide se confere com a foto.` : ''}
-${contexto ? `Contexto: ${contexto}` : ''}
-
-Responda APENAS JSON válido:
-{
-  "confianca": number (0-100),
-  "produtoIdentificado": string,
-  "nivelComplexidade": 1|2|3,
-  "descricao": string
+  return attrs;
 }
 
-Nível 1=troca simples, 2=ajustes/conector, 3=fiação/material extra.
-Confiança >=90 se produto e complexidade claros; 70-89 se incerto; <70 se foto inadequada.`;
-}
-
-function parseEspecificacaoDisjuntor(raw: unknown): EspecificacaoDisjuntor | undefined {
+function parseEspecificacaoProduto(raw: unknown): EspecificacaoProduto | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const e = raw as Record<string, unknown>;
+  let atributos = parseAtributos(e.atributos);
+  if (!atributos.length && e.amperagem) {
+    atributos = legadoDisjuntorParaAtributos(e);
+  }
   return {
+    categoriaProduto: e.categoriaProduto != null ? String(e.categoriaProduto) : null,
+    servicoCatalogoSlug: e.servicoCatalogoSlug != null ? String(e.servicoCatalogoSlug) : null,
+    servicoCatalogoNome: e.servicoCatalogoNome != null ? String(e.servicoCatalogoNome) : null,
     marca: e.marca != null ? String(e.marca) : null,
     modelo: e.modelo != null ? String(e.modelo) : null,
     nomeComercial: e.nomeComercial != null ? String(e.nomeComercial) : null,
-    amperagem: e.amperagem != null ? String(e.amperagem) : null,
     tipo: e.tipo != null ? String(e.tipo) : null,
-    curva: e.curva != null ? String(e.curva) : null,
-    tensao: e.tensao != null ? String(e.tensao) : null,
-    polos: e.polos != null ? Number(e.polos) || null : null,
+    atributos,
     estadoAparente: e.estadoAparente != null ? String(e.estadoAparente) : null,
-    observacoes: e.observacoes != null ? String(e.observacoes) : null,
     compativelSubstituto: e.compativelSubstituto != null ? String(e.compativelSubstituto) : null,
+    observacoes: e.observacoes != null ? String(e.observacoes) : null,
   };
 }
 
@@ -125,7 +211,7 @@ function parseIaResponse(raw: string, servicoSlug: string, opcoes?: Record<strin
     const json = JSON.parse(raw.replace(/```json\n?|\n?```/g, '').trim());
     const confianca = Math.min(100, Math.max(0, Number(json.confianca) || 0));
     const nivel = Math.min(3, Math.max(1, Number(json.nivelComplexidade) || 1)) as 1 | 2 | 3;
-    const especificacao = parseEspecificacaoDisjuntor(json.especificacao);
+    const especificacao = parseEspecificacaoProduto(json.especificacao);
     return {
       confianca,
       produtoIdentificado: String(json.produtoIdentificado || servicoSlug),
@@ -175,7 +261,6 @@ async function analisarComOpenAI(
 
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
   const imageParts = await Promise.all(fotos.map(fotoParaOpenAI));
-
   const prompt = buildPrompt(servicoSlug, opcoesInformadas);
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -186,7 +271,7 @@ async function analisarComOpenAI(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 800,
+      max_tokens: 1000,
       messages: [{
         role: 'user',
         content: [{ type: 'text', text: prompt }, ...imageParts],
@@ -204,27 +289,98 @@ async function analisarComOpenAI(
   return { ...parseIaResponse(content, servicoSlug, opcoesInformadas), fonte: 'openai' };
 }
 
-function simularDisjuntor(seed: number): EspecificacaoDisjuntor {
-  const marcas = ['Steck', 'Schneider', 'Siemens', 'WEG'];
-  const amps = ['16A', '20A', '25A', '32A', '40A'];
-  const curvas = ['B', 'C', 'D'];
-  const tipos = ['Monopolar', 'Bipolar', 'Tripolar'];
-  const marca = marcas[seed % marcas.length];
-  const amperagem = amps[seed % amps.length];
-  const curva = curvas[seed % curvas.length];
-  const tipo = tipos[seed % tipos.length];
+const SIMULACOES: Record<string, Omit<EspecificacaoProduto, 'observacoes'>> = {
+  'troca-disjuntor': {
+    categoriaProduto: 'disjuntor',
+    servicoCatalogoSlug: 'troca-disjuntor',
+    servicoCatalogoNome: 'Troca de disjuntor',
+    marca: 'Steck',
+    modelo: 'DW120',
+    nomeComercial: 'Disjuntor monopolar 20A curva C',
+    tipo: 'Monopolar',
+    atributos: [
+      { label: 'Amperagem', valor: '20A' },
+      { label: 'Curva', valor: 'C' },
+      { label: 'Tensão', valor: '127/220V' },
+      { label: 'Polos', valor: '1' },
+    ],
+    estadoAparente: 'Aparentemente operacional',
+    compativelSubstituto: 'Steck monopolar 20A curva C (padrão DIN)',
+  },
+  'instalacao-chuveiro': {
+    categoriaProduto: 'chuveiro',
+    servicoCatalogoSlug: 'instalacao-chuveiro',
+    servicoCatalogoNome: 'Instalação de chuveiro',
+    marca: 'Lorenzetti',
+    modelo: 'Advanced Turbo',
+    nomeComercial: 'Chuveiro eletrônico 7500W',
+    tipo: 'Eletrônico',
+    atributos: [
+      { label: 'Potência', valor: '7500W' },
+      { label: 'Tensão', valor: '220V' },
+      { label: 'Pressurização', valor: 'Turbo' },
+    ],
+    estadoAparente: 'Resistência pode precisar de verificação',
+    compativelSubstituto: 'Chuveiro 7500W 220V com disjuntor 32A dedicado',
+  },
+  'troca-tomada': {
+    categoriaProduto: 'tomada',
+    servicoCatalogoSlug: 'troca-tomada',
+    servicoCatalogoNome: 'Troca de tomada',
+    marca: 'Tramontina',
+    modelo: 'Linha Norma',
+    nomeComercial: 'Tomada 2P+T 20A',
+    tipo: 'Simples',
+    atributos: [
+      { label: 'Amperagem', valor: '20A' },
+      { label: 'Padrão', valor: '2P+T' },
+      { label: 'Cor', valor: 'Branco' },
+    ],
+    estadoAparente: 'Contatos com sinais de aquecimento',
+    compativelSubstituto: 'Tomada 20A 2P+T padrão NBR',
+  },
+  'troca-interruptor': {
+    categoriaProduto: 'interruptor',
+    servicoCatalogoSlug: 'troca-interruptor',
+    servicoCatalogoNome: 'Troca de interruptor',
+    marca: 'Schneider',
+    modelo: 'Merten',
+    nomeComercial: 'Interruptor simples 10A',
+    tipo: 'Simples',
+    atributos: [{ label: 'Teclas', valor: '1' }, { label: 'Tensão', valor: '127/220V' }],
+    estadoAparente: 'Funcional',
+    compativelSubstituto: 'Interruptor simples 10A compatível com caixa 4x2',
+  },
+};
+
+function simularProduto(slugCatalogo: string | null, seed: number): EspecificacaoProduto {
+  const slug =
+    slugCatalogo && SIMULACOES[slugCatalogo]
+      ? slugCatalogo
+      : slugCatalogo && SERVICOS_CATALOGO.some((s) => s.slug === slugCatalogo)
+        ? slugCatalogo
+        : Object.keys(SIMULACOES)[seed % Object.keys(SIMULACOES).length];
+
+  if (SIMULACOES[slug]) {
+    return {
+      ...SIMULACOES[slug],
+      observacoes: 'Identificação simulada — configure OPENAI_API_KEY para análise real por foto.',
+    };
+  }
+
+  const cat = SERVICOS_CATALOGO.find((s) => s.slug === slug) ?? SERVICOS_CATALOGO[seed % SERVICOS_CATALOGO.length];
   return {
-    marca,
-    modelo: `DW${100 + (seed % 50)}`,
-    nomeComercial: `Disjuntor ${tipo} ${amperagem} curva ${curva}`,
-    amperagem,
-    tipo,
-    curva,
-    tensao: '127/220V',
-    polos: tipo === 'Monopolar' ? 1 : tipo === 'Bipolar' ? 2 : 3,
-    estadoAparente: seed % 4 === 0 ? 'Desgaste visível — recomendada troca' : 'Aparentemente operacional',
+    categoriaProduto: cat.categoria,
+    servicoCatalogoSlug: cat.slug,
+    servicoCatalogoNome: cat.nome,
+    marca: 'Marca genérica',
+    modelo: `MOD-${100 + (seed % 99)}`,
+    nomeComercial: cat.nome,
+    tipo: cat.categoria,
+    atributos: [{ label: 'Serviço', valor: cat.nome }],
+    estadoAparente: 'Necessita avaliação presencial',
+    compativelSubstituto: 'Consulte técnico ABS Resolve',
     observacoes: 'Identificação simulada — configure OPENAI_API_KEY para análise real por foto.',
-    compativelSubstituto: `${marca} ${tipo} ${amperagem} curva ${curva} (padrão DIN)`,
   };
 }
 
@@ -236,36 +392,17 @@ function analisarFotosSimulado(
   const seed = fotos.join('').length + servicoSlug.length + (opcoesInformadas?.modelo?.length || 0);
   const confianca = Math.min(95, 55 + (seed % 45) + fotos.length * 5);
   const nivelComplexidade = ((seed % 3) + 1) as 1 | 2 | 3;
+  const slugCatalogo = resolverSlugCatalogo(servicoSlug, opcoesInformadas);
+  const especificacao = simularProduto(slugCatalogo, seed);
 
-  if (isDisjuntorContext(servicoSlug, opcoesInformadas)) {
-    const especificacao = simularDisjuntor(seed);
-    return {
-      confianca,
-      produtoIdentificado: `${especificacao.marca} — ${especificacao.nomeComercial}`,
-      nivelComplexidade,
-      descricao: `Disjuntor identificado como ${especificacao.tipo} ${especificacao.amperagem}, curva ${especificacao.curva}. ${especificacao.estadoAparente}.`,
-      acao: acaoFromConfianca(confianca),
-      validacaoOk: confianca >= 70,
-      especificacao,
-    };
-  }
-
-  const produtos: Record<string, string> = {
-    disjuntor: 'Disjuntor monopolar 20A',
-    'troca-disjuntor': 'Disjuntor monopolar 20A',
-    chuveiro: 'Chuveiro elétrico 5500W',
-    luminaria: 'Luminária de teto LED',
-    ventilador: 'Ventilador de teto',
-    registro: 'Registro de gaveta 3/4"',
-    'ar-condicionado': 'Split inverter 12000 BTUs',
-  };
   return {
     confianca,
-    produtoIdentificado: produtos[servicoSlug] || servicoSlug,
+    produtoIdentificado: `${especificacao.marca} — ${especificacao.nomeComercial}`,
     nivelComplexidade,
-    descricao: DESCRICOES[nivelComplexidade],
+    descricao: `${especificacao.servicoCatalogoNome}: ${especificacao.estadoAparente}.`,
     acao: acaoFromConfianca(confianca),
     validacaoOk: confianca >= 70,
+    especificacao,
   };
 }
 
@@ -290,7 +427,24 @@ export async function analisarFotos(
 }
 
 export function custosParaServico(servicoSlug: string, nivel: number) {
-  const operacional = CUSTO_OPERACIONAL_BASE[servicoSlug] || 50;
+  const slug = SLUG_ALIASES[servicoSlug] || servicoSlug;
+  const operacional = CUSTO_OPERACIONAL_BASE[servicoSlug] || CUSTO_OPERACIONAL_BASE[slug] || 50;
   const produto = CUSTO_PRODUTO_NIVEL[nivel] || 30;
   return { custoOperacional: operacional, custoProduto: produto };
+}
+
+export function dicaFotoDiagnostico(servicoSlug: string): string {
+  const slug = SLUG_ALIASES[servicoSlug] || servicoSlug;
+  return DICAS_FOTO[slug] || 'Fotos nítidas do produto, etiqueta/modelo e local de instalação';
+}
+
+export function listarServicosDiagnostico() {
+  return CATEGORIAS.map((cat) => ({
+    ...cat,
+    servicos: SERVICOS_CATALOGO.filter((s) => s.categoria === cat.slug).map((s) => ({
+      slug: s.slug,
+      nome: s.nome,
+      dicaFoto: DICAS_FOTO[s.slug] || 'Foto nítida do produto e etiqueta se houver',
+    })),
+  }));
 }

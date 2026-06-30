@@ -9,8 +9,7 @@ export class DiagnosticoService {
     clienteId: string,
     files: Express.Multer.File[],
     contexto?: string,
-    tipoDiagnostico = 'geral',
-    servicoSlug = 'diagnostico-geral'
+    servicoSlug = 'diagnostico-produto'
   ) {
     if (!files.length) throw new Error('Envie pelo menos uma foto');
 
@@ -23,7 +22,7 @@ export class DiagnosticoService {
     const analise = await analisarFotos(servicoSlug, urls, {
       descricao: contexto || '',
       contexto: contexto || '',
-      tipoDiagnostico,
+      ...(servicoSlug !== 'diagnostico-produto' ? { servicoCatalogoSlug: servicoSlug } : {}),
     });
 
     return {
@@ -49,9 +48,11 @@ export class DiagnosticoController {
 
       const files = req.files as Express.Multer.File[];
       const contexto = typeof req.body.contexto === 'string' ? req.body.contexto : undefined;
-      const tipo = typeof req.body.tipo === 'string' ? req.body.tipo : 'geral';
-      const slug = tipo === 'disjuntor' ? 'diagnostico-disjuntor' : 'diagnostico-geral';
-      const data = await diagnosticoService.analisarComFotos(user.clienteId, files, contexto, tipo, slug);
+      const servicoSlug =
+        typeof req.body.servicoSlug === 'string' && req.body.servicoSlug && req.body.servicoSlug !== 'auto'
+          ? req.body.servicoSlug
+          : 'diagnostico-produto';
+      const data = await diagnosticoService.analisarComFotos(user.clienteId, files, contexto, servicoSlug);
       return success(res, data);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro no diagnóstico', 400);
