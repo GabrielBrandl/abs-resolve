@@ -1,8 +1,6 @@
 # ABS Resolve — deploy EasyPanel (Docker Compose)
-# 1. Crie projeto "Compose" no EasyPanel apontando para este repositório
-# 2. Cole o conteúdo de deploy/easypanel.env em Environment
-# 3. Domínio no serviço "web", porta 80
-# 4. Deploy
+# Ambiente: painel ESQUERDO do projeto Compose → Environment → "Create .env file" ON
+# Cole deploy/easypanel.env.local (sem linhas #) → Salvar → Deploy
 
 name: abs-resolve
 
@@ -12,9 +10,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    # Variáveis sensíveis (DATABASE_URL, JWT, etc.): configure na aba
-    # Ambiente do serviço "backend" no EasyPanel — NÃO use pass-through
-    # vazio (- DATABASE_URL), pois isso sobrescreve o valor do painel.
+    env_file:
+      - path: .env
+        required: false
     environment:
       PORT: "3001"
       UPLOAD_DIR: uploads

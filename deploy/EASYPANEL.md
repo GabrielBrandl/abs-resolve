@@ -37,25 +37,32 @@ npx prisma migrate deploy   # no backend — migrations aplicadas
 
 ### 2. Configurar variáveis de ambiente (obrigatório)
 
-Se aparecer erro *"variable is not set"*, *"datasource.url property is required"* ou *"DATABASE_URL não está definida"*, siga **exatamente**:
+O erro `DATABASE_URL não está definida` acontece quando o `.env` do Compose **não foi criado**.
 
-1. Abra **`deploy/easypanel.env.local`** na sua máquina (credenciais reais)
-2. Copie **todo** o conteúdo (Ctrl+A → Ctrl+C)
-3. EasyPanel → projeto (ex.: `crm-app`) → serviço **`backend`** → aba **Ambiente**
-4. **Apague** o conteúdo antigo, **cole** o novo
-5. **Salvar**
-6. **Deploy** / **Rebuild** (aguarde 5–15 min)
+#### Onde colar (Compose — painel esquerdo do projeto)
 
-> **Onde colar:** sempre no serviço **`backend`**, aba **Ambiente**. Não basta colar só no projeto pai.
+1. Abra **`deploy/easypanel.env.local`** (sem linhas `#` — só `CHAVE=valor`)
+2. Copie **todo** o conteúdo
+3. EasyPanel → projeto Compose (ex.: `crm-app`) → menu **Environment** no **painel esquerdo** (nível do projeto, não dentro do serviço backend)
+4. Cole no campo de texto
+5. Ative o toggle **"Create .env file"** (criar arquivo .env) — **obrigatório**
+6. **Salvar**
+7. **Deploy** / **Rebuild**
 
-> **Chave Asaas:** use **`$$`** no início: `ASAAS_API_KEY=$$aact_prod_...`
+> **Não use** linhas com `#` no Environment — o EasyPanel pode ignorar tudo.
 
-> **URLs:** use o domínio real no backend: `FRONTEND_URL=https://app.absresolve.com.br`  
-> `$(PRIMARY_DOMAIN)` **não funciona** no serviço backend (só no web).
+> **ASAAS:** `ASAAS_API_KEY=$$aact_prod_...` (dois `$`)
 
-> **Seed:** `RUN_SEED=true` só no 1º deploy. Depois mude para `false` e redeploy.
+> **URLs:** `FRONTEND_URL=https://app.absresolve.com.br`
 
-**Alternativa (se Ambiente não aplicar):** backend → **Mounts** → **File** → mountPath `/app/.env.production` → cole o mesmo conteúdo (com `$` simples na Asaas, entre aspas se necessário).
+#### Alternativa — Mount no serviço backend
+
+Se o toggle não aparecer ou não funcionar:
+
+1. Serviço **backend** → **Mounts** → **File**
+2. mountPath: `/app/.env.production`
+3. Conteúdo: mesmo do `.env.local`, Asaas com **`$` simples**: `ASAAS_API_KEY=$aact_prod_...`
+4. Salvar → Deploy
 
 ### 3. Configurar domínio e SSL
 
@@ -166,7 +173,7 @@ Internet → web (nginx :80)
 | 502 Bad Gateway na API | Aguarde o healthcheck do `backend` (até 90s no primeiro start). Veja logs |
 | `aact_prod_... variable is not set` | `ASAAS_API_KEY` com **`$$`** no início (ex.: `$$aact_prod_...`), não `$` único |
 | `/api/health` retorna 503 | `DATABASE_URL` e `DIRECT_URL` na aba **Ambiente do serviço backend** → Salvar → Deploy |
-| `datasource.url property is required` (Prisma) | Mesmo: variáveis no serviço **backend**, não só no projeto. Redeploy após Salvar |
+| `DATABASE_URL não está definida` | Projeto Compose → **Environment** (painel esquerdo) → cole `.env.local` → **Create .env file ON** → Deploy |
 | Login não funciona / cookies | Confirme SSL ativo no domínio. API e frontend estão no mesmo domínio via nginx |
 | CORS (raro em produção) | `FRONTEND_URL=https://$(PRIMARY_DOMAIN)` no Environment |
 | PIX não gera | `ASAAS_MOCK=false` e `ASAAS_API_KEY` correta. Veja logs do backend |
