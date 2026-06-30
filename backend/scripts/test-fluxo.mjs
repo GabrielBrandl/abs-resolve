@@ -1,8 +1,28 @@
 /**
- * Teste E2E: carrinho → pagamento (mock confirma) → agendamento
+ * Teste E2E: questionário → carrinho → pagamento (mock confirma) → agendamento
  */
 const BASE = process.env.API_URL || 'http://localhost:3001';
 const ts = Date.now();
+
+const RESPOSTAS_TOMADA = {
+  tipoTomada: 'simples',
+  quantidade: '1',
+  fornecimentoTomada: 'cliente',
+  estadoAtual: 'funcionando',
+  localInstalacao: 'sala',
+  alturaInstalacao: 'ate-2-5m',
+  acabamentoParede: 'pintura',
+};
+
+const RESPOSTAS_INTERRUPTOR = {
+  tipoInterruptor: 'simples',
+  quantidade: '1',
+  fornecimentoInterruptor: 'cliente',
+  estadoInterruptor: 'funciona',
+  localInstalacao: 'sala',
+  alturaInstalacao: 'ate-2-5m',
+  acabamentoParede: 'pintura',
+};
 
 async function req(method, path, body, token) {
   const res = await fetch(`${BASE}${path}`, {
@@ -42,6 +62,16 @@ async function aguardarPagamento(token, solId, maxTentativas = 15) {
 }
 
 async function main() {
+  const fluxoTomada = await req('GET', '/solicitacao/fluxo/troca-tomada', null, null);
+  if (!fluxoTomada.perguntas?.length) throw new Error('Fluxo tomada vazio');
+
+  const precoTomada = await req('POST', '/solicitacao/calcular-preco', {
+    slug: 'troca-tomada',
+    respostas: RESPOSTAS_TOMADA,
+    quantidade: 1,
+  });
+  if (!precoTomada.preco || precoTomada.preco < 149) throw new Error('Preço tomada inválido');
+
   const registro = await req('POST', '/auth/registrar', {
     tipo: 'PF',
     nome: 'Cliente Teste Completo',
@@ -63,9 +93,17 @@ async function main() {
   const sol = await req(
     'POST',
     '/solicitacao/carrinho',
-    { itens: [{ slug: 'troca-tomada', quantidade: 1 }, { slug: 'troca-interruptor', quantidade: 1 }], express: false },
+    {
+      itens: [
+        { slug: 'troca-tomada', quantidade: 1, respostas: RESPOSTAS_TOMADA },
+        { slug: 'troca-interruptor', quantidade: 1, respostas: RESPOSTAS_INTERRUPTOR },
+      ],
+      express: false,
+    },
     token
   );
+
+  if (Number(sol.precoFinal) < 298) throw new Error('Preço carrinho abaixo do esperado');
 
   const pagamentoRes = await req('POST', `/solicitacao/${sol.id}/pagar`, { metodo: 'PIX' }, token);
   await aguardarPagamento(token, sol.id);
@@ -86,6 +124,8 @@ async function main() {
 
   console.log('\n✅ FLUXO COMPLETO OK');
   console.log('  Pedido:', pagamentoRes.pedido?.numero);
+  console.log('  Preço tomada:', precoTomada.preco);
+  console.log('  Carrinho R$:', sol.precoFinal);
   console.log('  Catálogo:', catalogo.total, 'serviços');
   console.log('  Express R$:', config.expressValor);
   console.log('  Timeline steps:', pedidos[0]?.timeline?.length || 0);

@@ -20,6 +20,29 @@ export class SolicitacaoController {
     }
   }
 
+  async fluxoServico(req: Request, res: Response) {
+    try {
+      const slug = typeof req.params.slug === 'string' ? req.params.slug : req.params.slug[0];
+      return success(res, solicitacaoService.obterFluxoServico(slug));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 404);
+    }
+  }
+
+  async calcularPreco(req: Request, res: Response) {
+    try {
+      const { slug, respostas, quantidade } = req.body as {
+        slug: string;
+        respostas?: Record<string, string>;
+        quantidade?: number;
+      };
+      if (!slug) return error(res, 'Slug obrigatório', 400);
+      return success(res, solicitacaoService.calcularPrecoServico(slug, respostas || {}, quantidade || 1));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async upsells(req: Request, res: Response) {
     try {
       const slug = typeof req.params.slug === 'string' ? req.params.slug : req.params.slug[0];
@@ -33,7 +56,7 @@ export class SolicitacaoController {
     try {
       const clienteId = await clienteIdFromReq(req);
       const { itens, express } = req.body as {
-        itens: Array<{ slug: string; quantidade: number }>;
+        itens: Array<{ slug: string; quantidade: number; respostas?: Record<string, string>; fotos?: string[] }>;
         express?: boolean;
       };
       const data = await solicitacaoService.criarCarrinho(clienteId, itens || [], !!express);

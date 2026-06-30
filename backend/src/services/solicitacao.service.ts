@@ -8,6 +8,8 @@ import {
   UPSELLS,
 } from '../config/catalogo.js';
 import { CATEGORIAS, PONTUACAO_POR_SLUG } from '../config/catalogo-servicos.js';
+import { getFluxo, type FluxoServico, type RespostasFluxo } from '../config/fluxo-servicos.js';
+import { calcularPrecoFluxo } from '../config/tabela-precos-fluxo.js';
 import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from '../engines/pricing.engine.js';
 import { listarHorariosDisponiveis, reservarCapacidade } from '../engines/capacity.engine.js';
 import { analisarFotos, custosParaServico } from '../services/ia-diagnostico.service.js';
@@ -23,6 +25,26 @@ function pontosSolicitacao(sol: { opcoes: unknown; servico: { slug: string; pont
   const opcoes = sol.opcoes as { pontosTotal?: number };
   if (opcoes.pontosTotal) return opcoes.pontosTotal;
   return PONTUACAO_POR_SLUG[sol.servico.slug] || PONTUACAO_SERVICO[sol.servico.slug] || sol.servico.pontos;
+}
+
+function perguntasVisiveis(fluxo: FluxoServico, respostas: RespostasFluxo) {
+  return fluxo.perguntas.filter((p) => {
+    if (!p.showIf) return true;
+    const val = respostas[p.showIf.perguntaId];
+    const selected = Array.isArray(val) ? val.map(String) : val != null && val !== '' ? [String(val)] : [];
+    return p.showIf.opcaoIds.some((id) => selected.includes(id));
+  });
+}
+
+function validarRespostasFluxo(slug: string, respostas: RespostasFluxo) {
+  const fluxo = getFluxo(slug);
+  if (!fluxo) return;
+  for (const p of perguntasVisiveis(fluxo, respostas)) {
+    const val = respostas[p.id];
+    if (val === undefined || val === null || val === '') {
+      throw new Error(`Resposta obrigatória (${fluxo.nome}): ${p.titulo}`);
+    }
+  }
 }
 
 function descricaoPedido(sol: { opcoes: unknown; servico: { nome: string } }) {
@@ -82,9 +104,20 @@ export class SolicitacaoService {
     return { categorias, total: servicos.length, servicos };
   }
 
+  obterFluxoServico(slug: string) {
+    const fluxo = getFluxo(slug);
+    if (!fluxo) throw new Error(`Questionário não disponível para "${slug}"`);
+    return fluxo;
+  }
+
+  calcularPrecoServico(slug: string, respostas: RespostasFluxo = {}, quantidade = 1) {
+    validarRespostasFluxo(slug, respostas);
+    return calcularPrecoFluxo(slug, respostas, quantidade);
+  }
+
   async criarCarrinho(
     clienteId: string,
-    itens: Array<{ slug: string; quantidade: number }>,
+    itens: Array<{ slug: string; quantidade: number; respostas?: RespostasFluxo; fotos?: string[] }>,
     express = false
   ) {
     if (!itens.length) throw new Error('Adicione pelo menos um serviço ao carrinho');
@@ -97,10 +130,16 @@ export class SolicitacaoService {
       precoUnitario: number;
       precoTexto: string | null;
       subtotal: number;
+      respostas?: RespostasFluxo;
+      breakdown?: Array<{ label: string; valor: number }>;
+      requerValidacaoTecnica?: boolean;
+      mensagemValidacao?: string;
+      fotos?: string[];
     }> = [];
 
     let precoSubtotal = 0;
     let pontosTotal = 0;
+    let requerValidacaoTecnica = false;
 
     for (const item of itens) {
       const servico = await prisma.catalogoServico.findUnique({ where: { slug: item.slug } });
@@ -110,8 +149,30 @@ export class SolicitacaoService {
       }
       if (item.quantidade < 1) continue;
 
-      const precoUnit = toNumber(servico.precoMinimo || 0);
-      const subtotal = precoUnit * item.quantidade;
+      const fluxo = getFluxo(item.slug);
+      let subtotal: number;
+      let precoUnit: number;
+      let breakdown: Array<{ label: string; valor: number }> | undefined;
+      let itemValidacao = false;
+      let mensagemValidacao: string | undefined;
+
+      if (fluxo) {
+        if (!item.respostas || !Object.keys(item.respostas).length) {
+          throw new Error(`Complete o questionário de "${servico.nome}" antes de pagar`);
+        }
+        validarRespostasFluxo(item.slug, item.respostas);
+        const calculo = calcularPrecoFluxo(item.slug, item.respostas, item.quantidade);
+        subtotal = calculo.preco;
+        precoUnit = item.quantidade > 0 ? subtotal / item.quantidade : subtotal;
+        breakdown = calculo.breakdown;
+        itemValidacao = calculo.requerValidacaoTecnica;
+        mensagemValidacao = calculo.mensagemValidacao;
+        if (itemValidacao) requerValidacaoTecnica = true;
+      } else {
+        precoUnit = toNumber(servico.precoMinimo || 0);
+        subtotal = precoUnit * item.quantidade;
+      }
+
       precoSubtotal += subtotal;
       pontosTotal += servico.pontos * item.quantidade;
 
@@ -123,7 +184,17 @@ export class SolicitacaoService {
         precoUnitario: precoUnit,
         precoTexto: servico.precoTexto,
         subtotal,
+        ...(item.respostas ? { respostas: item.respostas } : {}),
+        ...(breakdown ? { breakdown } : {}),
+        ...(itemValidacao ? { requerValidacaoTecnica: true, mensagemValidacao } : {}),
+        ...(item.fotos?.length ? { fotos: item.fotos } : {}),
       });
+    }
+
+    if (requerValidacaoTecnica) {
+      throw new Error(
+        'Seu pedido requer validação técnica da ABS antes do pagamento. Entre em contato pelo WhatsApp para continuar.'
+      );
     }
 
     const config = await getConfigPrecificacao();
@@ -133,12 +204,15 @@ export class SolicitacaoService {
     const anchor = await prisma.catalogoServico.findUnique({ where: { slug: itens[0].slug } });
     if (!anchor) throw new Error('Serviço inválido');
 
+    const fotosTodas = itens.flatMap((i) => i.fotos || []);
+
     return prisma.solicitacaoServico.create({
       data: {
         clienteId,
         servicoId: anchor.id,
         tipo: 'C',
-        opcoes: { itens: detalhes, pontosTotal },
+        opcoes: { itens: detalhes, pontosTotal, requerValidacaoTecnica: false },
+        fotos: fotosTodas,
         precoBase: precoSubtotal,
         precoFinal,
         express,
@@ -234,6 +308,19 @@ export class SolicitacaoService {
       include: { servico: true },
     });
     if (!sol) throw new Error('Solicitação não encontrada');
+
+    if (sol.tipo === 'C') {
+      const opcoes = sol.opcoes as Record<string, unknown>;
+      return prisma.solicitacaoServico.update({
+        where: { id },
+        data: {
+          fotos,
+          opcoes: { ...opcoes, fotosCliente: fotos } as Prisma.InputJsonValue,
+        },
+        include: { servico: true },
+      });
+    }
+
     if (sol.servico.tipo !== 'B') throw new Error('Este serviço não exige fotos');
 
     const opcoes = sol.opcoes as Record<string, string>;

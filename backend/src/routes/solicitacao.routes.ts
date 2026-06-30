@@ -9,6 +9,8 @@ const router = Router();
 router.get('/catalogo', (req, res) => solicitacaoController.catalogo(req, res));
 router.get('/config', (req, res) => solicitacaoController.configPublica(req, res));
 router.get('/upsells/:slug', (req, res) => solicitacaoController.upsells(req, res));
+router.get('/fluxo/:slug', (req, res) => solicitacaoController.fluxoServico(req, res));
+router.post('/calcular-preco', (req, res) => solicitacaoController.calcularPreco(req, res));
 router.post('/calcular-tipo-a', (req, res) => solicitacaoController.calcularTipoA(req, res));
 
 router.use(authMiddleware, checkRole('cliente'));

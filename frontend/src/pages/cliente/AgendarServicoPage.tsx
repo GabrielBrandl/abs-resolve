@@ -3,9 +3,10 @@ import { solicitacaoApi } from '../../services/modules.service';
 import { useCartStore } from '../../store/cartStore';
 import { formatCurrency } from '../../types';
 import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal } from '../../components/ui';
+import { QuestionarioServico, FotosServicoStep, QuestionarioNav, type PrecoCalculado } from '../../components/cliente/QuestionarioServico';
 import { useToast } from '../../components/Toast';
 
-type Step = 'catalogo' | 'carrinho' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
+type Step = 'catalogo' | 'carrinho' | 'questionario' | 'resumo' | 'fotos' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
 
 interface ServicoCatalogo {
   id: string;
@@ -108,6 +109,11 @@ export function AgendarServicoPage() {
   const [aguardandoPagamento, setAguardandoPagamento] = useState(false);
   const [orcamentoModal, setOrcamentoModal] = useState<ServicoCatalogo | null>(null);
   const [orcamentoDesc, setOrcamentoDesc] = useState('');
+  const [itemQuestionarioIdx, setItemQuestionarioIdx] = useState(0);
+  const [respostasPorSlug, setRespostasPorSlug] = useState<Record<string, Record<string, string>>>({});
+  const [precosPorSlug, setPrecosPorSlug] = useState<Record<string, PrecoCalculado | null>>({});
+  const [fotosPorSlug, setFotosPorSlug] = useState<Record<string, File[]>>({});
+  const [fluxosFotos, setFluxosFotos] = useState<Record<string, string[]>>({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -183,11 +189,100 @@ export function AgendarServicoPage() {
     setStep('carrinho');
   };
 
+  const irQuestionario = () => {
+    if (!cart.count()) {
+      toast('Adicione serviços ao carrinho', 'error');
+      return;
+    }
+    setItemQuestionarioIdx(0);
+    setStep('questionario');
+  };
+
+  const itemAtual = cart.items[itemQuestionarioIdx];
+  const respostasAtual = itemAtual ? respostasPorSlug[itemAtual.slug] || {} : {};
+  const precoAtual = itemAtual ? precosPorSlug[itemAtual.slug] : null;
+
+  const totalCalculado = useMemo(() => {
+    return cart.items.reduce((sum, item) => {
+      const p = precosPorSlug[item.slug];
+      return sum + (p?.preco ?? (item.precoMinimo || 0) * item.quantidade);
+    }, 0);
+  }, [cart.items, precosPorSlug]);
+
+  const temValidacaoTecnica = cart.items.some((i) => precosPorSlug[i.slug]?.requerValidacaoTecnica);
+
+  const questionarioCompleto = cart.items.every((item) => {
+    const p = precosPorSlug[item.slug];
+    return p && !p.requerValidacaoTecnica;
+  });
+
+  const setRespostaAtual = (perguntaId: string, valor: string) => {
+    if (!itemAtual) return;
+    setRespostasPorSlug((prev) => ({
+      ...prev,
+      [itemAtual.slug]: { ...(prev[itemAtual.slug] || {}), [perguntaId]: valor },
+    }));
+  };
+
+  const setPrecoAtual = (preco: PrecoCalculado | null) => {
+    if (!itemAtual) return;
+    setPrecosPorSlug((prev) => ({ ...prev, [itemAtual.slug]: preco }));
+  };
+
+  const avancarQuestionario = () => {
+    if (!precoAtual || precoAtual.requerValidacaoTecnica) {
+      toast('Responda todas as perguntas ou aguarde validação técnica', 'error');
+      return;
+    }
+    if (itemQuestionarioIdx < cart.items.length - 1) {
+      setItemQuestionarioIdx((i) => i + 1);
+    } else {
+      setStep('resumo');
+    }
+  };
+
+  const irFotos = async () => {
+    if (!questionarioCompleto) {
+      toast('Complete o questionário de todos os serviços', 'error');
+      return;
+    }
+    const cache: Record<string, string[]> = { ...fluxosFotos };
+    for (const item of cart.items) {
+      if (!cache[item.slug]) {
+        try {
+          const fluxo = await solicitacaoApi.fluxo(item.slug);
+          cache[item.slug] = fluxo.fotosObrigatorias || [];
+        } catch {
+          cache[item.slug] = [];
+        }
+      }
+    }
+    setFluxosFotos(cache);
+    setStep('fotos');
+  };
+
   const confirmarPedido = async () => {
+    const semFoto = cart.items.find((i) => !(fotosPorSlug[i.slug]?.length));
+    if (semFoto) {
+      toast(`Envie pelo menos uma foto para "${semFoto.nome}"`, 'error');
+      return;
+    }
     setSubmitting(true);
     try {
-      const itens = cart.items.map((i) => ({ slug: i.slug, quantidade: i.quantidade }));
-      const sol = await solicitacaoApi.criarCarrinho({ itens, express }) as { id: string; precoFinal: number };
+      const itens = cart.items.map((i) => ({
+        slug: i.slug,
+        quantidade: i.quantidade,
+        respostas: respostasPorSlug[i.slug] || {},
+      }));
+      const sol = (await solicitacaoApi.criarCarrinho({ itens, express })) as { id: string; precoFinal: number };
+
+      for (const item of cart.items) {
+        const files = fotosPorSlug[item.slug];
+        if (files?.length) {
+          await solicitacaoApi.uploadFotos(sol.id, files, item.slug);
+        }
+      }
+
       setSolicitacaoId(sol.id);
       setPreco(Number(sol.precoFinal));
       setStep('pagamento');
@@ -259,10 +354,27 @@ export function AgendarServicoPage() {
   if (loading) return <Loading />;
 
   const stepLabels: Record<Step, string> = {
-    catalogo: 'Catálogo', carrinho: 'Carrinho', pagamento: 'Pagamento',
-    aguardando: 'Confirmação', horario: 'Horário', concluido: 'Pronto',
+    catalogo: 'Catálogo',
+    carrinho: 'Carrinho',
+    questionario: 'Perguntas',
+    resumo: 'Resumo',
+    fotos: 'Fotos',
+    pagamento: 'Pagamento',
+    aguardando: 'Confirmação',
+    horario: 'Horário',
+    concluido: 'Pronto',
   };
-  const stepOrder: Step[] = ['catalogo', 'carrinho', 'pagamento', 'aguardando', 'horario', 'concluido'];
+  const stepOrder: Step[] = [
+    'catalogo',
+    'carrinho',
+    'questionario',
+    'resumo',
+    'fotos',
+    'pagamento',
+    'aguardando',
+    'horario',
+    'concluido',
+  ];
 
   return (
     <div className="pb-24">
@@ -417,15 +529,112 @@ export function AgendarServicoPage() {
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <p className="text-xl font-bold text-primary-800">
-              Total: {formatCurrency(cart.total() + (express ? expressValor : 0))}
+              A partir de: {formatCurrency(cart.total() + (express ? expressValor : 0))}
             </p>
+            <p className="text-xs text-slate-500">O valor final será calculado após o questionário</p>
             <div className="flex gap-2">
               <Button onClick={() => setStep('catalogo')}>Continuar comprando</Button>
-              <Button variant="cta" onClick={confirmarPedido} disabled={submitting || !cart.count()}>
-                {submitting ? 'Processando...' : 'Ir para pagamento'}
+              <Button variant="cta" onClick={irQuestionario} disabled={!cart.count()}>
+                Responder perguntas
               </Button>
             </div>
           </div>
+        </Card>
+      )}
+
+      {step === 'questionario' && itemAtual && (
+        <Card>
+          <p className="mb-4 text-sm text-slate-500">
+            Serviço {itemQuestionarioIdx + 1} de {cart.items.length}
+          </p>
+          <QuestionarioServico
+            slug={itemAtual.slug}
+            nome={itemAtual.nome}
+            quantidade={itemAtual.quantidade}
+            respostas={respostasAtual}
+            onResposta={setRespostaAtual}
+            onPrecoChange={setPrecoAtual}
+          />
+          <QuestionarioNav
+            onVoltar={() => {
+              if (itemQuestionarioIdx > 0) setItemQuestionarioIdx((i) => i - 1);
+              else setStep('carrinho');
+            }}
+            onAvancar={avancarQuestionario}
+            disabled={!precoAtual || precoAtual.requerValidacaoTecnica}
+            avancarLabel={itemQuestionarioIdx < cart.items.length - 1 ? 'Próximo serviço' : 'Ver resumo'}
+          />
+        </Card>
+      )}
+
+      {step === 'resumo' && (
+        <Card>
+          <h3 className="mb-4 text-lg font-bold text-primary-800">Resumo do pedido</h3>
+          {temValidacaoTecnica && (
+            <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+              Um ou mais serviços requerem validação técnica da ABS. Entre em contato pelo WhatsApp antes de pagar.
+            </div>
+          )}
+          <ul className="divide-y divide-abs-gray">
+            {cart.items.map((item) => {
+              const p = precosPorSlug[item.slug];
+              return (
+                <li key={item.slug} className="py-3">
+                  <div className="flex justify-between font-semibold text-primary-800">
+                    <span>{item.nome}</span>
+                    <span>{formatCurrency(p?.preco ?? 0)}</span>
+                  </div>
+                  {p?.breakdown?.map((b, i) => (
+                    <p key={i} className="flex justify-between text-xs text-slate-500">
+                      <span>{b.label}</span>
+                      <span>{formatCurrency(b.valor)}</span>
+                    </p>
+                  ))}
+                </li>
+              );
+            })}
+          </ul>
+          <label className="mt-4 flex items-center gap-2 rounded-lg border-2 border-accent-400 bg-accent-50 p-3">
+            <input type="checkbox" checked={express} onChange={(e) => setExpress(e.target.checked)} />
+            <span className="font-medium">Atendimento Express (+ {formatCurrency(expressValor)})</span>
+          </label>
+          <p className="mt-4 text-xl font-bold text-primary-800">
+            Total: {formatCurrency(totalCalculado + (express ? expressValor : 0))}
+          </p>
+          <QuestionarioNav
+            onVoltar={() => {
+              setItemQuestionarioIdx(cart.items.length - 1);
+              setStep('questionario');
+            }}
+            onAvancar={irFotos}
+            disabled={!questionarioCompleto}
+            avancarLabel="Enviar fotos"
+          />
+        </Card>
+      )}
+
+      {step === 'fotos' && (
+        <Card>
+          <h3 className="mb-2 text-lg font-bold text-primary-800">Fotos do local</h3>
+          <p className="mb-4 text-sm text-slate-500">
+            Envie fotos conforme indicado para cada serviço. Isso ajuda na validação antes do atendimento.
+          </p>
+          {cart.items.map((item) => (
+            <FotosServicoStep
+              key={item.slug}
+              slug={item.slug}
+              nome={item.nome}
+              labels={fluxosFotos[item.slug] || []}
+              arquivos={fotosPorSlug[item.slug] || []}
+              onChange={(files) => setFotosPorSlug((prev) => ({ ...prev, [item.slug]: files }))}
+            />
+          ))}
+          <QuestionarioNav
+            onVoltar={() => setStep('resumo')}
+            onAvancar={confirmarPedido}
+            disabled={submitting || cart.items.some((i) => !(fotosPorSlug[i.slug]?.length))}
+            avancarLabel={submitting ? 'Processando...' : 'Ir para pagamento'}
+          />
         </Card>
       )}
 

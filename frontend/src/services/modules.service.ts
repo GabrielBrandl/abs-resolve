@@ -183,8 +183,29 @@ export const solicitacaoApi = {
       }>;
       total: number;
     }>('/solicitacao/catalogo'),
-  criarCarrinho: (body: { itens: Array<{ slug: string; quantidade: number }>; express?: boolean }) =>
-    post('/solicitacao/carrinho', body),
+  criarCarrinho: (body: {
+    itens: Array<{ slug: string; quantidade: number; respostas?: Record<string, string>; fotos?: string[] }>;
+    express?: boolean;
+  }) => post('/solicitacao/carrinho', body),
+  fluxo: (slug: string) =>
+    get<{
+      slug: string;
+      nome: string;
+      perguntas: Array<{
+        id: string;
+        titulo: string;
+        opcoes: Array<{ id: string; label: string }>;
+        showIf?: { perguntaId: string; opcaoIds: string[] };
+      }>;
+      fotosObrigatorias: string[];
+    }>(`/solicitacao/fluxo/${slug}`),
+  calcularPreco: (body: { slug: string; respostas: Record<string, string>; quantidade?: number }) =>
+    post<{
+      preco: number;
+      breakdown: Array<{ label: string; valor: number }>;
+      requerValidacaoTecnica: boolean;
+      mensagemValidacao?: string;
+    }>('/solicitacao/calcular-preco', body),
   checkout: (id: string, express: boolean) => post(`/solicitacao/${id}/checkout`, { express }),
   upsells: (slug: string) => get<Array<{ id: string; nome: string; preco: number }>>(`/solicitacao/upsells/${slug}`),
   calcularTipoA: (body: unknown) => post<{ precoBase: number; precoFinal: number }>('/solicitacao/calcular-tipo-a', body),
