@@ -204,7 +204,9 @@ export function QuestionarioServico({
                         <img
                           src={imagemParaOpcao(slug, p.id, op.id, imagemCatalogo)}
                           alt=""
-                          className="h-14 w-full rounded-md border border-slate-200 bg-slate-50 object-contain p-1"
+                          className="h-20 w-full rounded-md border border-slate-200 bg-white object-contain object-center p-1"
+                          loading="lazy"
+                          decoding="async"
                         />
                       )}
                       <span className="text-center leading-tight">{op.label}</span>
@@ -216,7 +218,9 @@ export function QuestionarioServico({
                 <img
                   src={imagemParaOpcao(slug, p.id, respostas[p.id], imagemCatalogo)}
                   alt=""
-                  className="mt-3 h-36 w-full max-w-xs rounded-xl border border-abs-gray bg-slate-50 object-contain p-2"
+                  className="mt-3 aspect-[4/3] w-full max-w-sm rounded-xl border border-abs-gray bg-white object-contain object-center p-2 shadow-sm"
+                  loading="lazy"
+                  decoding="async"
                 />
               )}
             </div>
@@ -266,7 +270,7 @@ export function QuestionarioServico({
         <img
           src={imagemAtual}
           alt={nome}
-          className="aspect-[4/3] w-full rounded-xl border border-abs-gray object-cover object-center shadow-sm lg:sticky lg:top-4"
+          className="aspect-[4/3] w-full rounded-xl border border-abs-gray bg-white object-contain object-center p-2 shadow-sm lg:sticky lg:top-4"
           loading="lazy"
           decoding="async"
           onError={(e) => {

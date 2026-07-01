@@ -33,7 +33,7 @@ const chavesComImagem = new Set(
 export const MARGEM_ERRO_IA_PERCENT = 15;
 
 export function caminhoImagemOpcao(slug: string, perguntaId: string, opcaoId: string): string {
-  return `/opcoes/${slug}/${perguntaId}/${opcaoId}.svg`;
+  return `/opcoes/${slug}/${perguntaId}/${opcaoId}.webp`;
 }
 
 export function temImagemOpcao(slug: string, perguntaId: string, opcaoId: string): boolean {
