@@ -30,6 +30,7 @@ export type RespostasFluxo = Record<string, RespostaFluxoValor>;
 export interface FluxoPerguntaOpcao {
   id: string;
   label: string;
+  precoAdicional?: number;
 }
 
 export interface FluxoPerguntaShowIf {

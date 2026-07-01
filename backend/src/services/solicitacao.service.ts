@@ -8,7 +8,8 @@ import {
   UPSELLS,
 } from '../config/catalogo.js';
 import { CATEGORIAS, PONTUACAO_POR_SLUG } from '../config/catalogo-servicos.js';
-import { getFluxo, type FluxoServico, type RespostasFluxo } from '../config/fluxo-servicos.js';
+import { type FluxoServico, type RespostasFluxo } from '../config/fluxo-servicos.js';
+import { fluxoConfigService } from './fluxo-config.service.js';
 import { calcularPrecoFluxo } from '../config/tabela-precos-fluxo.js';
 import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from '../engines/pricing.engine.js';
 import { listarHorariosDisponiveis, reservarCapacidade } from '../engines/capacity.engine.js';
@@ -38,7 +39,7 @@ function perguntasVisiveis(fluxo: FluxoServico, respostas: RespostasFluxo) {
 }
 
 function validarRespostasFluxo(slug: string, respostas: RespostasFluxo) {
-  const fluxo = getFluxo(slug);
+  const fluxo = fluxoConfigService.getFluxoEfetivo(slug);
   if (!fluxo) return;
   for (const p of perguntasVisiveis(fluxo, respostas)) {
     const val = respostas[p.id];
@@ -106,7 +107,7 @@ export class SolicitacaoService {
   }
 
   obterFluxoServico(slug: string) {
-    const fluxo = getFluxo(slug);
+    const fluxo = fluxoConfigService.getFluxoEfetivo(slug);
     if (!fluxo) throw new Error(`Questionário não disponível para "${slug}"`);
     return fluxo;
   }
@@ -151,7 +152,7 @@ export class SolicitacaoService {
       }
       if (item.quantidade < 1) continue;
 
-      const fluxo = getFluxo(item.slug);
+      const fluxo = fluxoConfigService.getFluxoEfetivo(item.slug);
       let subtotal: number;
       let precoUnit: number;
       let breakdown: Array<{ label: string; valor: number }> | undefined;

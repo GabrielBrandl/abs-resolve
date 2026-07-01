@@ -64,8 +64,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center abs-gradient px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <Logo variant="gradient" className="mx-auto h-24" />
-          <p className="mt-2 text-sm italic text-white/90">Chamou. ConfioU. Resolveu.</p>
+          <Logo variant="default" className="mx-auto h-28" />
         </div>
 
         <div className="mb-4 flex rounded-xl bg-white/10 p-1 backdrop-blur-sm" role="tablist" aria-label="Tipo de acesso">

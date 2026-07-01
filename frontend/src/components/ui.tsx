@@ -116,34 +116,66 @@ export function Tabs({ tabs, active, onChange }: { tabs: { key: string; label: s
   );
 }
 
+const MARCA_TEXTO = /^(ABS Resolve Já|ABS Resolve|ABS)$/;
+
+/** Substitui texto da marca por logo inline (mensagens do backend). */
+export function TextoComMarca({ texto, logoClassName = 'h-4' }: { texto: string; logoClassName?: string }) {
+  const partes = texto.split(/(ABS Resolve Já|ABS Resolve|\bABS\b)/g);
+  return (
+    <>
+      {partes.map((parte, i) => {
+        if (!parte) return null;
+        if (MARCA_TEXTO.test(parte)) {
+          return <Logo key={i} variant="inline" className={logoClassName} />;
+        }
+        return <span key={i}>{parte}</span>;
+      })}
+    </>
+  );
+}
+
 export function Logo({
   className = 'h-16',
-  variant = 'gradient',
+  variant = 'default',
 }: {
   className?: string;
-  /** gradient = fundo azul (login); sidebar = menu lateral; card = páginas brancas */
-  variant?: 'gradient' | 'sidebar' | 'card' | 'light' | 'dark';
+  /** default = login/cadastro | sidebar = menus laterais | card = cards claros | inline = dentro de frases */
+  variant?: 'default' | 'sidebar' | 'card' | 'inline' | 'gradient' | 'light' | 'dark';
 }) {
   const resolved =
-    variant === 'light' ? 'gradient' : variant === 'dark' ? 'sidebar' : variant;
+    variant === 'gradient' || variant === 'light'
+      ? 'default'
+      : variant === 'dark'
+        ? 'sidebar'
+        : variant;
 
-  const frame: Record<'gradient' | 'sidebar' | 'card', string> = {
-    gradient:
-      'inline-flex max-w-full items-center justify-center rounded-2xl bg-white px-4 py-3 shadow-xl shadow-primary-900/30 ring-2 ring-accent-500/60',
-    sidebar:
-      'inline-flex max-w-full items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-md ring-1 ring-accent-500/50',
-    card:
-      'inline-flex max-w-full items-center justify-center rounded-xl overflow-hidden shadow-md ring-2 ring-primary-500/20 bg-[#0a0a0a]',
+  if (resolved === 'inline') {
+    return (
+      <img
+        src="/logo.png"
+        alt=""
+        aria-hidden
+        className={`inline-block align-middle object-contain ${className || 'h-5'}`}
+        decoding="async"
+      />
+    );
+  }
+
+  const frame: Record<'default' | 'sidebar' | 'card', string> = {
+    default:
+      'inline-flex max-w-full items-center justify-center overflow-hidden rounded-2xl shadow-xl shadow-primary-900/30',
+    sidebar: 'inline-flex max-w-full items-center justify-center overflow-hidden rounded-xl',
+    card: 'inline-flex max-w-full items-center justify-center overflow-hidden rounded-xl shadow-md ring-1 ring-slate-200',
   };
 
   return (
     <span className={frame[resolved]} role="img" aria-label="ABS Resolve">
       <img
         src="/logo.png"
-        alt="ABS Resolve — Chamou. ConfioU. Resolveu."
-        className={`${className} w-auto max-w-[min(100%,280px)] object-contain`}
-        width={280}
-        height={120}
+        alt=""
+        className={`${className} w-auto max-w-[min(100%,320px)] object-contain`}
+        width={320}
+        height={140}
         decoding="async"
       />
     </span>

@@ -83,8 +83,7 @@ export function CadastroPage() {
     <div className="min-h-screen abs-gradient px-4 py-8">
       <div className="mx-auto max-w-lg">
         <div className="mb-6 text-center">
-          <Logo variant="gradient" className="mx-auto h-20" />
-          <p className="mt-3 text-sm italic text-white/90">Chamou. ConfioU. Resolveu.</p>
+          <Logo variant="default" className="mx-auto h-24" />
           <h1 className="mt-4 text-2xl font-bold text-white">Crie sua conta</h1>
           <p className="text-sm text-white/80">Cadastro obrigatório para solicitar serviços</p>
         </div>
@@ -114,7 +113,10 @@ export function CadastroPage() {
 
             <label className="mb-4 flex items-start gap-2 text-sm">
               <input type="checkbox" checked={form.consentimentoLgpd} onChange={(e) => setForm({ ...form, consentimentoLgpd: e.target.checked })} className="mt-1" />
-              <span>Autorizo o tratamento dos meus dados conforme a LGPD e os termos da ABS Resolve.</span>
+              <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-1 leading-relaxed">
+                Autorizo o tratamento dos meus dados conforme a LGPD e os termos da{' '}
+                <Logo variant="inline" className="h-5" />.
+              </span>
             </label>
 
             <Button type="submit" variant="cta" disabled={loading} className="w-full">

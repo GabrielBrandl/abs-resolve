@@ -439,3 +439,18 @@ model CampanhaCrm {
 
   @@map("campanhas_crm")
 }
+
+model FluxoServicoConfig {
+  id                String   @id @default(uuid())
+  slug              String   @unique
+  perguntas         Json     @default("[]")
+  fotosObrigatorias Json     @default("[]") @map("fotos_obrigatorias")
+  regrasValidacao   Json     @default("[]") @map("regras_validacao")
+  modoPreco         String   @default("padrao") @map("modo_preco")
+  precoBase         Decimal? @map("preco_base") @db.Decimal(12, 2)
+  itensPreco        Json     @default("[]") @map("itens_preco")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("fluxo_servico_config")
+}

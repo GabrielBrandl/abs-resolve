@@ -33,11 +33,11 @@ export function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-4 rounded-xl abs-gradient p-6 text-white">
-        <Logo variant="gradient" className="h-14" />
+      <div className="mb-6 flex flex-col gap-4 rounded-xl abs-gradient p-6 text-white sm:flex-row sm:items-center">
+        <Logo variant="default" className="h-20 shrink-0" />
         <div>
           <h1 className="text-2xl font-bold">Dashboard Executivo</h1>
-          <p className="text-sm text-white/80">ABS Resolve Já — operação em tempo real</p>
+          <p className="text-sm text-white/80">Operação em tempo real</p>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { prisma } from '../utils/prisma.js';
 import { catalogoAdminService } from '../services/catalogo-admin.service.js';
+import { fluxoConfigService } from '../services/fluxo-config.service.js';
 import { success, error } from '../utils/response.js';
 import { paramId } from '../utils/params.js';
 
@@ -101,6 +101,38 @@ export class CatalogoAdminController {
     try {
       const { precoFinal, observacao } = req.body;
       return success(res, await catalogoAdminService.responderOrcamento(paramId(req.params.id), precoFinal, observacao));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async listarFluxos(_req: Request, res: Response) {
+    try {
+      return success(res, await fluxoConfigService.listar());
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
+
+  async obterFluxo(req: Request, res: Response) {
+    try {
+      return success(res, await fluxoConfigService.obter(String(req.params.slug)));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 404);
+    }
+  }
+
+  async atualizarFluxo(req: Request, res: Response) {
+    try {
+      return success(res, await fluxoConfigService.atualizar(String(req.params.slug), req.body));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async restaurarFluxo(req: Request, res: Response) {
+    try {
+      return success(res, await fluxoConfigService.restaurarPadrao(String(req.params.slug)));
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
     }

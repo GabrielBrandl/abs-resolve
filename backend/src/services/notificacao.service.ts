@@ -40,12 +40,17 @@ function formatarHorario(data: string, inicio: string, fim: string) {
 }
 
 export class NotificacaoService {
+  private logoUrl() {
+    const base = (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://app.absresolve.com.br').replace(/\/$/, '');
+    return `${base}/logo.png`;
+  }
+
   private template(titulo: string, paragrafos: string[], extraHtml = '') {
     const corpo = paragrafos.map((p) => `<p style="margin:0 0 12px;line-height:1.5">${p}</p>`).join('');
     return `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b">
-        <div style="background:#0f2744;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0">
-          <strong>ABS Resolve Já</strong>
+        <div style="background:#0a0a0a;padding:16px 20px;border-radius:8px 8px 0 0;text-align:center">
+          <img src="${this.logoUrl()}" alt="ABS Resolve" width="200" style="max-width:200px;height:auto;display:inline-block" />
         </div>
         <div style="border:1px solid #e2e8f0;border-top:none;padding:20px;border-radius:0 0 8px 8px">
           <h2 style="margin:0 0 16px;font-size:18px;color:#0f2744">${titulo}</h2>

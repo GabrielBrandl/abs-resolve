@@ -23,6 +23,7 @@ const navItems: NavItem[] = [
   { label: 'Estoque', path: '/admin/estoque', roles: ['admin', 'comercial'], icon: '📦' },
   { label: 'Agenda', path: '/admin/agenda', roles: ['admin', 'comercial'], icon: '📅' },
   { label: 'Orçamentos', path: '/admin/orcamentos', roles: ['admin', 'comercial'], icon: '📝' },
+  { label: 'Questionários', path: '/admin/questionarios', roles: ['admin'], icon: '❓' },
   { label: 'Admin', path: '/admin', roles: ['admin'], icon: '⚙️' },
 ];
 
@@ -42,7 +43,7 @@ export function Sidebar() {
   return (
     <aside className="flex w-64 flex-col bg-sidebar text-white">
       <div className="border-b border-primary-600/30 px-4 py-4">
-        <Logo variant="sidebar" className="h-12" />
+        <Logo variant="sidebar" className="h-14" />
         <p className="mt-1 text-xs text-accent-400">Plataforma de Gestão</p>
       </div>
 

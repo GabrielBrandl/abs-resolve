@@ -4,7 +4,7 @@ import { solicitacaoApi } from '../../services/modules.service';
 import { useCartStore } from '../../store/cartStore';
 import { formatCurrency } from '../../types';
 import { imagemServicoComRespostas, MARGEM_ERRO_IA_PERCENT } from '../../config/imagens-opcoes';
-import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal } from '../../components/ui';
+import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal, Logo } from '../../components/ui';
 import { QuestionarioServico, FotosServicoStep, QuestionarioNav, type PrecoCalculado } from '../../components/cliente/QuestionarioServico';
 import { useToast } from '../../components/Toast';
 
@@ -602,7 +602,10 @@ export function AgendarServicoPage() {
           <h3 className="mb-4 text-lg font-bold text-primary-800">Resumo do pedido</h3>
           {temValidacaoTecnica && (
             <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-              Um ou mais serviços requerem validação técnica da ABS. Entre em contato pelo WhatsApp antes de pagar.
+              <span className="inline-flex flex-wrap items-center gap-1">
+                Um ou mais serviços requerem validação técnica da <Logo variant="inline" className="h-4" />.
+                Entre em contato pelo WhatsApp antes de pagar.
+              </span>
             </div>
           )}
           <ul className="divide-y divide-abs-gray">

@@ -3,7 +3,7 @@ import { diagnosticoApi, solicitacaoApi } from '../../services/modules.service';
 import { formatCurrency } from '../../types';
 import { imagemParaOpcao, imagemServicoComRespostas, MARGEM_ERRO_IA_PERCENT, PERGUNTA_TIPO_POR_SLUG } from '../../config/imagens-opcoes';
 import { mapearDiagnosticoParaRespostas } from '../../utils/mapear-diagnostico';
-import { Button, Card, Loading } from '../ui';
+import { Button, Card, Loading, Logo, TextoComMarca } from '../ui';
 
 export interface FluxoPergunta {
   id: string;
@@ -209,7 +209,16 @@ export function QuestionarioServico({
           <Card className="mt-4 bg-slate-50">
             {preco.requerValidacaoTecnica ? (
               <p className="text-sm font-medium text-amber-700">
-                ⚠️ {preco.mensagemValidacao || 'Este serviço requer validação técnica da ABS antes do pagamento.'}
+                ⚠️{' '}
+                {preco.mensagemValidacao ? (
+                  <span className="inline-flex flex-wrap items-center gap-1">
+                    <TextoComMarca texto={preco.mensagemValidacao} />
+                  </span>
+                ) : (
+                  <span className="inline-flex flex-wrap items-center gap-1">
+                    Este serviço requer validação técnica da <Logo variant="inline" className="h-4" /> antes do pagamento.
+                  </span>
+                )}
               </p>
             ) : (
               <>

@@ -346,6 +346,37 @@ export interface CatalogoServicoAdmin {
   ordem: number;
 }
 
+export interface FluxoPerguntaOpcaoConfig {
+  id: string;
+  label: string;
+  precoAdicional?: number;
+}
+
+export interface FluxoPerguntaConfig {
+  id: string;
+  titulo: string;
+  opcoes: FluxoPerguntaOpcaoConfig[];
+  showIf?: { perguntaId: string; opcaoIds: string[] };
+}
+
+export interface ItemPrecoConfig {
+  id: string;
+  label: string;
+  valor: number;
+  when?: Record<string, string[]>;
+}
+
+export interface FluxoConfigAdmin {
+  slug: string;
+  nome: string;
+  perguntas: FluxoPerguntaConfig[];
+  fotosObrigatorias: string[];
+  regrasValidacao: Array<{ when: Record<string, string[]>; mensagem: string }>;
+  modoPreco: 'padrao' | 'personalizado';
+  precoBase: number | null;
+  itensPreco: ItemPrecoConfig[];
+}
+
 export interface ProdutoEstoque {
   id: string;
   nome: string;

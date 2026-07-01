@@ -2,7 +2,7 @@ import { api } from './api';
 import type {
   ApiResponse, Cliente, Lead, Pedido, Pagamento, Servico, OrdemServico, DashboardKPIs,
   PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
-  EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, TecnicoOs, AgendamentoTecnico,
+  EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin,
 } from '../types';
 
 async function get<T>(url: string) {
@@ -287,6 +287,15 @@ export const catalogoAdminApi = {
   }>>('/admin/catalogo/orcamentos'),
   responderOrcamento: (id: string, body: { precoFinal: number; observacao?: string }) =>
     post(`/admin/catalogo/orcamentos/${id}/responder`, body),
+};
+
+export const fluxoAdminApi = {
+  listar: () =>
+    get<Array<{ slug: string; nome: string; totalPerguntas: number; modoPreco: string }>>('/admin/catalogo/fluxos'),
+  obter: (slug: string) => get<FluxoConfigAdmin>(`/admin/catalogo/fluxos/${slug}`),
+  atualizar: (slug: string, body: Partial<FluxoConfigAdmin>) =>
+    put<FluxoConfigAdmin>(`/admin/catalogo/fluxos/${slug}`, body),
+  restaurar: (slug: string) => post<FluxoConfigAdmin>(`/admin/catalogo/fluxos/${slug}/restaurar`),
 };
 
 export const tecnicoApi = {

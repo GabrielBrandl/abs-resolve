@@ -1,5 +1,6 @@
 import { SERVICOS_CATALOGO } from './catalogo-servicos.js';
-import { getFluxo, type RespostasFluxo, type SlugFluxoServico } from './fluxo-servicos.js';
+import { type FluxoServico, type RespostasFluxo, type SlugFluxoServico } from './fluxo-servicos.js';
+import { fluxoConfigService, type ItemPrecoConfig } from '../services/fluxo-config.service.js';
 
 export interface PrecoFluxoBreakdownItem {
   label: string;
@@ -111,10 +112,7 @@ function adicionarValidacao(mensagens: Set<string>, condicao: boolean, mensagem:
   if (condicao) mensagens.add(mensagem);
 }
 
-function avaliarRegrasFluxo(slug: SlugFluxoServico, respostas: RespostasFluxo): string[] {
-  const fluxo = getFluxo(slug);
-  if (!fluxo) return [];
-
+function avaliarRegrasFluxoComFluxo(fluxo: FluxoServico, respostas: RespostasFluxo): string[] {
   return fluxo.regrasValidacao
     .filter((regra) =>
       Object.entries(regra.when).every(([perguntaId, opcaoIds]) => {
@@ -123,6 +121,47 @@ function avaliarRegrasFluxo(slug: SlugFluxoServico, respostas: RespostasFluxo): 
       })
     )
     .map((regra) => regra.mensagem);
+}
+
+function avaliarRegrasFluxo(slug: SlugFluxoServico, respostas: RespostasFluxo): string[] {
+  const fluxo = fluxoConfigService.getFluxoEfetivo(slug);
+  if (!fluxo) return [];
+  return avaliarRegrasFluxoComFluxo(fluxo, respostas);
+}
+
+function calcularPrecoPersonalizado(
+  slug: string,
+  fluxo: FluxoServico,
+  precoConfig: { precoBase: number | null; itensPreco: ItemPrecoConfig[] },
+  respostas: RespostasFluxo,
+  quantidade?: number
+): ResultadoPrecoFluxo {
+  const breakdown: PrecoFluxoBreakdownItem[] = [];
+  const mensagens = new Set<string>(avaliarRegrasFluxoComFluxo(fluxo, respostas));
+  const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
+  const base = precoConfig.precoBase ?? PRECO_MINIMO_POR_SLUG[slug] ?? 0;
+
+  adicionarItem(breakdown, `Preço base (${qtd} un.)`, base * qtd);
+
+  for (const pergunta of fluxo.perguntas) {
+    const resp = resposta(respostas, pergunta.id);
+    if (!resp) continue;
+    const op = pergunta.opcoes.find((o) => o.id === resp) as { label: string; precoAdicional?: number } | undefined;
+    if (op?.precoAdicional) {
+      adicionarItem(breakdown, op.label, op.precoAdicional * qtd);
+    }
+  }
+
+  for (const item of precoConfig.itensPreco) {
+    if (item.when) {
+      const match = Object.entries(item.when).every(([k, v]) => tem(respostas, k, v));
+      if (match) adicionarItem(breakdown, item.label, item.valor * qtd);
+    } else {
+      adicionarItem(breakdown, item.label, item.valor * qtd);
+    }
+  }
+
+  return finalizarResultado(breakdown, mensagens);
 }
 
 function minimoCatalogo(slug: SlugFluxoServico): number {
@@ -144,7 +183,7 @@ function finalizarResultado(
 }
 
 function assertSlug(slug: string): SlugFluxoServico {
-  if (!getFluxo(slug)) {
+  if (!fluxoConfigService.getFluxoEfetivo(slug)) {
     throw new Error(`Slug de fluxo não suportado: ${slug}`);
   }
   return slug as SlugFluxoServico;
@@ -156,6 +195,13 @@ export function calcularPrecoFluxo(
   quantidade?: number
 ): ResultadoPrecoFluxo {
   const slug = assertSlug(slugInput);
+  const fluxo = fluxoConfigService.getFluxoEfetivo(slug);
+  const precoConfig = fluxoConfigService.getPrecoConfig(slug);
+
+  if (fluxo && precoConfig?.modoPreco === 'personalizado') {
+    return calcularPrecoPersonalizado(slug, fluxo, precoConfig, respostas, quantidade);
+  }
+
   const breakdown: PrecoFluxoBreakdownItem[] = [];
   const mensagens = new Set<string>(avaliarRegrasFluxo(slug, respostas));
 

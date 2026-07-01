@@ -26,6 +26,7 @@ const CatalogoAdminPage = lazy(() => import('./pages/admin/CatalogoAdminPage').t
 const EstoqueAdminPage = lazy(() => import('./pages/admin/EstoqueAdminPage').then((m) => ({ default: m.EstoqueAdminPage })));
 const AgendaAdminPage = lazy(() => import('./pages/admin/AgendaAdminPage').then((m) => ({ default: m.AgendaAdminPage })));
 const OrcamentosAdminPage = lazy(() => import('./pages/admin/OrcamentosAdminPage').then((m) => ({ default: m.OrcamentosAdminPage })));
+const QuestionariosAdminPage = lazy(() => import('./pages/admin/QuestionariosAdminPage').then((m) => ({ default: m.QuestionariosAdminPage })));
 const ClienteLayout = lazy(() => import('./pages/cliente/ClienteLayout').then((m) => ({ default: m.ClienteLayout })));
 const ClientePedidosPage = lazy(() => import('./pages/cliente/ClientePedidosPage').then((m) => ({ default: m.ClientePedidosPage })));
 const ClienteFinanceiroPage = lazy(() => import('./pages/cliente/ClienteFinanceiroPage').then((m) => ({ default: m.ClienteFinanceiroPage })));
@@ -93,6 +94,7 @@ function AppRoutes() {
           <Route element={<StaffOnlyRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/questionarios" element={<QuestionariosAdminPage />} />
             </Route>
           </Route>
         </Route>

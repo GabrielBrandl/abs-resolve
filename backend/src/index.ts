@@ -28,6 +28,7 @@ import { success, error } from './utils/response.js';
 import { prisma } from './utils/prisma.js';
 import { isSupabaseConfigured } from './utils/supabase.js';
 import { iniciarCronJobs } from './services/cron.service.js';
+import { fluxoConfigService } from './services/fluxo-config.service.js';
 
 function databaseHint(): string {
   const url = process.env.DATABASE_URL;
@@ -146,4 +147,5 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`ABS Resolve API v2.0 rodando em http://localhost:${PORT}`);
   iniciarCronJobs();
+  void fluxoConfigService.initCache();
 });

@@ -20,4 +20,9 @@ router.get('/agenda', (req, res) => catalogoAdminController.agenda(req, res));
 router.get('/orcamentos', (req, res) => catalogoAdminController.orcamentos(req, res));
 router.post('/orcamentos/:id/responder', (req, res) => catalogoAdminController.responderOrcamento(req, res));
 
+router.get('/fluxos', checkRole('admin'), (req, res) => catalogoAdminController.listarFluxos(req, res));
+router.get('/fluxos/:slug', checkRole('admin'), (req, res) => catalogoAdminController.obterFluxo(req, res));
+router.put('/fluxos/:slug', checkRole('admin'), (req, res) => catalogoAdminController.atualizarFluxo(req, res));
+router.post('/fluxos/:slug/restaurar', checkRole('admin'), (req, res) => catalogoAdminController.restaurarFluxo(req, res));
+
 export default router;
