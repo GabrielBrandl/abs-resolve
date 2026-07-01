@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" role="img" aria-label="Tomada 20A">
+  <rect width="100%" height="100%" fill="#f1f5f9"/>
+  <text x="50%" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#334155" font-weight="600">Tomada 20A</text>
+  <g transform="translate(120,70)">
+        <rect x="0" y="0" width="80" height="100" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="3"/>
+        <circle cx="26" cy="42" r="8" fill="#dc2626"/>
+        <circle cx="54" cy="42" r="8" fill="#dc2626"/>
+        <rect x="34" y="62" width="12" height="22" rx="3" fill="#94a3b8"/>
+      </g>
+</svg>

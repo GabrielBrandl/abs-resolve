@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { diagnosticoApi, solicitacaoApi } from '../../services/modules.service';
 import { formatCurrency } from '../../types';
-import { imagemParaOpcao, imagemServicoComRespostas, MARGEM_ERRO_IA_PERCENT, PERGUNTA_TIPO_POR_SLUG } from '../../config/imagens-opcoes';
+import {
+  imagemParaOpcao,
+  imagemServicoComRespostas,
+  MARGEM_ERRO_IA_PERCENT,
+  temImagemOpcao,
+} from '../../config/imagens-opcoes';
 import { mapearDiagnosticoParaRespostas } from '../../utils/mapear-diagnostico';
 import { Button, Card, Loading, Logo, TextoComMarca } from '../ui';
 
@@ -78,7 +83,6 @@ export function QuestionarioServico({
     [fluxo, respostas]
   );
 
-  const perguntaTipo = PERGUNTA_TIPO_POR_SLUG[slug];
   const imagemAtual = imagemServicoComRespostas(slug, respostas, imagemCatalogo);
 
   const todasRespondidas = visiveis.length > 0 && visiveis.every((p) => respostas[p.id]);
@@ -177,26 +181,37 @@ export function QuestionarioServico({
             <div key={p.id}>
               <p className="mb-2 font-medium text-primary-900">{p.titulo}</p>
               <div className="flex flex-wrap gap-2">
-                {p.opcoes.map((op) => (
-                  <button
-                    key={op.id}
-                    type="button"
-                    onClick={() => onResposta(p.id, op.id)}
-                    className={`rounded-lg border px-3 py-2 text-sm transition ${
-                      respostas[p.id] === op.id
-                        ? 'border-primary-600 bg-primary-50 font-semibold text-primary-800'
-                        : 'border-abs-gray bg-white text-slate-600 hover:border-primary-300'
-                    }`}
-                  >
-                    {op.label}
-                  </button>
-                ))}
+                {p.opcoes.map((op) => {
+                  const selecionada = respostas[p.id] === op.id;
+                  const thumb = temImagemOpcao(slug, p.id, op.id);
+                  return (
+                    <button
+                      key={op.id}
+                      type="button"
+                      onClick={() => onResposta(p.id, op.id)}
+                      className={`flex max-w-[140px] flex-col items-center gap-1 rounded-lg border px-2 py-2 text-sm transition ${
+                        selecionada
+                          ? 'border-primary-600 bg-primary-50 font-semibold text-primary-800'
+                          : 'border-abs-gray bg-white text-slate-600 hover:border-primary-300'
+                      }`}
+                    >
+                      {thumb && (
+                        <img
+                          src={imagemParaOpcao(slug, p.id, op.id, imagemCatalogo)}
+                          alt=""
+                          className="h-14 w-full rounded-md border border-slate-200 bg-slate-50 object-contain p-1"
+                        />
+                      )}
+                      <span className="text-center leading-tight">{op.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-              {perguntaTipo === p.id && respostas[p.id] && (
+              {respostas[p.id] && temImagemOpcao(slug, p.id, respostas[p.id]) && (
                 <img
-                  src={imagemParaOpcao(slug, respostas[p.id], imagemCatalogo)}
+                  src={imagemParaOpcao(slug, p.id, respostas[p.id], imagemCatalogo)}
                   alt=""
-                  className="mt-2 h-24 w-32 rounded-lg border object-cover"
+                  className="mt-3 h-36 w-full max-w-xs rounded-xl border border-abs-gray bg-slate-50 object-contain p-2"
                 />
               )}
             </div>

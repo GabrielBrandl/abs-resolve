@@ -1,0 +1,1157 @@
+[
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "tipoTomada",
+    "opcaoId": "simples"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "tipoTomada",
+    "opcaoId": "dupla"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "tipoTomada",
+    "opcaoId": "tomada-20a"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "fornecimentoTomada",
+    "opcaoId": "cliente"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "fornecimentoTomada",
+    "opcaoId": "abs-padrao"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "fornecimentoTomada",
+    "opcaoId": "abs-premium"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "estadoAtual",
+    "opcaoId": "funcionando"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "estadoAtual",
+    "opcaoId": "nao-funciona"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "estadoAtual",
+    "opcaoId": "queimada"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "estadoAtual",
+    "opcaoId": "aquecendo"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "sala"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "quarto"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "cozinha"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "banheiro"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "area-externa"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "corredor"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "area-servico"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "jardim"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "quantidade",
+    "opcaoId": "1"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "quantidade",
+    "opcaoId": "2"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "quantidade",
+    "opcaoId": "3"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "quantidade",
+    "opcaoId": "4"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "quantidade",
+    "opcaoId": "mais-4"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "quantidade",
+    "opcaoId": "4-ou-mais"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "quantidade",
+    "opcaoId": "3-ou-mais"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "tipoInterruptor",
+    "opcaoId": "simples"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "tipoInterruptor",
+    "opcaoId": "duplo"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "tipoInterruptor",
+    "opcaoId": "triplo"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "tipoInterruptor",
+    "opcaoId": "paralelo"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "tipoInterruptor",
+    "opcaoId": "intermediario"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "sala"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "quarto"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "cozinha"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "banheiro"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "area-externa"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "corredor"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "area-servico"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "jardim"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "quantidade",
+    "opcaoId": "1"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "quantidade",
+    "opcaoId": "2"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "quantidade",
+    "opcaoId": "3"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "quantidade",
+    "opcaoId": "4"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "quantidade",
+    "opcaoId": "mais-4"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "quantidade",
+    "opcaoId": "4-ou-mais"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "quantidade",
+    "opcaoId": "3-ou-mais"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "tipoServicoChuveiro",
+    "opcaoId": "instalar-comum"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "tipoServicoChuveiro",
+    "opcaoId": "instalar-eletronico"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "tipoServicoChuveiro",
+    "opcaoId": "trocar-resistencia"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "tipoServicoChuveiro",
+    "opcaoId": "instalar-com-revisao-eletrica"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "jaExisteChuveiro",
+    "opcaoId": "sim"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "jaExisteChuveiro",
+    "opcaoId": "nao"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "jaExisteChuveiro",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "disjuntorExclusivo",
+    "opcaoId": "sim"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "disjuntorExclusivo",
+    "opcaoId": "nao"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "disjuntorExclusivo",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "chuveiroComprado",
+    "opcaoId": "sim"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "chuveiroComprado",
+    "opcaoId": "nao-abs"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "potenciaChuveiro",
+    "opcaoId": "ate-5500w"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "potenciaChuveiro",
+    "opcaoId": "5501-6800w"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "potenciaChuveiro",
+    "opcaoId": "6801-7500w"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "potenciaChuveiro",
+    "opcaoId": "acima-7500w"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "potenciaChuveiro",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "tensaoChuveiro",
+    "opcaoId": "127v"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "tensaoChuveiro",
+    "opcaoId": "220v"
+  },
+  {
+    "slug": "instalacao-chuveiro",
+    "perguntaId": "tensaoChuveiro",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "tipoDisjuntor",
+    "opcaoId": "monopolar"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "tipoDisjuntor",
+    "opcaoId": "bipolar"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "tipoDisjuntor",
+    "opcaoId": "tripolar"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "amperagemDisjuntor",
+    "opcaoId": "10a"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "amperagemDisjuntor",
+    "opcaoId": "16a"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "amperagemDisjuntor",
+    "opcaoId": "20a"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "amperagemDisjuntor",
+    "opcaoId": "25a"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "amperagemDisjuntor",
+    "opcaoId": "32a"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "motivoTrocaDisjuntor",
+    "opcaoId": "preventiva"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "motivoTrocaDisjuntor",
+    "opcaoId": "quebrou"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "motivoTrocaDisjuntor",
+    "opcaoId": "nao-arma"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "motivoTrocaDisjuntor",
+    "opcaoId": "desarmando"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "motivoTrocaDisjuntor",
+    "opcaoId": "cheiro-queimado"
+  },
+  {
+    "slug": "troca-disjuntor",
+    "perguntaId": "motivoTrocaDisjuntor",
+    "opcaoId": "derreteu"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoLuminaria",
+    "opcaoId": "plafon-led"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoLuminaria",
+    "opcaoId": "sobrepor"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoLuminaria",
+    "opcaoId": "painel-led"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoLuminaria",
+    "opcaoId": "spot-individual"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoLuminaria",
+    "opcaoId": "spot-trilho"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoLuminaria",
+    "opcaoId": "pendente"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoLuminaria",
+    "opcaoId": "lustre-pequeno"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoLuminaria",
+    "opcaoId": "lustre-medio"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoLuminaria",
+    "opcaoId": "lustre-grande"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "sala"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "quarto"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "cozinha"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "banheiro"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "area-externa"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "corredor"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "area-servico"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "jardim"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoParede",
+    "opcaoId": "alvenaria"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoParede",
+    "opcaoId": "drywall"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoParede",
+    "opcaoId": "madeira"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoParede",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoTeto",
+    "opcaoId": "laje"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoTeto",
+    "opcaoId": "gesso"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoTeto",
+    "opcaoId": "pvc"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoTeto",
+    "opcaoId": "madeira"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "tipoTeto",
+    "opcaoId": "estrutura-metalica"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "pontoEletricoExistente",
+    "opcaoId": "sim"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "pontoEletricoExistente",
+    "opcaoId": "nao"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "pontoEletricoExistente",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoVentilador",
+    "opcaoId": "sem-luminaria"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoVentilador",
+    "opcaoId": "com-luminaria"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "sala"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "quarto"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "cozinha"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "banheiro"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "area-externa"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "corredor"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "area-servico"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "jardim"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoParede",
+    "opcaoId": "alvenaria"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoParede",
+    "opcaoId": "drywall"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoParede",
+    "opcaoId": "madeira"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoParede",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoTeto",
+    "opcaoId": "laje"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoTeto",
+    "opcaoId": "gesso"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoTeto",
+    "opcaoId": "pvc"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoTeto",
+    "opcaoId": "madeira"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "tipoTeto",
+    "opcaoId": "estrutura-metalica"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "pontoEletricoExistente",
+    "opcaoId": "sim"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "pontoEletricoExistente",
+    "opcaoId": "nao"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "pontoEletricoExistente",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "ganchoExistente",
+    "opcaoId": "sim"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "ganchoExistente",
+    "opcaoId": "nao"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "ganchoExistente",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "tipoTorneira",
+    "opcaoId": "convencional"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "tipoTorneira",
+    "opcaoId": "gourmet"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "tipoTorneira",
+    "opcaoId": "monocomando-misturador"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "tipoTorneira",
+    "opcaoId": "eletrica"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "sala"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "quarto"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "cozinha"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "banheiro"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "area-externa"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "corredor"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "area-servico"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "jardim"
+  },
+  {
+    "slug": "troca-registro",
+    "perguntaId": "tipoRegistro",
+    "opcaoId": "registro-chuveiro"
+  },
+  {
+    "slug": "troca-registro",
+    "perguntaId": "tipoRegistro",
+    "opcaoId": "registro-gaveta"
+  },
+  {
+    "slug": "troca-registro",
+    "perguntaId": "tipoRegistro",
+    "opcaoId": "registro-geral"
+  },
+  {
+    "slug": "reparo-vazamento",
+    "perguntaId": "origemVazamento",
+    "opcaoId": "torneira"
+  },
+  {
+    "slug": "reparo-vazamento",
+    "perguntaId": "origemVazamento",
+    "opcaoId": "registro"
+  },
+  {
+    "slug": "reparo-vazamento",
+    "perguntaId": "origemVazamento",
+    "opcaoId": "sifao"
+  },
+  {
+    "slug": "reparo-vazamento",
+    "perguntaId": "origemVazamento",
+    "opcaoId": "caixa-acoplada"
+  },
+  {
+    "slug": "reparo-vazamento",
+    "perguntaId": "origemVazamento",
+    "opcaoId": "parede-tubulacao"
+  },
+  {
+    "slug": "desentupimento-pia",
+    "perguntaId": "problemaDesentupimento",
+    "opcaoId": "agua-escoa-lentamente"
+  },
+  {
+    "slug": "desentupimento-pia",
+    "perguntaId": "problemaDesentupimento",
+    "opcaoId": "agua-nao-escoa"
+  },
+  {
+    "slug": "desentupimento-pia",
+    "perguntaId": "problemaDesentupimento",
+    "opcaoId": "agua-retorna"
+  },
+  {
+    "slug": "desentupimento-pia",
+    "perguntaId": "problemaDesentupimento",
+    "opcaoId": "mau-cheiro"
+  },
+  {
+    "slug": "desentupimento-pia",
+    "perguntaId": "problemaDesentupimento",
+    "opcaoId": "retorno-esgoto"
+  },
+  {
+    "slug": "desentupimento-vaso",
+    "perguntaId": "problemaDesentupimento",
+    "opcaoId": "agua-nao-escoa"
+  },
+  {
+    "slug": "desentupimento-vaso",
+    "perguntaId": "problemaDesentupimento",
+    "opcaoId": "agua-retorna"
+  },
+  {
+    "slug": "desentupimento-vaso",
+    "perguntaId": "problemaDesentupimento",
+    "opcaoId": "vaso-transborda"
+  },
+  {
+    "slug": "desentupimento-vaso",
+    "perguntaId": "problemaDesentupimento",
+    "opcaoId": "retorno-esgoto"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tipoSuporteTv",
+    "opcaoId": "fixo"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tipoSuporteTv",
+    "opcaoId": "inclinavel"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tipoSuporteTv",
+    "opcaoId": "articulado"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tipoParede",
+    "opcaoId": "alvenaria"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tipoParede",
+    "opcaoId": "drywall"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tipoParede",
+    "opcaoId": "madeira"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tipoParede",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tamanhoTv",
+    "opcaoId": "ate-32"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tamanhoTv",
+    "opcaoId": "33-50"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tamanhoTv",
+    "opcaoId": "51-65"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tamanhoTv",
+    "opcaoId": "66-75"
+  },
+  {
+    "slug": "instalacao-suporte-tv",
+    "perguntaId": "tamanhoTv",
+    "opcaoId": "acima-75"
+  },
+  {
+    "slug": "instalacao-prateleira",
+    "perguntaId": "usoPrateleira",
+    "opcaoId": "decoracao"
+  },
+  {
+    "slug": "instalacao-prateleira",
+    "perguntaId": "usoPrateleira",
+    "opcaoId": "livros"
+  },
+  {
+    "slug": "instalacao-prateleira",
+    "perguntaId": "usoPrateleira",
+    "opcaoId": "utensilios"
+  },
+  {
+    "slug": "instalacao-prateleira",
+    "perguntaId": "usoPrateleira",
+    "opcaoId": "ferramentas"
+  },
+  {
+    "slug": "instalacao-prateleira",
+    "perguntaId": "usoPrateleira",
+    "opcaoId": "estoque"
+  },
+  {
+    "slug": "instalacao-prateleira",
+    "perguntaId": "tipoParede",
+    "opcaoId": "alvenaria"
+  },
+  {
+    "slug": "instalacao-prateleira",
+    "perguntaId": "tipoParede",
+    "opcaoId": "drywall"
+  },
+  {
+    "slug": "instalacao-prateleira",
+    "perguntaId": "tipoParede",
+    "opcaoId": "madeira"
+  },
+  {
+    "slug": "instalacao-prateleira",
+    "perguntaId": "tipoParede",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "montagem-moveis-simples",
+    "perguntaId": "tipoMovelSimples",
+    "opcaoId": "criado-mudo"
+  },
+  {
+    "slug": "montagem-moveis-simples",
+    "perguntaId": "tipoMovelSimples",
+    "opcaoId": "sapateira"
+  },
+  {
+    "slug": "montagem-moveis-simples",
+    "perguntaId": "tipoMovelSimples",
+    "opcaoId": "mesa"
+  },
+  {
+    "slug": "montagem-moveis-simples",
+    "perguntaId": "tipoMovelSimples",
+    "opcaoId": "escrivaninha"
+  },
+  {
+    "slug": "montagem-moveis-simples",
+    "perguntaId": "tipoMovelSimples",
+    "opcaoId": "rack"
+  },
+  {
+    "slug": "montagem-moveis-simples",
+    "perguntaId": "tipoMovelSimples",
+    "opcaoId": "comoda"
+  },
+  {
+    "slug": "montagem-moveis-simples",
+    "perguntaId": "tipoMovelSimples",
+    "opcaoId": "outro-movel-simples"
+  },
+  {
+    "slug": "montagem-guarda-roupa",
+    "perguntaId": "tipoGuardaRoupa",
+    "opcaoId": "solteiro"
+  },
+  {
+    "slug": "montagem-guarda-roupa",
+    "perguntaId": "tipoGuardaRoupa",
+    "opcaoId": "casal"
+  },
+  {
+    "slug": "montagem-guarda-roupa",
+    "perguntaId": "tipoGuardaRoupa",
+    "opcaoId": "infantil"
+  },
+  {
+    "slug": "instalacao-persiana",
+    "perguntaId": "tipoPersiana",
+    "opcaoId": "rolo"
+  },
+  {
+    "slug": "instalacao-persiana",
+    "perguntaId": "tipoPersiana",
+    "opcaoId": "romana"
+  },
+  {
+    "slug": "instalacao-persiana",
+    "perguntaId": "tipoPersiana",
+    "opcaoId": "horizontal"
+  },
+  {
+    "slug": "instalacao-persiana",
+    "perguntaId": "tipoPersiana",
+    "opcaoId": "vertical"
+  },
+  {
+    "slug": "instalacao-persiana",
+    "perguntaId": "tipoPersiana",
+    "opcaoId": "double-vision"
+  },
+  {
+    "slug": "instalacao-persiana",
+    "perguntaId": "tipoPersiana",
+    "opcaoId": "painel"
+  },
+  {
+    "slug": "instalacao-persiana",
+    "perguntaId": "tipoParede",
+    "opcaoId": "alvenaria"
+  },
+  {
+    "slug": "instalacao-persiana",
+    "perguntaId": "tipoParede",
+    "opcaoId": "drywall"
+  },
+  {
+    "slug": "instalacao-persiana",
+    "perguntaId": "tipoParede",
+    "opcaoId": "madeira"
+  },
+  {
+    "slug": "instalacao-persiana",
+    "perguntaId": "tipoParede",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "limpeza-ar-split",
+    "perguntaId": "sintomaAr",
+    "opcaoId": "apenas-sujo"
+  },
+  {
+    "slug": "limpeza-ar-split",
+    "perguntaId": "sintomaAr",
+    "opcaoId": "mau-cheiro"
+  },
+  {
+    "slug": "limpeza-ar-split",
+    "perguntaId": "sintomaAr",
+    "opcaoId": "pingando-agua"
+  },
+  {
+    "slug": "limpeza-ar-split",
+    "perguntaId": "sintomaAr",
+    "opcaoId": "baixa-refrigeracao"
+  },
+  {
+    "slug": "limpeza-ar-split",
+    "perguntaId": "sintomaAr",
+    "opcaoId": "barulho"
+  },
+  {
+    "slug": "limpeza-ar-split",
+    "perguntaId": "capacidadeBtu",
+    "opcaoId": "ate-12000"
+  },
+  {
+    "slug": "limpeza-ar-split",
+    "perguntaId": "capacidadeBtu",
+    "opcaoId": "12001-18000"
+  },
+  {
+    "slug": "limpeza-ar-split",
+    "perguntaId": "capacidadeBtu",
+    "opcaoId": "18001-24000"
+  },
+  {
+    "slug": "limpeza-ar-split",
+    "perguntaId": "capacidadeBtu",
+    "opcaoId": "acima-24000"
+  },
+  {
+    "slug": "limpeza-ar-split",
+    "perguntaId": "capacidadeBtu",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "instalacao-ar-split",
+    "perguntaId": "tipoEquipamentoAr",
+    "opcaoId": "convencional"
+  },
+  {
+    "slug": "instalacao-ar-split",
+    "perguntaId": "tipoEquipamentoAr",
+    "opcaoId": "inverter"
+  },
+  {
+    "slug": "instalacao-ar-split",
+    "perguntaId": "capacidadeBtu",
+    "opcaoId": "ate-12000"
+  },
+  {
+    "slug": "instalacao-ar-split",
+    "perguntaId": "capacidadeBtu",
+    "opcaoId": "12001-18000"
+  },
+  {
+    "slug": "instalacao-ar-split",
+    "perguntaId": "capacidadeBtu",
+    "opcaoId": "18001-24000"
+  },
+  {
+    "slug": "instalacao-ar-split",
+    "perguntaId": "capacidadeBtu",
+    "opcaoId": "acima-24000"
+  },
+  {
+    "slug": "instalacao-ar-split",
+    "perguntaId": "capacidadeBtu",
+    "opcaoId": "nao-sei"
+  },
+  {
+    "slug": "poda-jardim",
+    "perguntaId": "servicoJardim",
+    "opcaoId": "poda-plantas-arbustos"
+  },
+  {
+    "slug": "poda-jardim",
+    "perguntaId": "servicoJardim",
+    "opcaoId": "corte-grama"
+  },
+  {
+    "slug": "poda-jardim",
+    "perguntaId": "servicoJardim",
+    "opcaoId": "limpeza-jardim"
+  },
+  {
+    "slug": "poda-jardim",
+    "perguntaId": "servicoJardim",
+    "opcaoId": "poda-arvore-pequena"
+  },
+  {
+    "slug": "limpeza-pos-obra",
+    "perguntaId": "tipoImovelPosObra",
+    "opcaoId": "apartamento"
+  },
+  {
+    "slug": "limpeza-pos-obra",
+    "perguntaId": "tipoImovelPosObra",
+    "opcaoId": "casa"
+  },
+  {
+    "slug": "limpeza-pos-obra",
+    "perguntaId": "tipoImovelPosObra",
+    "opcaoId": "loja"
+  },
+  {
+    "slug": "limpeza-pos-obra",
+    "perguntaId": "tipoImovelPosObra",
+    "opcaoId": "escritorio"
+  },
+  {
+    "slug": "limpeza-pos-obra",
+    "perguntaId": "nivelSujeiraPosObra",
+    "opcaoId": "leve"
+  },
+  {
+    "slug": "limpeza-pos-obra",
+    "perguntaId": "nivelSujeiraPosObra",
+    "opcaoId": "medio"
+  },
+  {
+    "slug": "limpeza-pos-obra",
+    "perguntaId": "nivelSujeiraPosObra",
+    "opcaoId": "alto"
+  }
+]
