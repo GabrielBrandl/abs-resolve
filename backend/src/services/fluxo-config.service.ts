@@ -48,6 +48,14 @@ export interface PrecoConfigCache {
 const fluxoCache = new Map<string, FluxoServico>();
 const precoCache = new Map<string, PrecoConfigCache>();
 
+function toJson<T>(value: T): Prisma.InputJsonValue {
+  return value as unknown as Prisma.InputJsonValue;
+}
+
+function fromJson<T>(value: unknown): T {
+  return value as T;
+}
+
 function rowToFluxo(slug: string, row: {
   perguntas: unknown;
   fotosObrigatorias: unknown;
@@ -57,9 +65,9 @@ function rowToFluxo(slug: string, row: {
   return {
     slug: slug as FluxoServico['slug'],
     nome: padrao?.nome ?? slug,
-    perguntas: row.perguntas as FluxoServico['perguntas'],
-    fotosObrigatorias: row.fotosObrigatorias as string[],
-    regrasValidacao: row.regrasValidacao as RegraValidacaoFluxo[],
+    perguntas: fromJson<FluxoServico['perguntas']>(row.perguntas),
+    fotosObrigatorias: fromJson<string[]>(row.fotosObrigatorias),
+    regrasValidacao: fromJson<RegraValidacaoFluxo[]>(row.regrasValidacao),
   };
 }
 
@@ -115,9 +123,9 @@ export class FluxoConfigService {
         update: {},
         create: {
           slug,
-          perguntas: fluxo.perguntas as Prisma.InputJsonValue,
+          perguntas: toJson(fluxo.perguntas),
           fotosObrigatorias: fluxo.fotosObrigatorias,
-          regrasValidacao: fluxo.regrasValidacao as Prisma.InputJsonValue,
+          regrasValidacao: toJson(fluxo.regrasValidacao),
           modoPreco: 'padrao',
           itensPreco: [],
         },
@@ -134,7 +142,7 @@ export class FluxoConfigService {
       precoCache.set(row.slug, {
         modoPreco: row.modoPreco,
         precoBase: row.precoBase != null ? Number(row.precoBase) : null,
-        itensPreco: (row.itensPreco as ItemPrecoConfig[]) ?? [],
+        itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
       });
     }
   }
@@ -144,7 +152,7 @@ export class FluxoConfigService {
     const rows = await prisma.fluxoServicoConfig.findMany({ orderBy: { slug: 'asc' } });
     return rows.map((row) => {
       const padrao = getFluxo(row.slug);
-      const perguntas = row.perguntas as FluxoPerguntaConfig[];
+      const perguntas = fromJson<FluxoPerguntaConfig[]>(row.perguntas);
       return {
         slug: row.slug,
         nome: padrao?.nome ?? row.slug,
@@ -162,12 +170,12 @@ export class FluxoConfigService {
     return {
       slug: row.slug,
       nome: padrao?.nome ?? row.slug,
-      perguntas: row.perguntas as FluxoPerguntaConfig[],
-      fotosObrigatorias: row.fotosObrigatorias as string[],
-      regrasValidacao: row.regrasValidacao as RegraValidacaoFluxo[],
+      perguntas: fromJson<FluxoPerguntaConfig[]>(row.perguntas),
+      fotosObrigatorias: fromJson<string[]>(row.fotosObrigatorias),
+      regrasValidacao: fromJson<RegraValidacaoFluxo[]>(row.regrasValidacao),
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
-      itensPreco: row.itensPreco as ItemPrecoConfig[],
+      itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco),
     };
   }
 
@@ -193,21 +201,21 @@ export class FluxoConfigService {
     const row = await prisma.fluxoServicoConfig.upsert({
       where: { slug },
       update: {
-        perguntas: data.perguntas as Prisma.InputJsonValue,
+        perguntas: toJson(data.perguntas),
         fotosObrigatorias: data.fotosObrigatorias,
-        regrasValidacao: data.regrasValidacao as Prisma.InputJsonValue,
+        regrasValidacao: toJson(data.regrasValidacao),
         ...(data.modoPreco !== undefined && { modoPreco: data.modoPreco }),
         ...(data.precoBase !== undefined && { precoBase: data.precoBase }),
-        ...(data.itensPreco !== undefined && { itensPreco: data.itensPreco as Prisma.InputJsonValue }),
+        ...(data.itensPreco !== undefined && { itensPreco: toJson(data.itensPreco) }),
       },
       create: {
         slug,
-        perguntas: data.perguntas as Prisma.InputJsonValue,
+        perguntas: toJson(data.perguntas),
         fotosObrigatorias: data.fotosObrigatorias,
-        regrasValidacao: data.regrasValidacao as Prisma.InputJsonValue,
+        regrasValidacao: toJson(data.regrasValidacao),
         modoPreco: data.modoPreco ?? 'padrao',
         precoBase: data.precoBase ?? null,
-        itensPreco: (data.itensPreco ?? []) as Prisma.InputJsonValue,
+        itensPreco: toJson(data.itensPreco ?? []),
       },
     });
 
@@ -222,18 +230,18 @@ export class FluxoConfigService {
     const row = await prisma.fluxoServicoConfig.upsert({
       where: { slug },
       update: {
-        perguntas: fluxo.perguntas as Prisma.InputJsonValue,
+        perguntas: toJson(fluxo.perguntas),
         fotosObrigatorias: fluxo.fotosObrigatorias,
-        regrasValidacao: fluxo.regrasValidacao as Prisma.InputJsonValue,
+        regrasValidacao: toJson(fluxo.regrasValidacao),
         modoPreco: 'padrao',
         precoBase: null,
         itensPreco: [],
       },
       create: {
         slug,
-        perguntas: fluxo.perguntas as Prisma.InputJsonValue,
+        perguntas: toJson(fluxo.perguntas),
         fotosObrigatorias: fluxo.fotosObrigatorias,
-        regrasValidacao: fluxo.regrasValidacao as Prisma.InputJsonValue,
+        regrasValidacao: toJson(fluxo.regrasValidacao),
         modoPreco: 'padrao',
         itensPreco: [],
       },
@@ -256,12 +264,12 @@ export class FluxoConfigService {
     return {
       slug: row.slug,
       nome: padrao?.nome ?? row.slug,
-      perguntas: row.perguntas as FluxoPerguntaConfig[],
-      fotosObrigatorias: row.fotosObrigatorias as string[],
-      regrasValidacao: row.regrasValidacao as RegraValidacaoFluxo[],
+      perguntas: fromJson<FluxoPerguntaConfig[]>(row.perguntas),
+      fotosObrigatorias: fromJson<string[]>(row.fotosObrigatorias),
+      regrasValidacao: fromJson<RegraValidacaoFluxo[]>(row.regrasValidacao),
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
-      itensPreco: (row.itensPreco as ItemPrecoConfig[]) ?? [],
+      itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
     };
   }
 }
