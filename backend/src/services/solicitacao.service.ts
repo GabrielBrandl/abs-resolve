@@ -14,6 +14,7 @@ import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from 
 import { listarHorariosDisponiveis, reservarCapacidade } from '../engines/capacity.engine.js';
 import { analisarFotos, custosParaServico } from '../services/ia-diagnostico.service.js';
 import { notificacaoService } from './notificacao.service.js';
+import { descricaoServicosDaSolicitacao } from '../utils/solicitacao-descricao.js';
 import { storageService } from './storage.service.js';
 import { pagamentosService } from './pagamentos.service.js';
 
@@ -431,7 +432,7 @@ export class SolicitacaoService {
   ) {
     const sol = await prisma.solicitacaoServico.findFirst({
       where: { id, clienteId },
-      include: { servico: true, cliente: true },
+      include: { servico: true, cliente: true, pedido: true },
     });
     if (!sol) throw new Error('Solicitação não encontrada');
     if (sol.status !== 'pago') {
@@ -463,12 +464,17 @@ export class SolicitacaoService {
       data: { status: 'agendado' },
     });
 
-    await notificacaoService.notificarTecnicoAgendado(
-      sol.cliente.nome,
-      sol.cliente.email,
-      sol.cliente.telefone,
-      `${data.data} ${data.horarioInicio}-${data.horarioFim}`
-    );
+    await notificacaoService.notificarAgendamentoConfirmado({
+      clienteNome: sol.cliente.nome,
+      email: sol.cliente.email,
+      telefone: sol.cliente.telefone,
+      whatsapp: sol.cliente.whatsapp,
+      pedidoNumero: sol.pedido?.numero,
+      data: data.data,
+      horarioInicio: data.horarioInicio,
+      horarioFim: data.horarioFim,
+      servicoNome: sol.servico.nome,
+    });
 
     return agendamento;
   }
@@ -514,7 +520,16 @@ export class SolicitacaoService {
       solicitacaoId: id,
     });
 
-    await notificacaoService.notificarPedidoCriado(sol.cliente.nome, numero, sol.cliente.email, sol.cliente.telefone);
+    await notificacaoService.notificarSolicitacaoRecebida({
+      clienteNome: sol.cliente.nome,
+      email: sol.cliente.email,
+      telefone: sol.cliente.telefone,
+      whatsapp: sol.cliente.whatsapp,
+      pedidoNumero: numero,
+      servicos: descricaoServicosDaSolicitacao(sol),
+      valor,
+      metodo,
+    });
 
     return { pedido, pagamento, solicitacao: { ...sol, status: 'aguardando_pagamento', pedidoId: pedido.id } };
   }

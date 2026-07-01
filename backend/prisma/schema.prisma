@@ -350,6 +350,8 @@ model Agendamento {
   status        String             @default("confirmado")
   canceladoEm   DateTime?          @map("cancelado_em")
   taxaCobrada   Decimal?           @map("taxa_cobrada") @db.Decimal(12, 2)
+  lembrete1dEnviado Boolean          @default(false) @map("lembrete_1d_enviado")
+  lembrete2hEnviado Boolean          @default(false) @map("lembrete_2h_enviado")
   createdAt     DateTime           @default(now()) @map("created_at")
   cliente       Cliente            @relation(fields: [clienteId], references: [id])
   pedido        Pedido?            @relation(fields: [pedidoId], references: [id])

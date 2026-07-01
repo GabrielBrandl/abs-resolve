@@ -2,6 +2,7 @@ import { prisma } from '../utils/prisma.js';
 import { toNumber } from '../utils/helpers.js';
 import { estoqueService } from './estoque.service.js';
 import { notificacaoService } from './notificacao.service.js';
+import { descricaoServicosDaSolicitacao } from '../utils/solicitacao-descricao.js';
 
 function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
   return `${opcoes.tipo || 'simples'}_${opcoes.amperagem || '10a'}`.toLowerCase();
@@ -66,14 +67,17 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
   }
 
   if (pagamento.cliente) {
+    const servicos = sol ? descricaoServicosDaSolicitacao(sol) : 'Serviço ABS Resolve';
     await notificacaoService
-      .notificarPagamentoRecebido(
-        pagamento.cliente.nome,
-        toNumber(pagamento.valor),
-        pagamento.cliente.email,
-        pagamento.cliente.telefone,
-        pedido.numero
-      )
+      .notificarServicoConfirmado({
+        clienteNome: pagamento.cliente.nome,
+        email: pagamento.cliente.email,
+        telefone: pagamento.cliente.telefone,
+        whatsapp: pagamento.cliente.whatsapp,
+        pedidoNumero: pedido.numero,
+        servicos,
+        valor: toNumber(pagamento.valor),
+      })
       .catch(() => {});
   }
 

@@ -215,7 +215,7 @@ export function DiagnosticoIAPage() {
         </Card>
       ) : (
         <Card className="text-center">
-          <Logo className="mx-auto h-12" />
+          <Logo variant="card" className="mx-auto h-14" />
           <p className="mt-4 text-sm text-slate-500">
             Confiança da IA: {resultado.analise.confianca ?? '—'}%
             {resultado.analise.fonte === 'simulacao' && ' (modo simulação — configure OPENAI_API_KEY para análise real)'}

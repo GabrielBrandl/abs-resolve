@@ -83,7 +83,7 @@ export function CadastroPage() {
     <div className="min-h-screen abs-gradient px-4 py-8">
       <div className="mx-auto max-w-lg">
         <div className="mb-6 text-center">
-          <Logo className="mx-auto h-20" />
+          <Logo variant="gradient" className="mx-auto h-20" />
           <p className="mt-3 text-sm italic text-white/90">Chamou. ConfioU. Resolveu.</p>
           <h1 className="mt-4 text-2xl font-bold text-white">Crie sua conta</h1>
           <p className="text-sm text-white/80">Cadastro obrigatório para solicitar serviços</p>

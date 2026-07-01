@@ -42,7 +42,7 @@ export function Sidebar() {
   return (
     <aside className="flex w-64 flex-col bg-sidebar text-white">
       <div className="border-b border-primary-600/30 px-4 py-4">
-        <Logo variant="dark" className="h-12" />
+        <Logo variant="sidebar" className="h-12" />
         <p className="mt-1 text-xs text-accent-400">Plataforma de Gestão</p>
       </div>
 

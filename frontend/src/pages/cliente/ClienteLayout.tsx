@@ -42,7 +42,7 @@ export function ClienteLayout() {
       {/* Desktop sidebar */}
       <aside className="hidden w-56 flex-col bg-sidebar text-white md:flex">
         <div className="border-b border-primary-600/30 px-4 py-4">
-          <Logo variant="dark" className="h-10" />
+          <Logo variant="sidebar" className="h-10" />
           <p className="mt-1 text-xs text-accent-400">Portal do Cliente</p>
         </div>
         <nav className="flex-1 space-y-1 px-2 py-4">
@@ -64,7 +64,7 @@ export function ClienteLayout() {
       {/* Mobile header */}
       <div className="flex min-h-screen flex-1 flex-col md:contents">
         <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-sidebar px-4 py-3 text-white md:hidden">
-          <Logo variant="dark" className="h-8" />
+          <Logo variant="sidebar" className="h-8" />
           <button
             type="button"
             onClick={() => setMenuOpen(!menuOpen)}
@@ -80,7 +80,7 @@ export function ClienteLayout() {
             <div className="absolute inset-0 bg-black/50" onClick={() => setMenuOpen(false)} />
             <aside className="absolute left-0 top-0 flex h-full w-64 flex-col bg-sidebar text-white shadow-xl">
               <div className="border-b border-primary-600/30 px-4 py-4">
-                <Logo variant="dark" className="h-10" />
+                <Logo variant="sidebar" className="h-10" />
                 <p className="mt-1 text-xs text-accent-400">{user?.nome}</p>
               </div>
               <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4">

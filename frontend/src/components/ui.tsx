@@ -118,21 +118,35 @@ export function Tabs({ tabs, active, onChange }: { tabs: { key: string; label: s
 
 export function Logo({
   className = 'h-16',
-  variant = 'light',
+  variant = 'gradient',
 }: {
   className?: string;
-  variant?: 'light' | 'dark';
+  /** gradient = fundo azul (login); sidebar = menu lateral; card = páginas brancas */
+  variant?: 'gradient' | 'sidebar' | 'card' | 'light' | 'dark';
 }) {
-  const imgClass =
-    variant === 'dark'
-      ? `${className} rounded-lg bg-white/95 px-2 py-1 object-contain`
-      : className;
+  const resolved =
+    variant === 'light' ? 'gradient' : variant === 'dark' ? 'sidebar' : variant;
+
+  const frame: Record<'gradient' | 'sidebar' | 'card', string> = {
+    gradient:
+      'inline-flex max-w-full items-center justify-center rounded-2xl bg-white px-4 py-3 shadow-xl shadow-primary-900/30 ring-2 ring-accent-500/60',
+    sidebar:
+      'inline-flex max-w-full items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-md ring-1 ring-accent-500/50',
+    card:
+      'inline-flex max-w-full items-center justify-center rounded-xl overflow-hidden shadow-md ring-2 ring-primary-500/20 bg-[#0a0a0a]',
+  };
+
   return (
-    <img
-      src="/logo.png"
-      alt="ABS Resolve — Chamou. ConfioU. Resolveu."
-      className={imgClass}
-    />
+    <span className={frame[resolved]} role="img" aria-label="ABS Resolve">
+      <img
+        src="/logo.png"
+        alt="ABS Resolve — Chamou. ConfioU. Resolveu."
+        className={`${className} w-auto max-w-[min(100%,280px)] object-contain`}
+        width={280}
+        height={120}
+        decoding="async"
+      />
+    </span>
   );
 }
 

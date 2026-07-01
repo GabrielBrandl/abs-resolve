@@ -64,7 +64,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center abs-gradient px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <Logo className="mx-auto h-24" />
+          <Logo variant="gradient" className="mx-auto h-24" />
           <p className="mt-2 text-sm italic text-white/90">Chamou. ConfioU. Resolveu.</p>
         </div>
 

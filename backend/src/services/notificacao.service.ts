@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { prisma } from '../utils/prisma.js';
+import { normalizarTelefoneWhatsApp, telefoneWhatsAppCliente } from '../utils/telefone.js';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.ethereal.email',
@@ -32,6 +33,10 @@ function formatarMoeda(valor: number) {
 
 function formatarData(d: Date | string) {
   return new Date(d).toLocaleDateString('pt-BR');
+}
+
+function formatarHorario(data: string, inicio: string, fim: string) {
+  return `${formatarData(data)} das ${inicio} às ${fim}`;
 }
 
 export class NotificacaoService {
@@ -70,22 +75,169 @@ export class NotificacaoService {
     }
   }
 
-  async enviarWhatsApp(telefone: string, mensagem: string) {
+  async enviarWhatsApp(telefone: string, mensagem: string): Promise<boolean> {
+    const numero = normalizarTelefoneWhatsApp(telefone);
+    if (!numero) {
+      await this.registrar('whatsapp', 'whatsapp', telefone, null, mensagem, 'falha');
+      return false;
+    }
+
     try {
       if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_API_URL) {
-        await fetch(`${process.env.WHATSAPP_API_URL}/message/sendText`, {
+        const res = await fetch(`${process.env.WHATSAPP_API_URL}/message/sendText`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             apikey: process.env.WHATSAPP_TOKEN,
           },
-          body: JSON.stringify({ number: telefone, text: mensagem }),
+          body: JSON.stringify({ number: numero, text: mensagem }),
         });
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          throw new Error(body || `HTTP ${res.status}`);
+        }
+      } else if (process.env.NODE_ENV !== 'production') {
+        console.info(`[whatsapp] ${numero} — ${mensagem.slice(0, 120)}...`);
       }
-      await this.registrar('whatsapp', 'whatsapp', telefone, null, mensagem, 'enviada');
-    } catch {
-      await this.registrar('whatsapp', 'whatsapp', telefone, null, mensagem, 'falha');
+      await this.registrar('whatsapp', 'whatsapp', numero, null, mensagem, 'enviada');
+      return true;
+    } catch (err) {
+      console.warn('[whatsapp] falha ao enviar:', err instanceof Error ? err.message : err);
+      await this.registrar('whatsapp', 'whatsapp', numero, null, mensagem, 'falha');
+      return false;
     }
+  }
+
+  private whatsappCliente(cliente: { telefone: string; whatsapp?: string | null }) {
+    return telefoneWhatsAppCliente(cliente);
+  }
+
+  /** Solicitação recebida — aguardando pagamento */
+  async notificarSolicitacaoRecebida(data: {
+    clienteNome: string;
+    email: string;
+    telefone: string;
+    whatsapp?: string | null;
+    pedidoNumero: string;
+    servicos: string;
+    valor: number;
+    metodo?: string;
+  }) {
+    const valorFmt = formatarMoeda(data.valor);
+    const metodo = data.metodo ? METODO_PAGAMENTO_LABEL[data.metodo] || data.metodo : 'pagamento';
+    const msg =
+      `📋 *ABS Resolve — Solicitação recebida*\n\n` +
+      `Olá, ${data.clienteNome}!\n\n` +
+      `Recebemos seu pedido *${data.pedidoNumero}*.\n\n` +
+      `🔧 Serviço(s): ${data.servicos}\n` +
+      `💰 Valor: ${valorFmt}\n\n` +
+      `Finalize o ${metodo} para confirmar o atendimento. Assim que o pagamento for aprovado, enviaremos a confirmação por aqui.\n\n` +
+      `_Chamou. ConfioU. Resolveu._`;
+
+    await this.enviarEmail(
+      data.email,
+      'Solicitação recebida — ABS Resolve',
+      this.template('Solicitação recebida', [
+        `Olá, ${data.clienteNome}!`,
+        `Recebemos seu pedido <strong>${data.pedidoNumero}</strong>.`,
+        `Serviço(s): ${data.servicos}`,
+        `Valor: <strong>${valorFmt}</strong>`,
+        'Finalize o pagamento para confirmar o atendimento.',
+      ])
+    );
+    await this.enviarWhatsApp(this.whatsappCliente(data), msg);
+  }
+
+  /** Pagamento confirmado — serviço contratado */
+  async notificarServicoConfirmado(data: {
+    clienteNome: string;
+    email: string;
+    telefone: string;
+    whatsapp?: string | null;
+    pedidoNumero: string;
+    servicos: string;
+    valor: number;
+  }) {
+    const valorFmt = formatarMoeda(data.valor);
+    const msg =
+      `✅ *ABS Resolve — Serviço confirmado!*\n\n` +
+      `Olá, ${data.clienteNome}!\n\n` +
+      `Seu pagamento foi aprovado e o pedido *${data.pedidoNumero}* está confirmado.\n\n` +
+      `🔧 Serviço(s): ${data.servicos}\n` +
+      `💰 Valor pago: ${valorFmt}\n\n` +
+      `Acesse o portal para agendar o horário do atendimento. Você receberá lembretes 1 dia antes e 2 horas antes do horário marcado.\n\n` +
+      `_Chamou. ConfioU. Resolveu._`;
+
+    await this.enviarEmail(
+      data.email,
+      'Serviço confirmado — ABS Resolve',
+      this.template('Serviço confirmado', [
+        `Olá, ${data.clienteNome}!`,
+        `Pagamento aprovado — pedido <strong>${data.pedidoNumero}</strong>.`,
+        `Serviço(s): ${data.servicos}`,
+        `Valor: <strong>${valorFmt}</strong>`,
+        'Agende o horário do atendimento pelo portal do cliente.',
+      ])
+    );
+    await this.enviarWhatsApp(this.whatsappCliente(data), msg);
+  }
+
+  /** Horário de atendimento confirmado */
+  async notificarAgendamentoConfirmado(data: {
+    clienteNome: string;
+    email: string;
+    telefone: string;
+    whatsapp?: string | null;
+    pedidoNumero?: string;
+    data: string;
+    horarioInicio: string;
+    horarioFim: string;
+    servicoNome?: string;
+  }) {
+    const quando = formatarHorario(data.data, data.horarioInicio, data.horarioFim);
+    const servico = data.servicoNome ? `\n🔧 ${data.servicoNome}` : '';
+    const pedido = data.pedidoNumero ? `\n📦 Pedido: ${data.pedidoNumero}` : '';
+    const msg =
+      `📅 *ABS Resolve — Horário confirmado*\n\n` +
+      `Olá, ${data.clienteNome}!\n\n` +
+      `Seu atendimento está agendado:\n` +
+      `🗓 ${quando}${servico}${pedido}\n\n` +
+      `Enviaremos lembretes por WhatsApp *1 dia antes* e *2 horas antes* do horário.\n\n` +
+      `_Chamou. ConfioU. Resolveu._`;
+
+    await this.enviarEmail(
+      data.email,
+      'Horário confirmado — ABS Resolve',
+      this.template('Horário confirmado', [msg.replace(/\*/g, '').replace(/_/g, '')])
+    );
+    await this.enviarWhatsApp(this.whatsappCliente(data), msg);
+  }
+
+  /** Lembrete automático (1 dia ou 2 horas antes) */
+  async notificarLembreteAgendamento(data: {
+    tipo: '1d' | '2h';
+    clienteNome: string;
+    email: string;
+    telefone: string;
+    whatsapp?: string | null;
+    data: string;
+    horarioInicio: string;
+    horarioFim: string;
+    pedidoNumero?: string;
+    servicoNome?: string;
+  }): Promise<boolean> {
+    const quando = formatarHorario(data.data, data.horarioInicio, data.horarioFim);
+    const pedido = data.pedidoNumero ? `\n📦 Pedido: ${data.pedidoNumero}` : '';
+    const servico = data.servicoNome ? `\n🔧 ${data.servicoNome}` : '';
+
+    const msg =
+      data.tipo === '1d'
+        ? `🔔 *Lembrete ABS Resolve*\n\nOlá, ${data.clienteNome}!\n\nSeu atendimento é *amanhã*:\n🗓 ${quando}${servico}${pedido}\n\nPrecisa reagendar? Acesse o portal do cliente.\n\n_Chamou. ConfioU. Resolveu._`
+        : `🔔 *Lembrete ABS Resolve*\n\nOlá, ${data.clienteNome}!\n\nSeu técnico chega *hoje*:\n⏰ ${data.horarioInicio} às ${data.horarioFim}${servico}${pedido}\n\nDeixe o local preparado para o atendimento.\n\n_Chamou. ConfioU. Resolveu._`;
+
+    const assunto = data.tipo === '1d' ? 'Lembrete: atendimento amanhã' : 'Lembrete: atendimento em 2 horas';
+    await this.enviarEmail(data.email, `${assunto} — ABS Resolve`, this.template(assunto, [msg.replace(/\*/g, '')]));
+    return this.enviarWhatsApp(this.whatsappCliente(data), msg);
   }
 
   async notificarNovoPedido(clienteNome: string, numero: string, email: string, telefone: string) {
@@ -151,13 +303,29 @@ export class NotificacaoService {
     await this.notificarPagamentoRecebido(clienteNome, valor ?? 0, email, telefone);
   }
 
-  async notificarTecnicoAgendado(clienteNome: string, email: string, telefone: string, horario: string) {
+  async notificarTecnicoAgendado(
+    clienteNome: string,
+    email: string,
+    telefone: string,
+    horario: string,
+    extra?: { whatsapp?: string | null; pedidoNumero?: string; servicoNome?: string; data?: string; horarioInicio?: string; horarioFim?: string }
+  ) {
+    if (extra?.data && extra.horarioInicio && extra.horarioFim) {
+      await this.notificarAgendamentoConfirmado({
+        clienteNome,
+        email,
+        telefone,
+        whatsapp: extra.whatsapp,
+        pedidoNumero: extra.pedidoNumero,
+        data: extra.data,
+        horarioInicio: extra.horarioInicio,
+        horarioFim: extra.horarioFim,
+        servicoNome: extra.servicoNome,
+      });
+      return;
+    }
     const msg = `Olá, ${clienteNome}! Seu atendimento foi agendado para ${horario}.`;
-    await this.enviarEmail(
-      email,
-      'Atendimento agendado — ABS Resolve',
-      this.template('Atendimento agendado', [msg])
-    );
+    await this.enviarEmail(email, 'Atendimento agendado — ABS Resolve', this.template('Atendimento agendado', [msg]));
     await this.enviarWhatsApp(telefone, msg);
   }
 
