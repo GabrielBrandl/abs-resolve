@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
-import { Logo, Button } from '../components/ui';
+import { Button } from '../components/ui';
 import { getHomeForRole, isClienteRole, isStaffRole } from '../utils/auth-routes';
 
 function mensagemErro(err: unknown) {
@@ -61,13 +61,14 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center abs-gradient px-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <Logo variant="default" className="mx-auto h-28" />
-        </div>
+    <div
+      className="relative flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat px-4 py-8"
+      style={{ backgroundImage: "url('/login-bg.webp')" }}
+    >
+      <div className="absolute inset-0 bg-black/25" aria-hidden />
 
-        <div className="mb-4 flex rounded-xl bg-white/10 p-1 backdrop-blur-sm" role="tablist" aria-label="Tipo de acesso">
+      <div className="relative z-10 w-full max-w-md lg:ml-auto lg:mr-[8%] xl:mr-[12%]">
+        <div className="mb-4 flex rounded-xl border border-white/20 bg-black/35 p-1 backdrop-blur-md" role="tablist" aria-label="Tipo de acesso">
           {(['cliente', 'equipe'] as const).map((tab) => (
             <button
               key={tab}
