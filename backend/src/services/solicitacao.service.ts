@@ -521,17 +521,6 @@ export class SolicitacaoService {
       solicitacaoId: id,
     });
 
-    await notificacaoService.notificarSolicitacaoRecebida({
-      clienteNome: sol.cliente.nome,
-      email: sol.cliente.email,
-      telefone: sol.cliente.telefone,
-      whatsapp: sol.cliente.whatsapp,
-      pedidoNumero: numero,
-      servicos: descricaoServicosDaSolicitacao(sol),
-      valor,
-      metodo,
-    });
-
     return { pedido, pagamento, solicitacao: { ...sol, status: 'aguardando_pagamento', pedidoId: pedido.id } };
   }
 

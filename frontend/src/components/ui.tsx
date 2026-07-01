@@ -164,7 +164,8 @@ export function Logo({
   const frame: Record<'default' | 'sidebar' | 'card', string> = {
     default:
       'inline-flex max-w-full items-center justify-center overflow-hidden rounded-2xl shadow-xl shadow-primary-900/30',
-    sidebar: 'inline-flex max-w-full items-center justify-center overflow-hidden rounded-xl',
+    sidebar:
+      'inline-flex max-w-full items-center justify-center overflow-hidden rounded-xl bg-white px-2.5 py-1.5 shadow-md ring-1 ring-white/30',
     card: 'inline-flex max-w-full items-center justify-center overflow-hidden rounded-xl shadow-md ring-1 ring-slate-200',
   };
 

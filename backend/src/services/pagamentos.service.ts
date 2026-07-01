@@ -72,6 +72,7 @@ export class PagamentosService {
         telefone: cliente.telefone,
         pedidoNumero: pagamento.pedido?.numero,
         linkPagamento: pagamento.invoiceUrl,
+        pixCode: pagamento.pixCode,
       })
       .catch(() => {});
 

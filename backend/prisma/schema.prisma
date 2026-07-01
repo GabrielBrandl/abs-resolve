@@ -125,6 +125,7 @@ model Pedido {
   pagamentos   Pagamento[]
   solicitacao  SolicitacaoServico?
   agendamentos Agendamento[]
+  nfse         Nfse?
 
   @@map("pedidos")
 }
@@ -163,8 +164,29 @@ model Pagamento {
   createdAt   DateTime  @default(now()) @map("created_at")
   cliente     Cliente   @relation(fields: [clienteId], references: [id])
   pedido      Pedido?   @relation(fields: [pedidoId], references: [id])
+  nfse        Nfse?
 
   @@map("pagamentos")
+}
+
+model Nfse {
+  id                String    @id @default(uuid())
+  pedidoId          String    @unique @map("pedido_id")
+  pagamentoId       String?   @unique @map("pagamento_id")
+  numero            String?
+  codigoVerificacao String?   @map("codigo_verificacao")
+  status            String    @default("processando")
+  pdfUrl            String?   @map("pdf_url")
+  xmlUrl            String?   @map("xml_url")
+  documentoId       String?   @map("documento_id")
+  providerRef       String?   @map("provider_ref")
+  erro              String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  pedido            Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  pagamento         Pagamento? @relation(fields: [pagamentoId], references: [id])
+
+  @@map("nfse")
 }
 
 model Servico {

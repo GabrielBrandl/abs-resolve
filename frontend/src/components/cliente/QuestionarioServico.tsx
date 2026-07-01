@@ -48,6 +48,7 @@ interface Props {
   onResposta: (perguntaId: string, valor: string) => void;
   onPrecoChange: (preco: PrecoCalculado | null) => void;
   onRespostasBulk?: (patch: Record<string, string>) => void;
+  onDiagnosticoIaUsado?: (dados: { fotos: File[]; mensagem?: string }) => void;
 }
 
 export function QuestionarioServico({
@@ -59,6 +60,7 @@ export function QuestionarioServico({
   onResposta,
   onPrecoChange,
   onRespostasBulk,
+  onDiagnosticoIaUsado,
 }: Props) {
   const [fluxo, setFluxo] = useState<FluxoServicoData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,19 +126,22 @@ export function QuestionarioServico({
     try {
       const res = await diagnosticoApi.analisar(fotosIa, undefined, slug);
       const spec = res.analise?.especificacao as { tipo?: string | null } | undefined;
+      let mensagemIa = '';
       if (spec) {
         const patch = mapearDiagnosticoParaRespostas(slug, spec);
         if (Object.keys(patch).length && onRespostasBulk) {
           onRespostasBulk(patch);
-          setMsgIa(
-            `IA identificou: ${res.analise.produtoIdentificado || spec.tipo || 'produto'} (${res.analise.confianca ?? '—'}% confiança). Campos preenchidos automaticamente — confira antes de continuar.`
-          );
+          mensagemIa = `IA identificou: ${res.analise.produtoIdentificado || spec.tipo || 'produto'} (${res.analise.confianca ?? '—'}% confiança). Campos preenchidos automaticamente — confira antes de continuar.`;
+          setMsgIa(mensagemIa);
         } else {
-          setMsgIa(
-            `IA: ${res.analise.produtoIdentificado || res.analise.descricao || 'Análise concluída'}. Ajuste as respostas manualmente se necessário.`
-          );
+          mensagemIa = `IA: ${res.analise.produtoIdentificado || res.analise.descricao || 'Análise concluída'}. Ajuste as respostas manualmente se necessário.`;
+          setMsgIa(mensagemIa);
         }
+      } else {
+        mensagemIa = `IA: ${res.analise?.produtoIdentificado || res.analise?.descricao || 'Análise concluída'}.`;
+        setMsgIa(mensagemIa);
       }
+      onDiagnosticoIaUsado?.({ fotos: [...fotosIa], mensagem: mensagemIa });
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro na análise IA');
     } finally {
@@ -261,7 +266,9 @@ export function QuestionarioServico({
         <img
           src={imagemAtual}
           alt={nome}
-          className="w-full rounded-xl border border-abs-gray object-cover shadow-sm lg:sticky lg:top-4 lg:h-48"
+          className="aspect-[4/3] w-full rounded-xl border border-abs-gray object-cover object-center shadow-sm lg:sticky lg:top-4"
+          loading="lazy"
+          decoding="async"
           onError={(e) => {
             if (imagemCatalogo) (e.target as HTMLImageElement).src = imagemCatalogo;
           }}

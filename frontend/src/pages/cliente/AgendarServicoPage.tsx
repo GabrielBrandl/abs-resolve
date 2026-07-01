@@ -50,14 +50,16 @@ function ServicoCardMedia({ servico, icone }: { servico: ServicoCatalogo; icone:
       <img
         src={servico.imagemUrl}
         alt=""
-        className="h-28 w-full object-cover"
+        className="h-32 w-full object-cover object-center"
+        loading="lazy"
+        decoding="async"
         onError={() => setImgOk(false)}
       />
     );
   }
 
   return (
-    <div className={`flex h-28 items-center justify-center bg-gradient-to-br text-5xl ${gradient}`}>
+    <div className={`flex h-32 items-center justify-center bg-gradient-to-br text-5xl ${gradient}`}>
       {icone || '🔧'}
     </div>
   );
@@ -118,7 +120,11 @@ export function AgendarServicoPage() {
   const [fotosPorSlug, setFotosPorSlug] = useState<Record<string, File[]>>({});
   const [fluxosFotos, setFluxosFotos] = useState<Record<string, string[]>>({});
   const [aceiteIa, setAceiteIa] = useState(false);
+  const [diagnosticoIaPorSlug, setDiagnosticoIaPorSlug] = useState<
+    Record<string, { fotos: File[]; mensagem?: string }>
+  >({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const previewsIaRef = useRef<string[]>([]);
 
   useEffect(() => {
     Promise.all([solicitacaoApi.catalogo(), solicitacaoApi.config()])
@@ -135,6 +141,39 @@ export function AgendarServicoPage() {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
+
+  const usouDiagnosticoIa = useMemo(
+    () => cart.items.some((item) => (diagnosticoIaPorSlug[item.slug]?.fotos.length ?? 0) > 0),
+    [cart.items, diagnosticoIaPorSlug]
+  );
+
+  const previewsDiagnosticoIa = useMemo(() => {
+    previewsIaRef.current.forEach((url) => URL.revokeObjectURL(url));
+    const porSlug: Record<string, string[]> = {};
+    const urls: string[] = [];
+    for (const item of cart.items) {
+      const registro = diagnosticoIaPorSlug[item.slug];
+      if (!registro?.fotos.length) continue;
+      porSlug[item.slug] = registro.fotos.map((f) => {
+        const url = URL.createObjectURL(f);
+        urls.push(url);
+        return url;
+      });
+    }
+    previewsIaRef.current = urls;
+    return porSlug;
+  }, [cart.items, diagnosticoIaPorSlug]);
+
+  useEffect(() => {
+    return () => {
+      previewsIaRef.current.forEach((url) => URL.revokeObjectURL(url));
+      previewsIaRef.current = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!usouDiagnosticoIa) setAceiteIa(false);
+  }, [usouDiagnosticoIa]);
 
   useEffect(() => {
     if (step !== 'horario' || !solicitacaoId) return;
@@ -239,6 +278,14 @@ export function AgendarServicoPage() {
     }));
   };
 
+  const registrarDiagnosticoIa = (dados: { fotos: File[]; mensagem?: string }) => {
+    if (!itemAtual) return;
+    setDiagnosticoIaPorSlug((prev) => ({
+      ...prev,
+      [itemAtual.slug]: { fotos: dados.fotos, mensagem: dados.mensagem },
+    }));
+  };
+
   const setPrecoAtual = (preco: PrecoCalculado | null) => {
     if (!itemAtual) return;
     setPrecosPorSlug((prev) => ({ ...prev, [itemAtual.slug]: preco }));
@@ -261,7 +308,7 @@ export function AgendarServicoPage() {
       toast('Complete o questionário de todos os serviços', 'error');
       return;
     }
-    if (!aceiteIa) {
+    if (usouDiagnosticoIa && !aceiteIa) {
       toast('Aceite o termo sobre diagnóstico por IA para continuar', 'error');
       return;
     }
@@ -296,7 +343,7 @@ export function AgendarServicoPage() {
       const sol = (await solicitacaoApi.criarCarrinho({
         itens,
         express,
-        aceiteIaDiagnostico: aceiteIa,
+        aceiteIaDiagnostico: usouDiagnosticoIa && aceiteIa,
       })) as { id: string; precoFinal: number };
 
       for (const item of cart.items) {
@@ -584,6 +631,7 @@ export function AgendarServicoPage() {
             onResposta={setRespostaAtual}
             onPrecoChange={setPrecoAtual}
             onRespostasBulk={setRespostasBulkAtual}
+            onDiagnosticoIaUsado={registrarDiagnosticoIa}
           />
           <QuestionarioNav
             onVoltar={() => {
@@ -634,18 +682,50 @@ export function AgendarServicoPage() {
               );
             })}
           </ul>
-          <label className="mt-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={aceiteIa}
-              onChange={(e) => setAceiteIa(e.target.checked)}
-            />
-            <span>
-              Estou ciente de que o diagnóstico por inteligência artificial pode conter imprecisões (margem estimada de até{' '}
-              {MARGEM_ERRO_IA_PERCENT}%) e concordo em prosseguir com o serviço com base nas informações fornecidas.
-            </span>
-          </label>
+          {usouDiagnosticoIa && (
+            <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm">
+              <p className="mb-3 font-semibold text-primary-800">Diagnóstico por inteligência artificial</p>
+              <div className="mb-4 space-y-4">
+                {cart.items
+                  .filter((item) => diagnosticoIaPorSlug[item.slug]?.fotos.length)
+                  .map((item) => {
+                    const registro = diagnosticoIaPorSlug[item.slug];
+                    const previews = previewsDiagnosticoIa[item.slug] || [];
+                    return (
+                      <div key={item.slug}>
+                        <p className="mb-2 font-medium text-primary-700">{item.nome}</p>
+                        {registro.mensagem && (
+                          <p className="mb-2 text-xs text-slate-600">{registro.mensagem}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {previews.map((url, i) => (
+                            <img
+                              key={i}
+                              src={url}
+                              alt={`Foto enviada para diagnóstico — ${item.nome}`}
+                              className="h-28 w-28 rounded-lg border border-blue-200 bg-white object-cover shadow-sm"
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={aceiteIa}
+                  onChange={(e) => setAceiteIa(e.target.checked)}
+                />
+                <span>
+                  Estou ciente de que o diagnóstico por inteligência artificial pode conter imprecisões (margem
+                  estimada de até {MARGEM_ERRO_IA_PERCENT}%) e concordo em prosseguir com o serviço com base nas
+                  informações fornecidas.
+                </span>
+              </label>
+            </div>
+          )}
           <label className="mt-4 flex items-center gap-2 rounded-lg border-2 border-accent-400 bg-accent-50 p-3">
             <input type="checkbox" checked={express} onChange={(e) => setExpress(e.target.checked)} />
             <span className="font-medium">Atendimento Express (+ {formatCurrency(expressValor)})</span>
@@ -659,7 +739,7 @@ export function AgendarServicoPage() {
               setStep('questionario');
             }}
             onAvancar={irFotos}
-            disabled={!questionarioCompleto || !aceiteIa}
+            disabled={!questionarioCompleto || (usouDiagnosticoIa && !aceiteIa)}
             avancarLabel="Enviar fotos"
           />
         </Card>

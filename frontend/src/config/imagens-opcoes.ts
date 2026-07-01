@@ -49,7 +49,7 @@ export function imagemParaOpcao(
   if (temImagemOpcao(slug, perguntaId, opcaoId)) {
     return caminhoImagemOpcao(slug, perguntaId, opcaoId);
   }
-  return fallback ?? `/servicos/${slug}.png`;
+  return fallback ?? `/servicos/${slug}.webp`;
 }
 
 export function imagemServicoComRespostas(
@@ -68,5 +68,5 @@ export function imagemServicoComRespostas(
     }
   }
 
-  return imagemCatalogo || `/servicos/${slug}.png`;
+  return imagemCatalogo || `/servicos/${slug}.webp`;
 }

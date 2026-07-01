@@ -14,6 +14,37 @@ export class StorageService {
     return this.uploadLocal(file);
   }
 
+  async uploadBuffer(
+    clienteId: string,
+    buffer: Buffer,
+    originalname: string,
+    mimetype: string
+  ): Promise<{ url: string; filename: string; storage: 'supabase' | 'local' }> {
+    const file = {
+      originalname,
+      mimetype,
+      buffer,
+      size: buffer.length,
+    } as Express.Multer.File;
+
+    if (isSupabaseConfigured()) {
+      return this.uploadSupabase(clienteId, file);
+    }
+
+    const ext = path.extname(originalname);
+    const filename = `${randomUUID()}${ext}`;
+    const dir = path.join(UPLOAD_DIR, clienteId);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const filepath = path.join(dir, filename);
+    fs.writeFileSync(filepath, buffer);
+    const baseUrl = process.env.API_PUBLIC_URL || 'http://localhost:3001';
+    return {
+      url: `${baseUrl}/uploads/${clienteId}/${filename}`,
+      filename: `${clienteId}/${filename}`,
+      storage: 'local' as const,
+    };
+  }
+
   async delete(filename: string, storage: 'supabase' | 'local') {
     if (storage === 'supabase' && isSupabaseConfigured()) {
       const supabase = getSupabase()!;

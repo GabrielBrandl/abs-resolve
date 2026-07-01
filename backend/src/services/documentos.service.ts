@@ -27,6 +27,29 @@ export class DocumentosService {
     });
   }
 
+  async registrarArquivo(
+    clienteId: string,
+    nome: string,
+    buffer: Buffer,
+    mimetype: string
+  ) {
+    const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
+    if (!cliente) throw new Error('Cliente não encontrado');
+
+    const stored = await storageService.uploadBuffer(clienteId, buffer, nome, mimetype);
+
+    return prisma.documento.create({
+      data: {
+        clienteId,
+        nome,
+        filename: stored.filename,
+        mimetype,
+        tamanho: buffer.length,
+        url: stored.url,
+      },
+    });
+  }
+
   async excluir(id: string, clienteId?: string) {
     const doc = await prisma.documento.findFirst({
       where: clienteId ? { id, clienteId } : { id },

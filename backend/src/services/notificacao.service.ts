@@ -62,7 +62,12 @@ export class NotificacaoService {
     `;
   }
 
-  async enviarEmail(destino: string, assunto: string, html: string) {
+  async enviarEmail(
+    destino: string,
+    assunto: string,
+    html: string,
+    anexos?: Array<{ filename: string; content: Buffer; contentType?: string }>
+  ) {
     try {
       if (process.env.SMTP_HOST) {
         await transporter.sendMail({
@@ -70,9 +75,14 @@ export class NotificacaoService {
           to: destino,
           subject: assunto,
           html,
+          attachments: anexos?.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            contentType: a.contentType,
+          })),
         });
       } else if (process.env.NODE_ENV !== 'production') {
-        console.info(`[email] ${destino} — ${assunto}`);
+        console.info(`[email] ${destino} — ${assunto}${anexos?.length ? ` (+${anexos.length} anexo(s))` : ''}`);
       }
       await this.registrar('email', 'email', destino, assunto, html, 'enviada');
     } catch {
@@ -268,6 +278,7 @@ export class NotificacaoService {
     telefone: string;
     pedidoNumero?: string;
     linkPagamento?: string | null;
+    pixCode?: string | null;
   }) {
     const metodo = METODO_PAGAMENTO_LABEL[data.metodo] || data.metodo;
     const valor = formatarMoeda(data.valor);
@@ -277,19 +288,99 @@ export class NotificacaoService {
     const linkHtml = data.linkPagamento
       ? `<p><a href="${data.linkPagamento}" style="display:inline-block;background:#f59e0b;color:#1e293b;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:bold">Pagar agora</a></p>`
       : '';
+    const pixHtml =
+      data.metodo === 'PIX' && data.pixCode
+        ? `<div style="margin:12px 0;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px">
+            <p style="margin:0 0 8px;font-size:13px;font-weight:bold;color:#166534">PIX copia e cola</p>
+            <p style="margin:0;font-size:11px;word-break:break-all;color:#334155">${data.pixCode}</p>
+          </div>`
+        : '';
     await this.enviarEmail(
       data.email,
       'Nova cobrança — ABS Resolve',
       this.template('Nova cobrança disponível', [
         `Olá, ${data.clienteNome}!`,
         `Geramos uma cobrança de <strong>${valor}</strong> via ${metodo}${ref}, com vencimento em <strong>${venc}</strong>.`,
-        'Assim que o pagamento for confirmado, daremos continuidade ao seu atendimento.',
-      ], linkHtml)
+        'Assim que o pagamento for confirmado, enviaremos o comprovante e a NFS-e do serviço por e-mail.',
+      ], linkHtml + pixHtml)
     );
     await this.enviarWhatsApp(
       data.telefone,
       msg + (data.linkPagamento ? ` Link: ${data.linkPagamento}` : '')
     );
+  }
+
+  /** Pagamento confirmado + comprovante + NFS-e */
+  async notificarPagamentoComNfse(data: {
+    clienteNome: string;
+    email: string;
+    telefone: string;
+    whatsapp?: string | null;
+    pedidoNumero: string;
+    servicos: string;
+    valor: number;
+    metodo: string;
+    dataPagamento?: Date | string | null;
+    linkComprovante?: string | null;
+    nfse?: {
+      numero?: string | null;
+      codigoVerificacao?: string | null;
+      pdfUrl?: string | null;
+      anexo?: { filename: string; content: Buffer; contentType?: string };
+    } | null;
+  }) {
+    const valorFmt = formatarMoeda(data.valor);
+    const metodo = METODO_PAGAMENTO_LABEL[data.metodo] || data.metodo;
+    const quando = data.dataPagamento ? formatarData(data.dataPagamento) : formatarData(new Date());
+
+    const comprovanteHtml = `
+      <div style="margin:16px 0;padding:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+        <p style="margin:0 0 10px;font-weight:bold;color:#0f2744">Comprovante de pagamento</p>
+        <table style="width:100%;font-size:13px;border-collapse:collapse">
+          <tr><td style="padding:4px 0;color:#64748b">Pedido</td><td style="padding:4px 0;text-align:right"><strong>${data.pedidoNumero}</strong></td></tr>
+          <tr><td style="padding:4px 0;color:#64748b">Serviço(s)</td><td style="padding:4px 0;text-align:right">${data.servicos}</td></tr>
+          <tr><td style="padding:4px 0;color:#64748b">Valor pago</td><td style="padding:4px 0;text-align:right"><strong>${valorFmt}</strong></td></tr>
+          <tr><td style="padding:4px 0;color:#64748b">Forma de pagamento</td><td style="padding:4px 0;text-align:right">${metodo}</td></tr>
+          <tr><td style="padding:4px 0;color:#64748b">Data</td><td style="padding:4px 0;text-align:right">${quando}</td></tr>
+        </table>
+        ${data.linkComprovante ? `<p style="margin:12px 0 0"><a href="${data.linkComprovante}" style="color:#2563eb">Ver comprovante no Asaas</a></p>` : ''}
+      </div>`;
+
+    const nfseHtml = data.nfse?.numero
+      ? `<div style="margin:16px 0;padding:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px">
+          <p style="margin:0 0 10px;font-weight:bold;color:#0f2744">Nota Fiscal de Serviço (NFS-e)</p>
+          <table style="width:100%;font-size:13px;border-collapse:collapse">
+            <tr><td style="padding:4px 0;color:#64748b">Número</td><td style="padding:4px 0;text-align:right"><strong>${data.nfse.numero}</strong></td></tr>
+            ${data.nfse.codigoVerificacao ? `<tr><td style="padding:4px 0;color:#64748b">Código de verificação</td><td style="padding:4px 0;text-align:right">${data.nfse.codigoVerificacao}</td></tr>` : ''}
+          </table>
+          ${data.nfse.pdfUrl ? `<p style="margin:12px 0 0"><a href="${data.nfse.pdfUrl}" style="color:#2563eb">Baixar NFS-e</a></p>` : ''}
+          <p style="margin:8px 0 0;font-size:12px;color:#64748b">A nota também está disponível em Documentos no portal do cliente.</p>
+        </div>`
+      : `<p style="font-size:13px;color:#64748b">A NFS-e está sendo emitida e será disponibilizada em Documentos no portal do cliente.</p>`;
+
+    const msg =
+      `✅ *ABS Resolve — Pagamento confirmado!*\n\n` +
+      `Olá, ${data.clienteNome}!\n\n` +
+      `Pagamento de *${valorFmt}* aprovado — pedido *${data.pedidoNumero}*.\n` +
+      `🔧 ${data.servicos}\n\n` +
+      (data.nfse?.numero ? `📄 NFS-e nº ${data.nfse.numero} enviada por e-mail.\n\n` : '') +
+      `Agende o horário do atendimento pelo portal do cliente.\n\n` +
+      `_Chamou. ConfioU. Resolveu._`;
+
+    const anexos = data.nfse?.anexo ? [data.nfse.anexo] : undefined;
+
+    await this.enviarEmail(
+      data.email,
+      'Pagamento confirmado e NFS-e — ABS Resolve',
+      this.template('Pagamento confirmado', [
+        `Olá, ${data.clienteNome}!`,
+        `Seu pagamento foi aprovado e o pedido <strong>${data.pedidoNumero}</strong> está confirmado.`,
+        'Segue abaixo o comprovante de pagamento e os dados da NFS-e do serviço.',
+        'Agende o horário do atendimento pelo portal do cliente.',
+      ], comprovanteHtml + nfseHtml),
+      anexos
+    );
+    await this.enviarWhatsApp(this.whatsappCliente(data), msg);
   }
 
   async notificarPagamentoRecebido(clienteNome: string, valor: number, email: string, telefone: string, pedidoNumero?: string) {

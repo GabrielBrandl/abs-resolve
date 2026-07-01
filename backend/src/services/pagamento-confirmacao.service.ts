@@ -1,14 +1,47 @@
+import fs from 'fs';
+import path from 'path';
 import { prisma } from '../utils/prisma.js';
 import { toNumber } from '../utils/helpers.js';
 import { estoqueService } from './estoque.service.js';
 import { notificacaoService } from './notificacao.service.js';
+import { nfseService } from './nfse.service.js';
 import { descricaoServicosDaSolicitacao } from '../utils/solicitacao-descricao.js';
 
 function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
   return `${opcoes.tipo || 'simples'}_${opcoes.amperagem || '10a'}`.toLowerCase();
 }
 
-/** Confirma pagamento recebido: libera agendamento, reserva estoque e cria OS */
+async function anexoDocumentoNfse(documentoId?: string | null) {
+  if (!documentoId) return undefined;
+  const doc = await prisma.documento.findUnique({ where: { id: documentoId } });
+  if (!doc) return undefined;
+
+  if (doc.url.startsWith('http')) {
+    try {
+      const res = await fetch(doc.url);
+      if (res.ok) {
+        return {
+          filename: doc.nome,
+          content: Buffer.from(await res.arrayBuffer()),
+          contentType: doc.mimetype,
+        };
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  const filepath = path.join(process.env.UPLOAD_DIR || 'uploads', doc.filename);
+  if (!fs.existsSync(filepath)) return undefined;
+
+  return {
+    filename: doc.nome,
+    content: fs.readFileSync(filepath),
+    contentType: doc.mimetype,
+  };
+}
+
+/** Confirma pagamento recebido: libera agendamento, reserva estoque, emite NFS-e e notifica cliente */
 export async function confirmarPagamentoRecebido(pagamentoId: string) {
   const pagamento = await prisma.pagamento.findUnique({
     where: { id: pagamentoId },
@@ -19,12 +52,18 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
   if (!pagamento.pedidoId) {
     if (pagamento.cliente) {
       await notificacaoService
-        .notificarPagamentoRecebido(
-          pagamento.cliente.nome,
-          toNumber(pagamento.valor),
-          pagamento.cliente.email,
-          pagamento.cliente.telefone
-        )
+        .notificarPagamentoComNfse({
+          clienteNome: pagamento.cliente.nome,
+          email: pagamento.cliente.email,
+          telefone: pagamento.cliente.telefone,
+          whatsapp: pagamento.cliente.whatsapp,
+          pedidoNumero: '—',
+          servicos: 'Cobrança ABS Resolve',
+          valor: toNumber(pagamento.valor),
+          metodo: pagamento.metodo,
+          dataPagamento: pagamento.paymentDate,
+          linkComprovante: pagamento.invoiceUrl,
+        })
         .catch(() => {});
     }
     return pagamento;
@@ -66,10 +105,19 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
     });
   }
 
+  let nfse = null;
+  try {
+    nfse = await nfseService.emitirParaPagamento(pagamentoId);
+  } catch (err) {
+    console.warn('[NFSe] emissão falhou:', err instanceof Error ? err.message : err);
+  }
+
   if (pagamento.cliente) {
-    const servicos = sol ? descricaoServicosDaSolicitacao(sol) : 'Serviço ABS Resolve';
+    const servicos = sol ? descricaoServicosDaSolicitacao(sol) : pedido.descricao || 'Serviço ABS Resolve';
+    const anexo = nfse ? await anexoDocumentoNfse(nfse.documentoId) : undefined;
+
     await notificacaoService
-      .notificarServicoConfirmado({
+      .notificarPagamentoComNfse({
         clienteNome: pagamento.cliente.nome,
         email: pagamento.cliente.email,
         telefone: pagamento.cliente.telefone,
@@ -77,6 +125,17 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
         pedidoNumero: pedido.numero,
         servicos,
         valor: toNumber(pagamento.valor),
+        metodo: pagamento.metodo,
+        dataPagamento: pagamento.paymentDate,
+        linkComprovante: pagamento.invoiceUrl,
+        nfse: nfse
+          ? {
+              numero: nfse.numero,
+              codigoVerificacao: nfse.codigoVerificacao,
+              pdfUrl: nfse.pdfUrl,
+              anexo,
+            }
+          : null,
       })
       .catch(() => {});
   }

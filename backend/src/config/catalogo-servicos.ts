@@ -37,7 +37,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Remoção da tomada antiga • Fornecimento de tomada padrão • Instalação • Teste de funcionamento',
     pontos: 1,
     ordem: 1,
-    imagemUrl: '/servicos/troca-tomada.png',
+    imagemUrl: '/servicos/troca-tomada.webp',
   },
   {
     slug: 'troca-interruptor',
@@ -50,7 +50,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Remoção do interruptor antigo • Instalação do novo • Teste de funcionamento',
     pontos: 1,
     ordem: 2,
-    imagemUrl: '/servicos/troca-interruptor.svg',
+    imagemUrl: '/servicos/troca-interruptor.webp',
   },
   {
     slug: 'instalacao-chuveiro',
@@ -63,7 +63,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Remoção do chuveiro antigo • Instalação do novo (cliente fornece) • Verificação do disjuntor • Teste',
     pontos: 2,
     ordem: 3,
-    imagemUrl: '/servicos/instalacao-chuveiro.svg',
+    imagemUrl: '/servicos/instalacao-chuveiro.webp',
   },
   {
     slug: 'troca-disjuntor',
@@ -76,7 +76,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Remoção do disjuntor antigo • Instalação do novo (cliente fornece) • Teste do quadro',
     pontos: 1,
     ordem: 4,
-    imagemUrl: '/servicos/troca-disjuntor.svg',
+    imagemUrl: '/servicos/troca-disjuntor.webp',
   },
   {
     slug: 'instalacao-luminaria',
@@ -89,7 +89,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Fixação • Conexão elétrica • Teste de funcionamento',
     pontos: 2,
     ordem: 5,
-    imagemUrl: '/servicos/instalacao-luminaria.png',
+    imagemUrl: '/servicos/instalacao-luminaria.webp',
   },
   {
     slug: 'instalacao-ventilador-teto',
@@ -102,7 +102,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Fixação • Conexão elétrica • Teste de funcionamento',
     pontos: 2,
     ordem: 6,
-    imagemUrl: '/servicos/instalacao-ventilador.png',
+    imagemUrl: '/servicos/instalacao-ventilador-teto.webp',
   },
   {
     slug: 'troca-torneira',
@@ -115,7 +115,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Remoção da torneira antiga • Fornecimento da torneira padrão • Instalação • Teste',
     pontos: 1,
     ordem: 7,
-    imagemUrl: '/servicos/troca-torneira.png',
+    imagemUrl: '/servicos/troca-torneira.webp',
   },
   {
     slug: 'troca-registro',
@@ -128,7 +128,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Remoção do registro antigo • Instalação do novo • Teste de pressão',
     pontos: 2,
     ordem: 8,
-    imagemUrl: '/servicos/troca-registro.svg',
+    imagemUrl: '/servicos/troca-registro.webp',
   },
   {
     slug: 'reparo-vazamento',
@@ -141,7 +141,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Avaliação técnica • Identificação da causa • Orçamento detalhado • Execução do reparo',
     pontos: 2,
     ordem: 9,
-    imagemUrl: '/servicos/reparo-vazamento.svg',
+    imagemUrl: '/servicos/reparo-vazamento.webp',
   },
   {
     slug: 'desentupimento-pia',
@@ -154,7 +154,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Avaliação • Desentupimento • Teste de vazão',
     pontos: 1,
     ordem: 10,
-    imagemUrl: '/servicos/desentupimento-pia.svg',
+    imagemUrl: '/servicos/desentupimento-pia.webp',
   },
   {
     slug: 'desentupimento-vaso',
@@ -167,7 +167,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Avaliação • Desentupimento • Teste de funcionamento',
     pontos: 2,
     ordem: 11,
-    imagemUrl: '/servicos/desentupimento-vaso.svg',
+    imagemUrl: '/servicos/desentupimento-vaso.webp',
   },
   {
     slug: 'instalacao-suporte-tv',
@@ -180,7 +180,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Marcação • Fixação • Encaixe da TV • Organização de cabos',
     pontos: 1,
     ordem: 12,
-    imagemUrl: '/servicos/suporte-tv.svg',
+    imagemUrl: '/servicos/instalacao-suporte-tv.webp',
   },
   {
     slug: 'instalacao-prateleira',
@@ -193,7 +193,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Marcação • Fixação • Ajustes finais',
     pontos: 1,
     ordem: 13,
-    imagemUrl: '/servicos/prateleira.svg',
+    imagemUrl: '/servicos/instalacao-prateleira.webp',
   },
   {
     slug: 'montagem-moveis-simples',
@@ -206,7 +206,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Conferência das peças • Montagem • Fixação e ajustes',
     pontos: 2,
     ordem: 14,
-    imagemUrl: '/servicos/montagem-moveis.svg',
+    imagemUrl: '/servicos/montagem-moveis-simples.webp',
   },
   {
     slug: 'montagem-guarda-roupa',
@@ -219,7 +219,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Conferência das peças • Montagem completa • Nivelamento • Ajustes finais',
     pontos: 3,
     ordem: 15,
-    imagemUrl: '/servicos/guarda-roupa.svg',
+    imagemUrl: '/servicos/montagem-guarda-roupa.webp',
   },
   {
     slug: 'instalacao-persiana',
@@ -232,7 +232,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Marcação • Fixação • Instalação • Teste de funcionamento',
     pontos: 2,
     ordem: 16,
-    imagemUrl: '/servicos/persiana.png',
+    imagemUrl: '/servicos/instalacao-persiana.webp',
   },
   {
     slug: 'limpeza-ar-split',
@@ -245,7 +245,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Limpeza de filtros • Higienização • Checagem de gás • Teste',
     pontos: 2,
     ordem: 17,
-    imagemUrl: '/servicos/limpeza-ar.svg',
+    imagemUrl: '/servicos/limpeza-ar-split.webp',
   },
   {
     slug: 'instalacao-ar-split',
@@ -258,7 +258,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Avaliação técnica • Suporte e tubulação • Instalação • Teste de funcionamento',
     pontos: 4,
     ordem: 18,
-    imagemUrl: '/servicos/instalacao-ar.svg',
+    imagemUrl: '/servicos/instalacao-ar-split.webp',
   },
   {
     slug: 'poda-jardim',
@@ -271,7 +271,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Poda • Limpeza • Remoção de resíduos',
     pontos: 2,
     ordem: 19,
-    imagemUrl: '/servicos/jardim.svg',
+    imagemUrl: '/servicos/poda-jardim.webp',
   },
   {
     slug: 'limpeza-pos-obra',
@@ -284,7 +284,7 @@ export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [
     descricao: 'Avaliação no local • Limpeza pesada • Remoção de resíduos finos',
     pontos: 3,
     ordem: 20,
-    imagemUrl: '/servicos/limpeza-obra.svg',
+    imagemUrl: '/servicos/limpeza-pos-obra.webp',
   },
 ];
 
