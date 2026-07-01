@@ -5,6 +5,8 @@ import { cpf } from 'cpf-cnpj-validator';
 import { authService } from '../services/auth.service';
 import { useAuthStore } from '../store/authStore';
 import { Logo, Input, Button, Card } from '../components/ui';
+import { isClienteRole } from '../utils/auth-routes';
+import { normalizeUser } from '../utils/normalize-user';
 
 function mensagemErro(err: unknown, fallback: string) {
   if (axios.isAxiosError(err)) {
@@ -63,7 +65,12 @@ export function CadastroPage() {
           cidade: form.cidade, uf: form.uf, cep: form.cep,
         },
       });
-      setAuth(result.user, result.accessToken);
+      const user = normalizeUser(result.user);
+      if (!user || !isClienteRole(user.role)) {
+        setError('Conta criada com perfil inválido. Contate o suporte.');
+        return;
+      }
+      setAuth(user, result.accessToken);
       navigate('/cliente/agendar');
     } catch (err) {
       setError(mensagemErro(err, 'Erro ao cadastrar'));

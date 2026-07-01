@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { Logo, Button } from '../components/ui';
+import { getHomeForRole, isClienteRole, isStaffRole } from '../utils/auth-routes';
 
 function mensagemErro(err: unknown) {
   if (axios.isAxiosError(err)) {
@@ -23,7 +24,7 @@ export function LoginPage() {
   const [senha, setSenha] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, loginCliente } = useAuthStore();
+  const { login, loginCliente, logout } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -32,10 +33,24 @@ export function LoginPage() {
     setLoading(true);
     try {
       if (modo === 'equipe') {
-        await login(email, senha);
-        navigate('/');
+        const user = await login(email, senha);
+        if (!isStaffRole(user.role)) {
+          await logout();
+          setError(
+            isClienteRole(user.role)
+              ? 'Esta conta é de cliente. Use a aba Cliente e entre com seu CPF.'
+              : 'Perfil sem acesso à equipe. Contate o administrador.'
+          );
+          return;
+        }
+        navigate(getHomeForRole(user.role));
       } else {
-        await loginCliente(cpfCnpj, senha);
+        const user = await loginCliente(cpfCnpj, senha);
+        if (!isClienteRole(user.role)) {
+          await logout();
+          setError('Esta conta é da equipe. Use a aba Equipe com seu e-mail corporativo.');
+          return;
+        }
         navigate('/cliente/agendar');
       }
     } catch (err) {

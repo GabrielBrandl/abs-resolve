@@ -4,6 +4,8 @@ import { clientesApi } from '../../services/modules.service';
 import type { Cliente } from '../../types';
 import { formatCurrency, formatDate, formatEndereco, mapsLink } from '../../types';
 import { PageHeader, Loading, Tabs, Badge, Button, Card, Input, Select } from '../../components/ui';
+import { BotaoVerFotos } from '../../components/GaleriaFotos';
+import { fotosDaSolicitacao } from '../../utils/fotos';
 import { useToast } from '../../components/Toast';
 import { useAuthStore } from '../../store/authStore';
 
@@ -81,6 +83,7 @@ export function ClienteDetailPage() {
     { key: 'dados', label: 'Dados' },
     ...(canEditPortal ? [{ key: 'portal', label: 'Acesso portal' }] : []),
     { key: 'pedidos', label: 'Pedidos' },
+    { key: 'fotos', label: 'Fotos enviadas' },
     { key: 'crm', label: 'Histórico CRM' },
     { key: 'financeiro', label: 'Financeiro' },
   ];
@@ -149,6 +152,29 @@ export function ClienteDetailPage() {
               <div className="text-right"><Badge>{p.status}</Badge><p className="mt-1 font-medium">{formatCurrency(p.valor)}</p></div>
             </div>
           )) : <p className="text-slate-400">Nenhum pedido</p>}
+        </Card>
+      )}
+
+      {tab === 'fotos' && (
+        <Card>
+          {cliente.solicitacoes?.length ? (
+            cliente.solicitacoes.map((sol) => {
+              const fotos = fotosDaSolicitacao(sol);
+              if (!fotos.length) return null;
+              return (
+                <div key={sol.id} className="flex flex-wrap items-center justify-between gap-3 border-b py-3 last:border-0">
+                  <div>
+                    <p className="font-medium text-primary-800">{sol.servico?.nome || 'Solicitação'}</p>
+                    <p className="text-sm text-slate-500">{formatDate(sol.createdAt)} · {sol.status}</p>
+                  </div>
+                  <BotaoVerFotos fotos={fotos} titulo={`Fotos — ${sol.servico?.nome || cliente.nome}`} />
+                </div>
+              );
+            })
+          ) : null}
+          {!cliente.solicitacoes?.some((s) => fotosDaSolicitacao(s).length) && (
+            <p className="text-slate-400">Nenhuma foto enviada por este cliente</p>
+          )}
         </Card>
       )}
 

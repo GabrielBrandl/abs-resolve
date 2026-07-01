@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import type { User } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import {
   signAccessToken,
@@ -10,22 +11,7 @@ import {
 import { sanitizeUser } from '../utils/user.js';
 
 export class AuthService {
-  async login(email: string, senha: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user) {
-      throw new Error('Credenciais inv?lidas');
-    }
-
-    if (user.ativo === false) {
-      throw new Error('Usu?rio desativado. Contate o administrador.');
-    }
-
-    const senhaValida = await bcrypt.compare(senha, user.senhaHash);
-    if (!senhaValida) {
-      throw new Error('Credenciais inválidas');
-    }
-
+  private async issueSession(user: User) {
     const payload = { userId: user.id, email: user.email, role: user.role };
     const accessToken = signAccessToken(payload);
     const refreshTokenJwt = signRefreshToken(payload);
@@ -45,6 +31,29 @@ export class AuthService {
       refreshToken: refreshTokenJwt,
       refreshTokenValue,
     };
+  }
+
+  async login(email: string, senha: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      throw new Error('Credenciais inv?lidas');
+    }
+
+    if (user.ativo === false) {
+      throw new Error('Usu?rio desativado. Contate o administrador.');
+    }
+
+    const senhaValida = await bcrypt.compare(senha, user.senhaHash);
+    if (!senhaValida) {
+      throw new Error('Credenciais inválidas');
+    }
+
+    if (user.role === 'cliente') {
+      throw new Error('Use o acesso Cliente com seu CPF na tela de login.');
+    }
+
+    return this.issueSession(user);
   }
 
   async refresh(refreshTokenJwt: string, refreshTokenValue: string) {
@@ -113,7 +122,15 @@ export class AuthService {
       throw new Error('Credenciais inválidas');
     }
 
-    return this.login(cliente.user.email, senha);
+    if (cliente.user.role !== 'cliente') {
+      throw new Error('Esta conta não é de cliente. Use o acesso Equipe.');
+    }
+
+    if (cliente.user.ativo === false) {
+      throw new Error('Usuário desativado. Contate o administrador.');
+    }
+
+    return this.issueSession(cliente.user);
   }
 
   async registrarCliente(data: {
@@ -171,7 +188,10 @@ export class AuthService {
       },
     });
 
-    return this.login(data.email, data.senha);
+    const user = await prisma.user.findUnique({ where: { email: data.email } });
+    if (!user) throw new Error('Erro ao criar conta');
+
+    return this.issueSession(user);
   }
 }
 

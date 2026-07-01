@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { clientePortalApi, agendamentoApi } from '../../services/modules.service';
 import type { PedidoTimeline } from '../../types';
 import { STATUS_PEDIDO, formatCurrency, formatDate } from '../../types';
@@ -8,6 +9,8 @@ import { ClienteAvaliacaoSection } from './ClienteAvaliacaoSection';
 
 export function ClientePedidosPage() {
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const pedidoDestaque = searchParams.get('pedido');
   const [pedidos, setPedidos] = useState<PedidoTimeline[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelando, setCancelando] = useState<string | null>(null);
@@ -17,6 +20,11 @@ export function ClientePedidosPage() {
   };
 
   useEffect(() => { carregar(); }, []);
+
+  useEffect(() => {
+    if (!pedidoDestaque || loading) return;
+    document.getElementById(`pedido-${pedidoDestaque}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [pedidoDestaque, loading, pedidos]);
 
   const cancelarAgendamento = async (agendamentoId: string) => {
     if (!confirm('Cancelar este agendamento?')) return;
@@ -49,7 +57,8 @@ export function ClientePedidosPage() {
           const podeCancelar = ag && ['confirmado', 'a_caminho'].includes(ag.status);
 
           return (
-            <Card key={p.id} className="mb-4">
+            <div key={p.id} id={`pedido-${p.id}`}>
+            <Card className={`mb-4 ${pedidoDestaque === p.id ? 'ring-2 ring-accent-500' : ''}`}>
               <div className="flex flex-wrap justify-between gap-3">
                 <div>
                   <h3 className="font-semibold text-primary-800">{p.numero}</h3>
@@ -112,6 +121,7 @@ export function ClientePedidosPage() {
                 </p>
               )}
             </Card>
+            </div>
           );
         })
       )}

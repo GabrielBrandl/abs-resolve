@@ -1,8 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, lazy, Suspense } from 'react';
 import { useAuthStore } from './store/authStore';
+import { getHomeForRole } from './utils/auth-routes';
 import { AppLayout } from './components/AppLayout';
-import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
+import { ProtectedRoute, PublicRoute, StaffOnlyRoute, ClienteOnlyRoute } from './components/ProtectedRoute';
 import { Loading } from './components/ui';
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
@@ -37,8 +38,9 @@ const TecnicoHomePage = lazy(() => import('./pages/tecnico/TecnicoHomePage').the
 
 function HomeRedirect() {
   const user = useAuthStore((s) => s.user);
-  if (user?.role === 'cliente') return <Navigate to="/cliente/agendar" replace />;
-  if (user?.role === 'operacional') return <Navigate to="/tecnico" replace />;
+  if (!user || user.role === 'cliente' || user.role === 'operacional') {
+    return <Navigate to={getHomeForRole(user?.role)} replace />;
+  }
   return <DashboardPage />;
 }
 
@@ -58,34 +60,40 @@ function AppRoutes() {
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['admin', 'comercial', 'operacional']} />}>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<HomeRedirect />} />
-            <Route path="/clientes" element={<ClientesPage />} />
-            <Route path="/clientes/novo" element={<ClienteFormPage />} />
-            <Route path="/clientes/:id/editar" element={<ClienteFormPage />} />
-            <Route path="/clientes/:id" element={<ClienteDetailPage />} />
-            <Route path="/crm" element={<CRMPage />} />
-            <Route path="/pedidos" element={<PedidosPage />} />
-            <Route path="/pedidos/:id" element={<PedidoDetailPage />} />
-            <Route path="/ordens-servico" element={<OrdemServicoPage />} />
-            <Route path="/financeiro" element={<FinanceiroPage />} />
-            <Route path="/movimentacao" element={<MovimentacaoPage />} />
-            <Route path="/marketplace" element={<MarketplacePage />} />
+          <Route element={<StaffOnlyRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<HomeRedirect />} />
+              <Route path="/clientes" element={<ClientesPage />} />
+              <Route path="/clientes/novo" element={<ClienteFormPage />} />
+              <Route path="/clientes/:id/editar" element={<ClienteFormPage />} />
+              <Route path="/clientes/:id" element={<ClienteDetailPage />} />
+              <Route path="/crm" element={<CRMPage />} />
+              <Route path="/pedidos" element={<PedidosPage />} />
+              <Route path="/pedidos/:id" element={<PedidoDetailPage />} />
+              <Route path="/ordens-servico" element={<OrdemServicoPage />} />
+              <Route path="/financeiro" element={<FinanceiroPage />} />
+              <Route path="/movimentacao" element={<MovimentacaoPage />} />
+              <Route path="/marketplace" element={<MarketplacePage />} />
+            </Route>
           </Route>
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['admin', 'comercial']} />}>
-          <Route element={<AppLayout />}>
-            <Route path="/admin/catalogo" element={<CatalogoAdminPage />} />
-            <Route path="/admin/estoque" element={<EstoqueAdminPage />} />
-            <Route path="/admin/agenda" element={<AgendaAdminPage />} />
-            <Route path="/admin/orcamentos" element={<OrcamentosAdminPage />} />
+          <Route element={<StaffOnlyRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/admin/catalogo" element={<CatalogoAdminPage />} />
+              <Route path="/admin/estoque" element={<EstoqueAdminPage />} />
+              <Route path="/admin/agenda" element={<AgendaAdminPage />} />
+              <Route path="/admin/orcamentos" element={<OrcamentosAdminPage />} />
+            </Route>
           </Route>
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-          <Route element={<AppLayout />}>
-            <Route path="/admin" element={<AdminPage />} />
+          <Route element={<StaffOnlyRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/admin" element={<AdminPage />} />
+            </Route>
           </Route>
         </Route>
 
@@ -96,18 +104,22 @@ function AppRoutes() {
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['cliente']} />}>
-          <Route element={<ClienteLayout />}>
-            <Route path="/cliente" element={<ClientePedidosPage />} />
-            <Route path="/cliente/agendar" element={<AgendarServicoPage />} />
-            <Route path="/cliente/diagnostico" element={<DiagnosticoIAPage />} />
-            <Route path="/cliente/financeiro" element={<ClienteFinanceiroPage />} />
-            <Route path="/cliente/solicitar" element={<Navigate to="/cliente/agendar" replace />} />
-            <Route path="/cliente/cadastro" element={<ClienteCadastroPage />} />
-            <Route path="/cliente/documentos" element={<ClienteDocumentosPage />} />
-            <Route path="/cliente/garantias" element={<ClienteGarantiasPage />} />
-            <Route path="/cliente/agendamentos" element={<ClienteAgendamentosPage />} />
+          <Route element={<ClienteOnlyRoute />}>
+            <Route element={<ClienteLayout />}>
+              <Route path="/cliente" element={<ClientePedidosPage />} />
+              <Route path="/cliente/agendar" element={<AgendarServicoPage />} />
+              <Route path="/cliente/diagnostico" element={<DiagnosticoIAPage />} />
+              <Route path="/cliente/financeiro" element={<ClienteFinanceiroPage />} />
+              <Route path="/cliente/solicitar" element={<Navigate to="/cliente/agendar" replace />} />
+              <Route path="/cliente/cadastro" element={<ClienteCadastroPage />} />
+              <Route path="/cliente/documentos" element={<ClienteDocumentosPage />} />
+              <Route path="/cliente/garantias" element={<ClienteGarantiasPage />} />
+              <Route path="/cliente/agendamentos" element={<ClienteAgendamentosPage />} />
+            </Route>
           </Route>
         </Route>
+
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Suspense>
   );

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { solicitacaoApi } from '../../services/modules.service';
 import { useCartStore } from '../../store/cartStore';
 import { formatCurrency } from '../../types';
+import { imagemServicoComRespostas, MARGEM_ERRO_IA_PERCENT } from '../../config/imagens-opcoes';
 import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal } from '../../components/ui';
 import { QuestionarioServico, FotosServicoStep, QuestionarioNav, type PrecoCalculado } from '../../components/cliente/QuestionarioServico';
 import { useToast } from '../../components/Toast';
@@ -90,6 +92,7 @@ function PixQrArea({ pixCode, invoiceUrl }: { pixCode?: string; invoiceUrl?: str
 }
 
 export function AgendarServicoPage() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const cart = useCartStore();
   const [step, setStep] = useState<Step>('catalogo');
@@ -114,6 +117,7 @@ export function AgendarServicoPage() {
   const [precosPorSlug, setPrecosPorSlug] = useState<Record<string, PrecoCalculado | null>>({});
   const [fotosPorSlug, setFotosPorSlug] = useState<Record<string, File[]>>({});
   const [fluxosFotos, setFluxosFotos] = useState<Record<string, string[]>>({});
+  const [aceiteIa, setAceiteIa] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -132,6 +136,14 @@ export function AgendarServicoPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (step !== 'horario' || !solicitacaoId) return;
+    solicitacaoApi.horarios(solicitacaoId).then((h) => {
+      setSlots(h.slots);
+      setProxima(h.proximaDisponibilidade);
+    });
+  }, [step, solicitacaoId]);
+
   const servicosFiltrados = useMemo(() => {
     const lista =
       catAtiva === 'all'
@@ -143,12 +155,6 @@ export function AgendarServicoPage() {
       (s) => s.nome.toLowerCase().includes(q) || s.descricao?.toLowerCase().includes(q)
     );
   }, [categorias, catAtiva, busca]);
-
-  const carregarHorarios = async (solId: string) => {
-    const h = await solicitacaoApi.horarios(solId);
-    setSlots(h.slots);
-    setProxima(h.proximaDisponibilidade);
-  };
 
   const iniciarPolling = (solId: string) => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -168,9 +174,10 @@ export function AgendarServicoPage() {
         if (status.podeAgendar) {
           if (pollRef.current) clearInterval(pollRef.current);
           setAguardandoPagamento(false);
-          await carregarHorarios(solId);
-          setStep('horario');
-          toast('Pagamento confirmado! Escolha o horário.', 'success');
+          cart.clear();
+          toast('Pagamento confirmado! Acompanhe sua ordem de serviço.', 'success');
+          const destino = status.pedidoId ? `/cliente?pedido=${status.pedidoId}` : '/cliente';
+          navigate(destino);
         }
       } catch {
         /* retry on next interval */
@@ -224,6 +231,14 @@ export function AgendarServicoPage() {
     }));
   };
 
+  const setRespostasBulkAtual = (patch: Record<string, string>) => {
+    if (!itemAtual) return;
+    setRespostasPorSlug((prev) => ({
+      ...prev,
+      [itemAtual.slug]: { ...(prev[itemAtual.slug] || {}), ...patch },
+    }));
+  };
+
   const setPrecoAtual = (preco: PrecoCalculado | null) => {
     if (!itemAtual) return;
     setPrecosPorSlug((prev) => ({ ...prev, [itemAtual.slug]: preco }));
@@ -244,6 +259,10 @@ export function AgendarServicoPage() {
   const irFotos = async () => {
     if (!questionarioCompleto) {
       toast('Complete o questionário de todos os serviços', 'error');
+      return;
+    }
+    if (!aceiteIa) {
+      toast('Aceite o termo sobre diagnóstico por IA para continuar', 'error');
       return;
     }
     const cache: Record<string, string[]> = { ...fluxosFotos };
@@ -274,7 +293,11 @@ export function AgendarServicoPage() {
         quantidade: i.quantidade,
         respostas: respostasPorSlug[i.slug] || {},
       }));
-      const sol = (await solicitacaoApi.criarCarrinho({ itens, express })) as { id: string; precoFinal: number };
+      const sol = (await solicitacaoApi.criarCarrinho({
+        itens,
+        express,
+        aceiteIaDiagnostico: aceiteIa,
+      })) as { id: string; precoFinal: number };
 
       for (const item of cart.items) {
         const files = fotosPorSlug[item.slug];
@@ -504,6 +527,11 @@ export function AgendarServicoPage() {
             <ul className="divide-y divide-abs-gray">
               {cart.items.map((item) => (
                 <li key={item.slug} className="flex flex-wrap items-center gap-3 py-4">
+                  <img
+                    src={imagemServicoComRespostas(item.slug, respostasPorSlug[item.slug] || {}, item.imagemUrl)}
+                    alt=""
+                    className="h-16 w-16 shrink-0 rounded-lg border object-cover"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-primary-800">{item.nome}</p>
                     <p className="text-sm text-slate-500">{item.precoTexto}</p>
@@ -551,9 +579,11 @@ export function AgendarServicoPage() {
             slug={itemAtual.slug}
             nome={itemAtual.nome}
             quantidade={itemAtual.quantidade}
+            imagemCatalogo={itemAtual.imagemUrl}
             respostas={respostasAtual}
             onResposta={setRespostaAtual}
             onPrecoChange={setPrecoAtual}
+            onRespostasBulk={setRespostasBulkAtual}
           />
           <QuestionarioNav
             onVoltar={() => {
@@ -579,7 +609,13 @@ export function AgendarServicoPage() {
             {cart.items.map((item) => {
               const p = precosPorSlug[item.slug];
               return (
-                <li key={item.slug} className="py-3">
+                <li key={item.slug} className="flex gap-3 py-3">
+                  <img
+                    src={imagemServicoComRespostas(item.slug, respostasPorSlug[item.slug] || {}, item.imagemUrl)}
+                    alt=""
+                    className="h-14 w-14 shrink-0 rounded-lg border object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
                   <div className="flex justify-between font-semibold text-primary-800">
                     <span>{item.nome}</span>
                     <span>{formatCurrency(p?.preco ?? 0)}</span>
@@ -590,10 +626,23 @@ export function AgendarServicoPage() {
                       <span>{formatCurrency(b.valor)}</span>
                     </p>
                   ))}
+                  </div>
                 </li>
               );
             })}
           </ul>
+          <label className="mt-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={aceiteIa}
+              onChange={(e) => setAceiteIa(e.target.checked)}
+            />
+            <span>
+              Estou ciente de que o diagnóstico por inteligência artificial pode conter imprecisões (margem estimada de até{' '}
+              {MARGEM_ERRO_IA_PERCENT}%) e concordo em prosseguir com o serviço com base nas informações fornecidas.
+            </span>
+          </label>
           <label className="mt-4 flex items-center gap-2 rounded-lg border-2 border-accent-400 bg-accent-50 p-3">
             <input type="checkbox" checked={express} onChange={(e) => setExpress(e.target.checked)} />
             <span className="font-medium">Atendimento Express (+ {formatCurrency(expressValor)})</span>
@@ -607,7 +656,7 @@ export function AgendarServicoPage() {
               setStep('questionario');
             }}
             onAvancar={irFotos}
-            disabled={!questionarioCompleto}
+            disabled={!questionarioCompleto || !aceiteIa}
             avancarLabel="Enviar fotos"
           />
         </Card>
@@ -648,7 +697,6 @@ export function AgendarServicoPage() {
           </label>
           <div className="flex flex-wrap gap-2">
             <Button variant="cta" disabled={submitting} onClick={() => pagar('PIX')}>PIX</Button>
-            <Button disabled={submitting} onClick={() => pagar('BOLETO')}>Boleto</Button>
             <Button disabled={submitting} onClick={() => pagar('CARTAO')}>Cartão</Button>
           </div>
         </Card>

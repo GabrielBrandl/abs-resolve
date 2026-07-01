@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { adminApi, adminApiExtra } from '../../services/modules.service';
 import { formatDate } from '../../types';
 import { PageHeader, Loading, Tabs, Card, Badge, Button, Modal, Input, Select } from '../../components/ui';
+import { BotaoVerFotos } from '../../components/GaleriaFotos';
+import { fotosDaSolicitacao, fotosDoChecklist } from '../../utils/fotos';
 import { useToast } from '../../components/Toast';
 
 type Usuario = {
@@ -261,16 +263,18 @@ export function AdminPage() {
                       <th className="px-4 py-3 text-left">Serviço / Pedido</th>
                       <th className="px-4 py-3 text-left">Cliente</th>
                       <th className="px-4 py-3 text-left">Técnico</th>
-                      <th className="px-4 py-3 text-left">OS</th>
+                      <th className="px-4 py-3 text-left">OS / Fotos</th>
                     </tr>
                   </thead>
                   <tbody>
                     {atribuicoes.length === 0 ? (
                       <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-400">Nenhum serviço agendado</td></tr>
                     ) : atribuicoes.map((a) => {
-                      const servico = a.solicitacao?.servico?.nome || a.pedido.descricao || '—';
-                      const os = a.pedido.ordemServico;
+                      const servico = a.solicitacao?.servico?.nome || a.pedido?.descricao || '—';
+                      const os = a.pedido?.ordemServico;
                       const checklist = os?.checklist as Record<string, string> | undefined;
+                      const fotosCliente = a.solicitacao ? fotosDaSolicitacao(a.solicitacao) : [];
+                      const fotosTecnico = fotosDoChecklist(checklist);
                       return (
                         <tr key={a.id} className="border-t">
                           <td className="px-4 py-3 whitespace-nowrap">
@@ -279,7 +283,7 @@ export function AdminPage() {
                           </td>
                           <td className="px-4 py-3">
                             <p className="font-medium">{servico}</p>
-                            <p className="text-xs text-slate-400">{a.pedido.numero}</p>
+                            <p className="text-xs text-slate-400">{a.pedido?.numero}</p>
                           </td>
                           <td className="px-4 py-3">{a.cliente.nome}</td>
                           <td className="px-4 py-3">
@@ -296,16 +300,18 @@ export function AdminPage() {
                           </td>
                           <td className="px-4 py-3">
                             {os ? (
-                              <>
+                              <div className="space-y-1">
                                 <Badge color="bg-indigo-100 text-indigo-700">{os.etapa}</Badge>
-                                {checklist?.fotoConclusao || checklist?.fotoDepois ? (
-                                  <span className="ml-1 text-xs text-green-600">📷 foto</span>
-                                ) : checklist?.descricaoConclusao ? (
-                                  <span className="ml-1 text-xs text-blue-600">📝 desc.</span>
-                                ) : null}
-                              </>
+                                <div className="flex flex-col gap-0.5">
+                                  <BotaoVerFotos fotos={fotosCliente} label="Cliente" titulo={`Fotos do cliente — ${a.cliente.nome}`} />
+                                  <BotaoVerFotos fotos={fotosTecnico} label="Técnico" titulo={`Fotos do técnico — ${a.pedido?.numero}`} />
+                                </div>
+                              </div>
                             ) : (
-                              <span className="text-slate-400">—</span>
+                              <div className="space-y-1">
+                                <span className="text-slate-400">—</span>
+                                <BotaoVerFotos fotos={fotosCliente} label="Cliente" titulo={`Fotos do cliente — ${a.cliente.nome}`} />
+                              </div>
                             )}
                           </td>
                         </tr>

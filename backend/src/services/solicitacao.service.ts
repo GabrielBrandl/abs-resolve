@@ -118,7 +118,8 @@ export class SolicitacaoService {
   async criarCarrinho(
     clienteId: string,
     itens: Array<{ slug: string; quantidade: number; respostas?: RespostasFluxo; fotos?: string[] }>,
-    express = false
+    express = false,
+    aceiteIaDiagnostico = false
   ) {
     if (!itens.length) throw new Error('Adicione pelo menos um serviço ao carrinho');
 
@@ -211,7 +212,13 @@ export class SolicitacaoService {
         clienteId,
         servicoId: anchor.id,
         tipo: 'C',
-        opcoes: { itens: detalhes, pontosTotal, requerValidacaoTecnica: false },
+        opcoes: {
+          itens: detalhes,
+          pontosTotal,
+          requerValidacaoTecnica: false,
+          aceiteIaDiagnostico,
+          aceiteIaEm: aceiteIaDiagnostico ? new Date().toISOString() : undefined,
+        },
         fotos: fotosTodas,
         precoBase: precoSubtotal,
         precoFinal,
@@ -290,7 +297,7 @@ export class SolicitacaoService {
     return solicitacao;
   }
 
-  async uploadFotos(id: string, clienteId: string, files: Express.Multer.File[]) {
+  async uploadFotos(id: string, clienteId: string, files: Express.Multer.File[], servicoSlug?: string) {
     if (!files.length) throw new Error('Nenhuma foto enviada');
 
     const urls: string[] = [];
@@ -299,10 +306,10 @@ export class SolicitacaoService {
       urls.push(url);
     }
 
-    return this.enviarFotos(id, clienteId, urls);
+    return this.enviarFotos(id, clienteId, urls, servicoSlug);
   }
 
-  async enviarFotos(id: string, clienteId: string, fotos: string[]) {
+  async enviarFotos(id: string, clienteId: string, fotos: string[], servicoSlug?: string) {
     const sol = await prisma.solicitacaoServico.findFirst({
       where: { id, clienteId },
       include: { servico: true },
@@ -310,12 +317,19 @@ export class SolicitacaoService {
     if (!sol) throw new Error('Solicitação não encontrada');
 
     if (sol.tipo === 'C') {
-      const opcoes = sol.opcoes as Record<string, unknown>;
+      const opcoes = sol.opcoes as Record<string, unknown> & {
+        fotosPorItem?: Record<string, string[]>;
+        fotosCliente?: string[];
+      };
+      const slugItem = servicoSlug;
+      const fotosPorItem = { ...(opcoes.fotosPorItem || {}) };
+      if (slugItem) fotosPorItem[slugItem] = fotos;
+      const fotosTodas = [...new Set(Object.values(fotosPorItem).flat())];
       return prisma.solicitacaoServico.update({
         where: { id },
         data: {
-          fotos,
-          opcoes: { ...opcoes, fotosCliente: fotos } as Prisma.InputJsonValue,
+          fotos: fotosTodas,
+          opcoes: { ...opcoes, fotosCliente: fotosTodas, fotosPorItem } as Prisma.InputJsonValue,
         },
         include: { servico: true },
       });
@@ -525,6 +539,7 @@ export class SolicitacaoService {
     return {
       solicitacaoId: sol.id,
       status: sol.status,
+      pedidoId: sol.pedido?.id,
       pedidoNumero: sol.pedido?.numero,
       pagamento: pagamento
         ? {

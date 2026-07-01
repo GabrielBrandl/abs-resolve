@@ -15,7 +15,6 @@ export interface EspecificacaoProduto {
   categoriaProduto: string | null;
   servicoCatalogoSlug: string | null;
   servicoCatalogoNome: string | null;
-  marca: string | null;
   modelo: string | null;
   nomeComercial: string | null;
   tipo: string | null;
@@ -57,7 +56,7 @@ const DICAS_FOTO: Record<string, string> = {
   'troca-interruptor': 'Interruptor, modelo e quantidade de teclas',
   'instalacao-luminaria': 'Luminária, soquete/lâmpada e ponto no teto',
   'instalacao-ventilador-teto': 'Ventilador, hélices, controle e fixação',
-  'troca-torneira': 'Torneira, bica, marca e tipo de encaixe',
+  'troca-torneira': 'Torneira, bica e tipo de encaixe',
   'troca-registro': 'Registro, volante e tubulação visível',
   'instalacao-ar-split': 'Unidade interna/externa, etiqueta BTU e modelo',
 };
@@ -141,7 +140,6 @@ Responda APENAS JSON válido:
     "categoriaProduto": string|null (ex: disjuntor, chuveiro, tomada, torneira),
     "servicoCatalogoSlug": string|null (slug do catálogo acima),
     "servicoCatalogoNome": string|null,
-    "marca": string|null,
     "modelo": string|null,
     "nomeComercial": string|null,
     "tipo": string|null (tipo/subtipo do produto),
@@ -195,7 +193,6 @@ function parseEspecificacaoProduto(raw: unknown): EspecificacaoProduto | undefin
     categoriaProduto: e.categoriaProduto != null ? String(e.categoriaProduto) : null,
     servicoCatalogoSlug: e.servicoCatalogoSlug != null ? String(e.servicoCatalogoSlug) : null,
     servicoCatalogoNome: e.servicoCatalogoNome != null ? String(e.servicoCatalogoNome) : null,
-    marca: e.marca != null ? String(e.marca) : null,
     modelo: e.modelo != null ? String(e.modelo) : null,
     nomeComercial: e.nomeComercial != null ? String(e.nomeComercial) : null,
     tipo: e.tipo != null ? String(e.tipo) : null,
@@ -294,7 +291,6 @@ const SIMULACOES: Record<string, Omit<EspecificacaoProduto, 'observacoes'>> = {
     categoriaProduto: 'disjuntor',
     servicoCatalogoSlug: 'troca-disjuntor',
     servicoCatalogoNome: 'Troca de disjuntor',
-    marca: 'Steck',
     modelo: 'DW120',
     nomeComercial: 'Disjuntor monopolar 20A curva C',
     tipo: 'Monopolar',
@@ -311,7 +307,6 @@ const SIMULACOES: Record<string, Omit<EspecificacaoProduto, 'observacoes'>> = {
     categoriaProduto: 'chuveiro',
     servicoCatalogoSlug: 'instalacao-chuveiro',
     servicoCatalogoNome: 'Instalação de chuveiro',
-    marca: 'Lorenzetti',
     modelo: 'Advanced Turbo',
     nomeComercial: 'Chuveiro eletrônico 7500W',
     tipo: 'Eletrônico',
@@ -327,7 +322,6 @@ const SIMULACOES: Record<string, Omit<EspecificacaoProduto, 'observacoes'>> = {
     categoriaProduto: 'tomada',
     servicoCatalogoSlug: 'troca-tomada',
     servicoCatalogoNome: 'Troca de tomada',
-    marca: 'Tramontina',
     modelo: 'Linha Norma',
     nomeComercial: 'Tomada 2P+T 20A',
     tipo: 'Simples',
@@ -343,7 +337,6 @@ const SIMULACOES: Record<string, Omit<EspecificacaoProduto, 'observacoes'>> = {
     categoriaProduto: 'interruptor',
     servicoCatalogoSlug: 'troca-interruptor',
     servicoCatalogoNome: 'Troca de interruptor',
-    marca: 'Schneider',
     modelo: 'Merten',
     nomeComercial: 'Interruptor simples 10A',
     tipo: 'Simples',
@@ -373,7 +366,6 @@ function simularProduto(slugCatalogo: string | null, seed: number): Especificaca
     categoriaProduto: cat.categoria,
     servicoCatalogoSlug: cat.slug,
     servicoCatalogoNome: cat.nome,
-    marca: 'Marca genérica',
     modelo: `MOD-${100 + (seed % 99)}`,
     nomeComercial: cat.nome,
     tipo: cat.categoria,
@@ -397,7 +389,7 @@ function analisarFotosSimulado(
 
   return {
     confianca,
-    produtoIdentificado: `${especificacao.marca} — ${especificacao.nomeComercial}`,
+    produtoIdentificado: especificacao.nomeComercial || especificacao.tipo || 'Produto identificado',
     nivelComplexidade,
     descricao: `${especificacao.servicoCatalogoNome}: ${especificacao.estadoAparente}.`,
     acao: acaoFromConfianca(confianca),

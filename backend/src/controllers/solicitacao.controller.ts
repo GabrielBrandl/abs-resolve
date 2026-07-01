@@ -55,11 +55,17 @@ export class SolicitacaoController {
   async criarCarrinho(req: Request, res: Response) {
     try {
       const clienteId = await clienteIdFromReq(req);
-      const { itens, express } = req.body as {
+      const { itens, express, aceiteIaDiagnostico } = req.body as {
         itens: Array<{ slug: string; quantidade: number; respostas?: Record<string, string>; fotos?: string[] }>;
         express?: boolean;
+        aceiteIaDiagnostico?: boolean;
       };
-      const data = await solicitacaoService.criarCarrinho(clienteId, itens || [], !!express);
+      const data = await solicitacaoService.criarCarrinho(
+        clienteId,
+        itens || [],
+        !!express,
+        !!aceiteIaDiagnostico
+      );
       return success(res, data, 201);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
@@ -121,7 +127,8 @@ export class SolicitacaoController {
         solicitacaoId = sol.id;
       }
 
-      const data = await solicitacaoService.uploadFotos(solicitacaoId, clienteId, files);
+      const servicoSlug = typeof req.body.servicoSlug === 'string' ? req.body.servicoSlug : undefined;
+      const data = await solicitacaoService.uploadFotos(solicitacaoId, clienteId, files, servicoSlug);
       return success(res, data);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);

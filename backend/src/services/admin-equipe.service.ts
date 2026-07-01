@@ -207,7 +207,14 @@ export class AdminEquipeService {
             },
           },
         },
-        solicitacao: { include: { servico: { select: { nome: true, slug: true, categoria: true } } } },
+        solicitacao: {
+          select: {
+            id: true,
+            fotos: true,
+            opcoes: true,
+            servico: { select: { nome: true, slug: true, categoria: true } },
+          },
+        },
       },
       orderBy: [{ data: 'asc' }, { horarioInicio: 'asc' }],
       take: 100,

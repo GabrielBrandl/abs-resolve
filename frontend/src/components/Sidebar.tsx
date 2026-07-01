@@ -11,14 +11,14 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', path: '/', icon: '📊' },
+  { label: 'Dashboard', path: '/', icon: '📊', roles: ['admin', 'comercial', 'operacional'] },
   { label: 'Clientes', path: '/clientes', roles: ['admin', 'comercial', 'operacional'], icon: '👥' },
   { label: 'CRM', path: '/crm', roles: ['admin', 'comercial'], icon: '🎯' },
   { label: 'Pedidos', path: '/pedidos', roles: ['admin', 'comercial', 'operacional'], icon: '📦' },
   { label: 'Ordens de Serviço', path: '/ordens-servico', roles: ['admin', 'operacional'], icon: '🔧' },
   { label: 'Financeiro', path: '/financeiro', roles: ['admin', 'comercial'], icon: '💰' },
   { label: 'Movimentação', path: '/movimentacao', roles: ['admin', 'operacional'], icon: '📋' },
-  { label: 'Marketplace', path: '/marketplace', icon: '🛒' },
+  { label: 'Marketplace', path: '/marketplace', roles: ['admin', 'comercial'], icon: '🛒' },
   { label: 'Catálogo', path: '/admin/catalogo', roles: ['admin', 'comercial'], icon: '📚' },
   { label: 'Estoque', path: '/admin/estoque', roles: ['admin', 'comercial'], icon: '📦' },
   { label: 'Agenda', path: '/admin/agenda', roles: ['admin', 'comercial'], icon: '📅' },

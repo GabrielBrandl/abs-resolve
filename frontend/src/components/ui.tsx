@@ -121,24 +121,19 @@ export function Logo({
   variant = 'light',
 }: {
   className?: string;
-  /** Use "dark" em fundos azuis (sidebar, dashboard). Evita o retângulo branco do PNG. */
   variant?: 'light' | 'dark';
 }) {
-  if (variant === 'dark') {
-    return (
-      <div className={className} aria-label="ABS Resolve — Chamou. ConfioU. Resolveu.">
-        <p className="text-lg font-extrabold leading-tight tracking-tight text-white">
-          <span className="text-accent-400">A</span>BS{' '}
-          <span className="text-white">RESOLVE</span>
-        </p>
-        <p className="mt-0.5 text-[10px] font-medium italic leading-tight text-white/75">
-          Chamou. ConfioU. Resolveu.
-        </p>
-      </div>
-    );
-  }
-
-  return <img src="/logo.png" alt="ABS Resolve — Chamou. ConfioU. Resolveu." className={className} />;
+  const imgClass =
+    variant === 'dark'
+      ? `${className} rounded-lg bg-white/95 px-2 py-1 object-contain`
+      : className;
+  return (
+    <img
+      src="/logo.png"
+      alt="ABS Resolve — Chamou. ConfioU. Resolveu."
+      className={imgClass}
+    />
+  );
 }
 
 export function ScarcityBadge({ nivel }: { nivel: 'disponivel' | 'poucos' | 'ultimo' }) {

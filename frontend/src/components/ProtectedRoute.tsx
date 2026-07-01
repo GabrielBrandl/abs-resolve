@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import type { Role } from '../types';
+import { getHomeForRole } from '../utils/auth-routes';
 
 interface ProtectedRouteProps {
   allowedRoles?: Role[];
@@ -22,9 +23,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    if (user.role === 'cliente') return <Navigate to="/cliente" replace />;
-    if (user.role === 'operacional') return <Navigate to="/tecnico" replace />;
-    return <Navigate to="/" replace />;
+    return <Navigate to={getHomeForRole(user.role)} replace />;
   }
 
   return <Outlet />;
@@ -42,10 +41,26 @@ export function PublicRoute() {
   }
 
   if (isAuthenticated && user) {
-    if (user.role === 'cliente') return <Navigate to="/cliente/agendar" replace />;
-    if (user.role === 'operacional') return <Navigate to="/tecnico" replace />;
-    return <Navigate to="/" replace />;
+    return <Navigate to={getHomeForRole(user.role)} replace />;
   }
 
+  return <Outlet />;
+}
+
+/** Bloqueia cliente de ver layout administrativo mesmo se a rota falhar */
+export function StaffOnlyRoute() {
+  const user = useAuthStore((s) => s.user);
+  if (user?.role === 'cliente') {
+    return <Navigate to="/cliente/agendar" replace />;
+  }
+  return <Outlet />;
+}
+
+/** Bloqueia equipe de ver portal do cliente */
+export function ClienteOnlyRoute() {
+  const user = useAuthStore((s) => s.user);
+  if (user && user.role !== 'cliente') {
+    return <Navigate to={getHomeForRole(user.role)} replace />;
+  }
   return <Outlet />;
 }

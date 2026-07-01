@@ -41,6 +41,16 @@ export interface Cliente {
   interacoes?: Interacao[];
   pagamentos?: Pagamento[];
   user?: { id: string; email: string };
+  solicitacoes?: SolicitacaoFotos[];
+}
+
+export interface SolicitacaoFotos {
+  id: string;
+  status: string;
+  fotos?: string[];
+  opcoes?: Record<string, unknown>;
+  createdAt: string;
+  servico?: { nome: string; slug: string };
 }
 
 export interface Lead {
@@ -287,6 +297,7 @@ export interface SolicitacaoMinha {
 export interface SolicitacaoStatus {
   solicitacaoId: string;
   status: string;
+  pedidoId?: string;
   pedidoNumero?: string;
   pagamento: {
     id: string;

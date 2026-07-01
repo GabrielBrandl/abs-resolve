@@ -27,7 +27,6 @@ interface EspecificacaoProduto {
   categoriaProduto?: string | null;
   servicoCatalogoSlug?: string | null;
   servicoCatalogoNome?: string | null;
-  marca?: string | null;
   modelo?: string | null;
   nomeComercial?: string | null;
   tipo?: string | null;
@@ -118,15 +117,23 @@ export function DiagnosticoIAPage() {
     <div>
       <PageHeader
         title="Diagnóstico com IA"
-        subtitle="Identifique tomadas, disjuntores, chuveiros, torneiras e outros produtos do catálogo ABS Resolve."
+        subtitle="Identifique o produto por foto — análise automática com possibilidade de erro"
       />
 
-      <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <strong>Atenção:</strong> recurso informativo. Para contratar, use{' '}
-        <Link to="/cliente/agendar" className="font-semibold underline">
+      <Card className="mb-4 border border-amber-200 bg-amber-50/80">
+        <p className="text-sm text-amber-900">
+          <strong>Atenção:</strong> este diagnóstico é realizado por inteligência artificial. Pode haver erros na
+          identificação (margem estimada de até 15%). Use o resultado como orientação e confira as informações antes de
+          contratar.
+        </p>
+      </Card>
+
+      <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+        Para contratar com preço calculado, use{' '}
+        <Link to="/cliente/agendar" className="font-semibold text-primary-600 underline">
           Solicitar Serviço
         </Link>
-        .
+        {' '}(o diagnóstico por IA também está integrado às perguntas).
       </div>
 
       {!resultado ? (
@@ -229,11 +236,12 @@ export function DiagnosticoIAPage() {
                 Especificações identificadas
               </h4>
               <SpecRow label="Categoria" value={spec.categoriaProduto} />
-              <SpecRow label="Marca" value={spec.marca} />
               <SpecRow label="Modelo / código" value={spec.modelo} />
               <SpecRow label="Nome comercial" value={spec.nomeComercial} />
               <SpecRow label="Tipo" value={spec.tipo} />
-              {spec.atributos?.map((a) => (
+              {spec.atributos
+                ?.filter((a) => !/^marca$/i.test(a.label))
+                .map((a) => (
                 <SpecRow key={`${a.label}-${a.valor}`} label={a.label} value={a.valor} />
               ))}
               <SpecRow label="Estado" value={spec.estadoAparente} />

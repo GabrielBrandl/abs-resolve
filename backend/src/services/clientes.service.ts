@@ -65,6 +65,18 @@ export class ClientesService {
         pagamentos: { orderBy: { createdAt: 'desc' }, take: 10 },
         garantias: { orderBy: { dataInicio: 'desc' }, take: 10 },
         produtosInstalados: { orderBy: { data: 'desc' }, take: 20 },
+        solicitacoes: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            status: true,
+            fotos: true,
+            opcoes: true,
+            createdAt: true,
+            servico: { select: { nome: true, slug: true } },
+          },
+        },
         user: { select: { id: true, email: true } },
       },
     });

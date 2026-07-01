@@ -121,7 +121,11 @@ export const adminApi = {
         tecnico?: { id: string; nome: string };
       };
     };
-    solicitacao?: { servico?: { nome: string; categoria: string } };
+    solicitacao?: {
+      fotos?: unknown;
+      opcoes?: unknown;
+      servico?: { nome: string; categoria: string; slug?: string };
+    };
   }>>('/admin/atribuicoes'),
   tecnicosCarga: () => get<Array<{
     id: string; nome: string; email?: string; capacidadeDiaria: number;
@@ -186,6 +190,7 @@ export const solicitacaoApi = {
   criarCarrinho: (body: {
     itens: Array<{ slug: string; quantidade: number; respostas?: Record<string, string>; fotos?: string[] }>;
     express?: boolean;
+    aceiteIaDiagnostico?: boolean;
   }) => post('/solicitacao/carrinho', body),
   fluxo: (slug: string) =>
     get<{
