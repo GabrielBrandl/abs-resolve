@@ -67,7 +67,7 @@ export function LoginPage() {
     >
       <div className="absolute inset-0 bg-black/25" aria-hidden />
 
-      <div className="relative z-10 w-full max-w-md lg:ml-auto lg:mr-[8%] xl:mr-[12%]">
+      <div className="relative z-10 mx-auto w-full max-w-md">
         <div className="mb-6 flex justify-center">
           <Logo variant="sidebar" className="h-24" />
         </div>
