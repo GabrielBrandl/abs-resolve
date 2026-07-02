@@ -42,3 +42,15 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+.login-page-bg {
+  background-image: url('/login-bg-mobile.webp');
+  background-position: center top;
+}
+
+@media (min-width: 768px) {
+  .login-page-bg {
+    background-image: url('/login-bg.webp');
+    background-position: center;
+  }
+}
