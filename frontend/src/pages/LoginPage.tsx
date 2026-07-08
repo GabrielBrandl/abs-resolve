@@ -113,10 +113,15 @@ export function LoginPage() {
           </Button>
 
           {modo === 'cliente' && (
-            <p className="mt-4 text-center text-sm text-slate-500">
-              Não tem conta?{' '}
-              <Link to="/cadastro" className="font-semibold text-primary-600">Cadastre-se — obrigatório</Link>
-            </p>
+            <>
+              <p className="mt-4 text-center text-sm">
+                <Link to="/esqueci-senha" className="font-medium text-primary-600">Esqueci minha senha</Link>
+              </p>
+              <p className="mt-2 text-center text-sm text-slate-500">
+                Não tem conta?{' '}
+                <Link to="/cadastro" className="font-semibold text-primary-600">Cadastre-se — obrigatório</Link>
+              </p>
+            </>
           )}
         </form>
       </div>

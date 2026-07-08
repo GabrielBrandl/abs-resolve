@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { cpf } from 'cpf-cnpj-validator';
 import { authService } from '../services/auth.service';
@@ -26,6 +26,8 @@ function mensagemErro(err: unknown, fallback: string) {
 export function CadastroPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const [params] = useSearchParams();
+  const ref = params.get('ref')?.trim() || '';
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -60,6 +62,7 @@ export function CadastroPage() {
         telefone: form.telefone,
         senha: form.senha,
         consentimentoLgpd: true,
+        ...(ref ? { ref } : {}),
         endereco: {
           rua: form.rua, numero: form.numero, bairro: form.bairro,
           cidade: form.cidade, uf: form.uf, cep: form.cep,
@@ -89,6 +92,11 @@ export function CadastroPage() {
         </div>
 
         <Card>
+          {ref && (
+            <div className="mb-4 rounded-lg bg-accent-500/15 px-4 py-3 text-sm text-primary-700">
+              Você foi indicado pelo parceiro <span className="font-semibold">{ref}</span>.
+            </div>
+          )}
           {error && <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
 
           <form onSubmit={handleSubmit}>

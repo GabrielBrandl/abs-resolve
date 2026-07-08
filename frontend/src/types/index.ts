@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'comercial' | 'operacional' | 'cliente';
+export type Role = 'admin' | 'comercial' | 'operacional' | 'cliente' | 'parceiro';
 
 export interface User {
   id: string;
@@ -344,6 +344,58 @@ export interface CatalogoServicoAdmin {
   pontos: number;
   ativo: boolean;
   ordem: number;
+  imagemUrl: string | null;
+}
+
+export interface ParceiroAdmin {
+  id: string;
+  nome: string;
+  email: string;
+  telefone: string;
+  cnpj: string | null;
+  categoria: string;
+  codigo: string | null;
+  comissaoPercent: number;
+  ativo: boolean;
+  createdAt: string;
+  link: string | null;
+  clientes: number;
+  vendas: number;
+  valorVendido: number;
+  comissaoTotal: number;
+  comissaoPendente: number;
+  comissaoPaga: number;
+}
+
+export interface ComissaoItem {
+  id: string;
+  descricao: string | null;
+  valorVenda: number;
+  percentual: number;
+  valorComissao: number;
+  status: string;
+  pagaEm: string | null;
+  createdAt: string;
+}
+
+export interface ParceiroDetalhe {
+  id: string;
+  nome: string;
+  email: string;
+  telefone: string;
+  cnpj: string | null;
+  categoria: string;
+  codigo: string | null;
+  comissaoPercent: number;
+  ativo: boolean;
+  link: string | null;
+  clientes: Array<{ id: string; nome: string; email: string; telefone: string; createdAt: string }>;
+  comissoes: ComissaoItem[];
+  vendas: number;
+  valorVendido: number;
+  comissaoTotal: number;
+  comissaoPendente: number;
+  comissaoPaga: number;
 }
 
 export interface FluxoPerguntaOpcaoConfig {

@@ -2,6 +2,7 @@ import { prisma } from '../utils/prisma.js';
 import { Prisma } from '@prisma/client';
 import { estoqueService } from './estoque.service.js';
 import { listarHorariosDisponiveis } from '../engines/capacity.engine.js';
+import { storageService } from './storage.service.js';
 
 export class CatalogoAdminService {
   async listarServicos() {
@@ -20,6 +21,7 @@ export class CatalogoAdminService {
     garantiaDias: number;
     ativo: boolean;
     ordem: number;
+    imagemUrl: string;
   }>) {
     return prisma.catalogoServico.update({
       where: { id },
@@ -32,14 +34,45 @@ export class CatalogoAdminService {
         ...(data.garantiaDias !== undefined && { garantiaDias: data.garantiaDias }),
         ...(data.ativo !== undefined && { ativo: data.ativo }),
         ...(data.ordem !== undefined && { ordem: data.ordem }),
+        ...(data.imagemUrl !== undefined && { imagemUrl: data.imagemUrl }),
       },
     });
   }
 
+  async atualizarImagem(id: string, file: Express.Multer.File) {
+    const servico = await prisma.catalogoServico.findUnique({ where: { id } });
+    if (!servico) throw new Error('Serviço não encontrado');
+
+    const { url } = await storageService.upload(`catalogo`, file);
+    return prisma.catalogoServico.update({ where: { id }, data: { imagemUrl: url } });
+  }
+
+  /** Desativa o serviço (mantém histórico). */
   async excluirServico(id: string) {
     const servico = await prisma.catalogoServico.findUnique({ where: { id } });
     if (!servico) throw new Error('Serviço não encontrado');
     return prisma.catalogoServico.update({ where: { id }, data: { ativo: false } });
+  }
+
+  /** Exclusão permanente — só permitida quando não há solicitações vinculadas. */
+  async excluirServicoPermanente(id: string) {
+    const servico = await prisma.catalogoServico.findUnique({ where: { id } });
+    if (!servico) throw new Error('Serviço não encontrado');
+
+    const solicitacoes = await prisma.solicitacaoServico.count({ where: { servicoId: id } });
+    if (solicitacoes > 0) {
+      throw new Error(
+        'Este serviço já tem solicitações de clientes vinculadas. Use "Desativar" para removê-lo do catálogo sem apagar o histórico.'
+      );
+    }
+
+    await prisma.$transaction([
+      prisma.precoFixo.deleteMany({ where: { servicoId: id } }),
+      prisma.fluxoServicoConfig.deleteMany({ where: { slug: servico.slug } }),
+      prisma.catalogoServico.delete({ where: { id } }),
+    ]);
+
+    return { id, deleted: true };
   }
 
   async getConfig() {

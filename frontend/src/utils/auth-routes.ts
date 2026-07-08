@@ -14,6 +14,7 @@ export function isClienteRole(role: string | undefined): boolean {
 export function getHomeForRole(role: string | undefined): string {
   if (role === 'cliente') return '/cliente/agendar';
   if (role === 'operacional') return '/tecnico';
+  if (role === 'parceiro') return '/parceiro';
   if (role === 'admin' || role === 'comercial') return '/';
   return '/login';
 }
@@ -24,6 +25,7 @@ export function roleLabel(role: string | undefined): string {
     comercial: 'Comercial',
     operacional: 'Técnico',
     cliente: 'Cliente',
+    parceiro: 'Parceiro',
   };
   return map[role || ''] || role || 'Usuário';
 }

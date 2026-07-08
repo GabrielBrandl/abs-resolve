@@ -473,6 +473,34 @@ export class NotificacaoService {
     await this.enviarWhatsApp(telefone, msg);
   }
 
+  /** Link de redefinição de senha (esqueci minha senha) */
+  async enviarResetSenha(data: {
+    nome: string;
+    email: string;
+    telefone: string;
+    whatsapp?: string | null;
+    link: string;
+  }) {
+    const botao = `<p style="margin:16px 0"><a href="${data.link}" style="display:inline-block;background:#f59e0b;color:#1e293b;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Redefinir minha senha</a></p>`;
+    await this.enviarEmail(
+      data.email,
+      'Redefinição de senha — ABS Resolve',
+      this.template('Redefinição de senha', [
+        `Olá, ${data.nome}!`,
+        'Recebemos um pedido para redefinir a senha do seu acesso ao portal do cliente.',
+        'Clique no botão abaixo para criar uma nova senha. O link expira em 1 hora.',
+        'Se você não solicitou, ignore este e-mail — sua senha continua a mesma.',
+      ], botao + `<p style="font-size:12px;color:#64748b;word-break:break-all">Ou copie o link: ${data.link}</p>`)
+    );
+
+    const msg =
+      `🔐 *ABS Resolve — Redefinição de senha*\n\n` +
+      `Olá, ${data.nome}!\n\n` +
+      `Use o link abaixo para criar uma nova senha (válido por 1 hora):\n${data.link}\n\n` +
+      `Se não foi você, ignore esta mensagem.`;
+    await this.enviarWhatsApp(this.whatsappCliente(data), msg);
+  }
+
   async notificarGarantiaEmitida(numero: string, email: string, telefone: string) {
     const msg = `Sua garantia ${numero} está disponível no portal do cliente.`;
     await this.enviarEmail(

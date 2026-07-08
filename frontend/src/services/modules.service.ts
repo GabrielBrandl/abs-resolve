@@ -3,6 +3,7 @@ import type {
   ApiResponse, Cliente, Lead, Pedido, Pagamento, Servico, OrdemServico, DashboardKPIs,
   PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
   EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin,
+  ParceiroAdmin, ParceiroDetalhe,
 } from '../types';
 
 async function get<T>(url: string) {
@@ -264,6 +265,16 @@ export const catalogoAdminApi = {
   atualizarServico: (id: string, body: Partial<CatalogoServicoAdmin>) =>
     put<CatalogoServicoAdmin>(`/admin/catalogo/servicos/${id}`, body),
   excluirServico: (id: string) => del(`/admin/catalogo/servicos/${id}`),
+  excluirServicoPermanente: (id: string) => del(`/admin/catalogo/servicos/${id}?permanente=true`),
+  uploadImagem: async (id: string, file: File) => {
+    const form = new FormData();
+    form.append('imagem', file);
+    const { data } = await api.post<ApiResponse<CatalogoServicoAdmin>>(`/admin/catalogo/servicos/${id}/imagem`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    if (!data.success) throw new Error(data.error);
+    return data.data!;
+  },
   config: () => get<Record<string, number>>('/admin/catalogo/config'),
   atualizarConfig: (body: Record<string, number>) => put('/admin/catalogo/config', body),
   estoque: () => get<ProdutoEstoque[]>('/admin/catalogo/estoque'),
@@ -329,4 +340,25 @@ export const adminApiExtra = {
 
 export const leadsApiExtra = {
   converterCliente: (id: string) => post(`/leads/${id}/converter-cliente`),
+};
+
+export const parceirosApi = {
+  listar: () => get<ParceiroAdmin[]>('/parceiros'),
+  detalhe: (id: string) => get<ParceiroDetalhe>(`/parceiros/${id}`),
+  criar: (body: {
+    nome: string; email: string; telefone: string; senha: string; comissaoPercent: number; cnpj?: string;
+  }) => post<ParceiroAdmin>('/parceiros', body),
+  atualizar: (id: string, body: Partial<{
+    nome: string; email: string; telefone: string; comissaoPercent: number; ativo: boolean; senha: string;
+  }>) => put<ParceiroDetalhe>(`/parceiros/${id}`, body),
+  remover: (id: string) => del(`/parceiros/${id}`),
+  marcarComissao: (comissaoId: string, paga: boolean) =>
+    patch(`/parceiros/comissoes/${comissaoId}`, { paga }),
+  meuResumo: () => get<ParceiroDetalhe>('/parceiros/meu-resumo'),
+};
+
+export const authApi = {
+  esqueciSenha: (cpfCnpj: string) => post<{ message: string }>('/auth/esqueci-senha', { cpfCnpj }),
+  redefinirSenha: (token: string, senha: string) =>
+    post<{ message: string }>('/auth/redefinir-senha', { token, senha }),
 };

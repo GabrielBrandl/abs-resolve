@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import type { User } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import {
@@ -9,6 +10,8 @@ import {
   getRefreshTokenExpiry,
 } from '../utils/jwt.js';
 import { sanitizeUser } from '../utils/user.js';
+import { limparClienteOrfaoPorDocumento } from '../utils/cliente-cascade.js';
+import { notificacaoService } from './notificacao.service.js';
 
 export class AuthService {
   private async issueSession(user: User) {
@@ -144,21 +147,35 @@ export class AuthService {
     senha: string;
     endereco?: object;
     consentimentoLgpd: boolean;
+    ref?: string;
   }) {
     if (!data.consentimentoLgpd) {
-      throw new Error('�� necessário aceitar os termos LGPD');
+      throw new Error('É necessário aceitar os termos LGPD');
     }
+
+    const doc = (data.cpf || data.cnpj || '').replace(/\D/g, '');
+
+    // Remove cadastros órfãos (sem acesso e sem pedidos) que travariam o recadastro
+    await limparClienteOrfaoPorDocumento(doc, data.email);
 
     const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
     if (existingUser) throw new Error('Email já cadastrado');
 
-    const doc = (data.cpf || data.cnpj || '').replace(/\D/g, '');
     if (data.tipo === 'PF') {
       const exists = await prisma.cliente.findUnique({ where: { cpf: doc } });
       if (exists) throw new Error('CPF já cadastrado');
     } else {
       const exists = await prisma.cliente.findUnique({ where: { cnpj: doc } });
       if (exists) throw new Error('CNPJ já cadastrado');
+    }
+
+    // Indicação por parceiro (código de referência)
+    let parceiroId: string | undefined;
+    if (data.ref) {
+      const parceiro = await prisma.parceiro.findFirst({
+        where: { codigo: data.ref.trim().toUpperCase(), ativo: true },
+      });
+      if (parceiro) parceiroId = parceiro.id;
     }
 
     const senhaHash = await bcrypt.hash(data.senha, 10);
@@ -175,6 +192,7 @@ export class AuthService {
         endereco: data.endereco || {},
         consentimentoLgpd: true,
         dataAceite: new Date(),
+        parceiroId,
       },
     });
 
@@ -192,6 +210,67 @@ export class AuthService {
     if (!user) throw new Error('Erro ao criar conta');
 
     return this.issueSession(user);
+  }
+
+  /**
+   * Esqueci minha senha (cliente): recebe CPF/CNPJ, gera um token de redefinição
+   * e envia o link por e-mail/WhatsApp. Nunca revela se o documento existe.
+   */
+  async solicitarResetSenha(cpfCnpj: string) {
+    const doc = cpfCnpj.replace(/\D/g, '');
+    if (!doc) return;
+
+    const cliente = await prisma.cliente.findFirst({
+      where: { OR: [{ cpf: doc }, { cnpj: doc }] },
+      include: { user: true },
+    });
+
+    if (!cliente?.user || cliente.user.role !== 'cliente' || cliente.user.ativo === false) {
+      return;
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    await prisma.passwordResetToken.deleteMany({ where: { userId: cliente.user.id, usedAt: null } });
+    await prisma.passwordResetToken.create({
+      data: { userId: cliente.user.id, token, expiresAt },
+    });
+
+    const base = (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://app.absresolve.com.br').replace(/\/$/, '');
+    const link = `${base}/redefinir-senha?token=${token}`;
+
+    await notificacaoService.enviarResetSenha({
+      nome: cliente.nome,
+      email: cliente.email,
+      telefone: cliente.telefone,
+      whatsapp: cliente.whatsapp,
+      link,
+    });
+  }
+
+  async redefinirSenha(token: string, novaSenha: string) {
+    if (!token) throw new Error('Token inválido');
+    if (!novaSenha || novaSenha.length < 6) throw new Error('A senha deve ter no mínimo 6 caracteres');
+
+    const registro = await prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!registro || registro.usedAt || registro.expiresAt < new Date()) {
+      throw new Error('Link de redefinição inválido ou expirado. Solicite um novo.');
+    }
+
+    const senhaHash = await bcrypt.hash(novaSenha, 10);
+
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: registro.userId }, data: { senhaHash } }),
+      prisma.passwordResetToken.update({ where: { id: registro.id }, data: { usedAt: new Date() } }),
+      prisma.refreshToken.deleteMany({ where: { userId: registro.userId } }),
+    ]);
+
+    return { email: registro.user.email };
   }
 }
 

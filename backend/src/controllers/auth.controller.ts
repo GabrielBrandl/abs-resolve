@@ -86,6 +86,32 @@ export class AuthController {
     }
   }
 
+  async esqueciSenha(req: Request, res: Response) {
+    try {
+      const { cpfCnpj } = req.body;
+      if (!cpfCnpj) return error(res, 'Informe seu CPF/CNPJ', 400);
+      await authService.solicitarResetSenha(cpfCnpj);
+      return success(res, {
+        message: 'Se o documento estiver cadastrado, enviaremos um link de redefinição por e-mail e WhatsApp.',
+      });
+    } catch {
+      // Não revela detalhes por segurança
+      return success(res, {
+        message: 'Se o documento estiver cadastrado, enviaremos um link de redefinição por e-mail e WhatsApp.',
+      });
+    }
+  }
+
+  async redefinirSenha(req: Request, res: Response) {
+    try {
+      const { token, senha } = req.body;
+      const result = await authService.redefinirSenha(token, senha);
+      return success(res, { message: 'Senha redefinida com sucesso. Faça login com a nova senha.', ...result });
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro ao redefinir senha', 400);
+    }
+  }
+
   async me(req: Request, res: Response) {
     try {
       if (!req.user) return error(res, 'Não autenticado', 401);

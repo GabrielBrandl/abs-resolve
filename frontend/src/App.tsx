@@ -8,6 +8,8 @@ import { Loading } from './components/ui';
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const CadastroPage = lazy(() => import('./pages/CadastroPage').then((m) => ({ default: m.CadastroPage })));
+const EsqueciSenhaPage = lazy(() => import('./pages/EsqueciSenhaPage').then((m) => ({ default: m.EsqueciSenhaPage })));
+const RedefinirSenhaPage = lazy(() => import('./pages/RedefinirSenhaPage').then((m) => ({ default: m.RedefinirSenhaPage })));
 const AgendarServicoPage = lazy(() => import('./pages/cliente/AgendarServicoPage').then((m) => ({ default: m.AgendarServicoPage })));
 const DiagnosticoIAPage = lazy(() => import('./pages/cliente/DiagnosticoIAPage').then((m) => ({ default: m.DiagnosticoIAPage })));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
@@ -27,6 +29,8 @@ const EstoqueAdminPage = lazy(() => import('./pages/admin/EstoqueAdminPage').the
 const AgendaAdminPage = lazy(() => import('./pages/admin/AgendaAdminPage').then((m) => ({ default: m.AgendaAdminPage })));
 const OrcamentosAdminPage = lazy(() => import('./pages/admin/OrcamentosAdminPage').then((m) => ({ default: m.OrcamentosAdminPage })));
 const QuestionariosAdminPage = lazy(() => import('./pages/admin/QuestionariosAdminPage').then((m) => ({ default: m.QuestionariosAdminPage })));
+const ParceirosAdminPage = lazy(() => import('./pages/admin/ParceirosAdminPage').then((m) => ({ default: m.ParceirosAdminPage })));
+const ParceiroDashboardPage = lazy(() => import('./pages/parceiro/ParceiroDashboardPage').then((m) => ({ default: m.ParceiroDashboardPage })));
 const ClienteLayout = lazy(() => import('./pages/cliente/ClienteLayout').then((m) => ({ default: m.ClienteLayout })));
 const ClientePedidosPage = lazy(() => import('./pages/cliente/ClientePedidosPage').then((m) => ({ default: m.ClientePedidosPage })));
 const ClienteFinanceiroPage = lazy(() => import('./pages/cliente/ClienteFinanceiroPage').then((m) => ({ default: m.ClienteFinanceiroPage })));
@@ -58,6 +62,8 @@ function AppRoutes() {
         <Route element={<PublicRoute />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cadastro" element={<CadastroPage />} />
+          <Route path="/esqueci-senha" element={<EsqueciSenhaPage />} />
+          <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['admin', 'comercial', 'operacional']} />}>
@@ -95,8 +101,13 @@ function AppRoutes() {
             <Route element={<AppLayout />}>
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/questionarios" element={<QuestionariosAdminPage />} />
+              <Route path="/admin/parceiros" element={<ParceirosAdminPage />} />
             </Route>
           </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['parceiro', 'admin']} />}>
+          <Route path="/parceiro" element={<ParceiroDashboardPage />} />
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['operacional', 'admin']} />}>

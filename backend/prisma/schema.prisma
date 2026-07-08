@@ -28,8 +28,22 @@ model User {
   auditLogs     AuditLog[]
   cliente       Cliente?       @relation(fields: [clienteId], references: [id])
   tecnico       Tecnico?
+  parceiro      Parceiro?
+  resetTokens   PasswordResetToken[]
 
   @@map("users")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
 
 model RefreshToken {
@@ -72,6 +86,8 @@ model Cliente {
   produtosInstalados ProdutoInstalado[]
   ocorrenciasAusencia Int @default(0) @map("ocorrencias_ausencia")
   campanhas           CampanhaCrm[]
+  parceiroId          String?     @map("parceiro_id")
+  parceiro            Parceiro?   @relation(fields: [parceiroId], references: [id])
 
   @@map("clientes")
 }
@@ -218,16 +234,39 @@ model Beneficio {
 }
 
 model Parceiro {
-  id        String   @id @default(uuid())
-  nome      String
-  cnpj      String?  @unique
-  email     String
-  telefone  String
-  categoria String
-  ativo     Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
+  id              String     @id @default(uuid())
+  nome            String
+  cnpj            String?    @unique
+  email           String
+  telefone        String
+  categoria       String     @default("vendas")
+  codigo          String?    @unique
+  comissaoPercent Decimal    @default(10) @map("comissao_percent") @db.Decimal(5, 2)
+  userId          String?    @unique @map("user_id")
+  ativo           Boolean    @default(true)
+  createdAt       DateTime   @default(now()) @map("created_at")
+  user            User?      @relation(fields: [userId], references: [id])
+  clientes        Cliente[]
+  comissoes       Comissao[]
 
   @@map("parceiros")
+}
+
+model Comissao {
+  id            String    @id @default(uuid())
+  parceiroId    String    @map("parceiro_id")
+  clienteId     String?   @map("cliente_id")
+  pedidoId      String?   @unique @map("pedido_id")
+  descricao     String?
+  valorVenda    Decimal   @map("valor_venda") @db.Decimal(12, 2)
+  percentual    Decimal   @db.Decimal(5, 2)
+  valorComissao Decimal   @map("valor_comissao") @db.Decimal(12, 2)
+  status        String    @default("pendente")
+  pagaEm        DateTime? @map("paga_em")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  parceiro      Parceiro  @relation(fields: [parceiroId], references: [id], onDelete: Cascade)
+
+  @@map("comissoes")
 }
 
 model AuditLog {

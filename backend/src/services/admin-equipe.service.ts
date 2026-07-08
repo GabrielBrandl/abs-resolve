@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import { prisma } from '../utils/prisma.js';
 import { Role } from '@prisma/client';
+import { apagarClienteCascade } from '../utils/cliente-cascade.js';
 
 export class AdminEquipeService {
   async listarUsuarios() {
@@ -150,7 +151,14 @@ export class AdminEquipeService {
       if (adminsAtivos <= 1) throw new Error('Não é possível excluir o único administrador');
     }
 
+    // Cliente: remove o cadastro completo (libera CPF/CNPJ para novo cadastro)
+    if (user.role === 'cliente' && user.clienteId) {
+      await apagarClienteCascade(user.clienteId);
+      return { id, deleted: true };
+    }
+
     await prisma.refreshToken.deleteMany({ where: { userId: id } });
+    await prisma.passwordResetToken.deleteMany({ where: { userId: id } });
 
     if (user.tecnico) {
       await prisma.tecnico.update({
@@ -169,7 +177,10 @@ export class AdminEquipeService {
       include: { tecnico: true },
     });
     if (!user) throw new Error('Usuário não encontrado');
-    if (user.role === 'admin' && !ativo) throw new Error('Não é possível desativar o único admin');
+    if (user.role === 'admin' && !ativo) {
+      const adminsAtivos = await prisma.user.count({ where: { role: 'admin', ativo: true } });
+      if (adminsAtivos <= 1) throw new Error('Não é possível desativar o único administrador ativo');
+    }
 
     await prisma.user.update({ where: { id }, data: { ativo } });
 

@@ -6,6 +6,7 @@ import { estoqueService } from './estoque.service.js';
 import { notificacaoService } from './notificacao.service.js';
 import { nfseService } from './nfse.service.js';
 import { descricaoServicosDaSolicitacao } from '../utils/solicitacao-descricao.js';
+import { gerarComissaoDoPagamento } from './parceiros.service.js';
 
 function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
   return `${opcoes.tipo || 'simples'}_${opcoes.amperagem || '10a'}`.toLowerCase();
@@ -112,8 +113,18 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
     console.warn('[NFSe] emissão falhou:', err instanceof Error ? err.message : err);
   }
 
+  const descricaoServico = sol ? descricaoServicosDaSolicitacao(sol) : pedido.descricao || 'Serviço ABS Resolve';
+
+  // Comissão de parceiro (se o cliente foi indicado)
+  await gerarComissaoDoPagamento({
+    clienteId: pedido.clienteId,
+    pedidoId: pedido.id,
+    valor: toNumber(pagamento.valor),
+    descricao: `${pedido.numero} — ${descricaoServico}`,
+  }).catch((err) => console.warn('[comissao] falha ao gerar:', err instanceof Error ? err.message : err));
+
   if (pagamento.cliente) {
-    const servicos = sol ? descricaoServicosDaSolicitacao(sol) : pedido.descricao || 'Serviço ABS Resolve';
+    const servicos = descricaoServico;
     const anexo = nfse ? await anexoDocumentoNfse(nfse.documentoId) : undefined;
 
     await notificacaoService

@@ -24,7 +24,21 @@ export class CatalogoAdminController {
 
   async excluir(req: Request, res: Response) {
     try {
-      const data = await catalogoAdminService.excluirServico(paramId(req.params.id));
+      const permanente = req.query.permanente === 'true';
+      const id = paramId(req.params.id);
+      const data = permanente
+        ? await catalogoAdminService.excluirServicoPermanente(id)
+        : await catalogoAdminService.excluirServico(id);
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async uploadImagem(req: Request, res: Response) {
+    try {
+      if (!req.file) return error(res, 'Nenhuma imagem enviada', 400);
+      const data = await catalogoAdminService.atualizarImagem(paramId(req.params.id), req.file);
       return success(res, data);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);

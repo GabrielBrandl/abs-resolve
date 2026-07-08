@@ -131,7 +131,11 @@ export function AdminPage() {
   };
 
   const excluirUsuario = async (u: Usuario) => {
-    if (!confirm(`Excluir permanentemente ${u.nome}?`)) return;
+    const aviso =
+      u.role === 'cliente'
+        ? `Apagar o cliente ${u.nome}?\n\nIsso remove o cadastro, pedidos, pagamentos, NFS-e e o acesso ao portal. O CPF/CNPJ fica liberado para um novo cadastro. Esta ação não pode ser desfeita.`
+        : `Apagar permanentemente o usuário ${u.nome}?`;
+    if (!confirm(aviso)) return;
     try {
       await adminApi.excluirUsuario(u.id);
       toast('Usuário excluído', 'success');
@@ -156,6 +160,7 @@ export function AdminPage() {
     comercial: 'Comercial',
     operacional: 'Técnico',
     cliente: 'Cliente',
+    parceiro: 'Parceiro',
   };
 
   return (
@@ -221,15 +226,13 @@ export function AdminPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex flex-wrap justify-end gap-1">
-                          <Button variant="secondary" className="text-xs" onClick={() => abrirEditar(u)}>Editar</Button>
                           {u.role !== 'cliente' && (
-                            <Button variant="secondary" className="text-xs" onClick={() => toggleStatus(u)}>
-                              {u.ativo ? 'Desligar' : 'Reativar'}
-                            </Button>
+                            <Button variant="secondary" className="text-xs" onClick={() => abrirEditar(u)}>Editar</Button>
                           )}
-                          {u.role !== 'cliente' && (
-                            <Button variant="danger" className="text-xs" onClick={() => excluirUsuario(u)}>Excluir</Button>
-                          )}
+                          <Button variant="secondary" className="text-xs" onClick={() => toggleStatus(u)}>
+                            {u.ativo ? 'Desativar' : 'Ativar'}
+                          </Button>
+                          <Button variant="danger" className="text-xs" onClick={() => excluirUsuario(u)}>Apagar</Button>
                         </div>
                       </td>
                     </tr>

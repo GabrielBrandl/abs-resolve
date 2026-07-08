@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { catalogoAdminController } from '../controllers/catalogo-admin.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { checkRole } from '../middlewares/role.middleware.js';
+import { upload } from '../middlewares/upload.middleware.js';
 
 const router = Router();
 
@@ -9,6 +10,7 @@ router.use(authMiddleware, checkRole('admin', 'comercial'));
 
 router.get('/servicos', (req, res) => catalogoAdminController.listar(req, res));
 router.put('/servicos/:id', (req, res) => catalogoAdminController.atualizar(req, res));
+router.post('/servicos/:id/imagem', upload.single('imagem'), (req, res) => catalogoAdminController.uploadImagem(req, res));
 router.delete('/servicos/:id', checkRole('admin'), (req, res) => catalogoAdminController.excluir(req, res));
 router.get('/config', (req, res) => catalogoAdminController.config(req, res));
 router.put('/config', (req, res) => catalogoAdminController.updateConfig(req, res));
