@@ -16,6 +16,8 @@ router.post('/', checkRole('admin'), (req, res) => parceirosController.criar(req
 router.get('/:id', checkRole('admin', 'comercial'), (req, res) => parceirosController.detalhe(req, res));
 router.put('/:id', checkRole('admin'), (req, res) => parceirosController.atualizar(req, res));
 router.delete('/:id', checkRole('admin'), (req, res) => parceirosController.remover(req, res));
+router.post('/:id/recalcular-comissoes', checkRole('admin'), (req, res) => parceirosController.recalcularComissoes(req, res));
 router.patch('/comissoes/:comissaoId', checkRole('admin'), (req, res) => parceirosController.marcarComissao(req, res));
+router.delete('/comissoes/:comissaoId', checkRole('admin'), (req, res) => parceirosController.excluirComissao(req, res));
 
 export default router;

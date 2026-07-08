@@ -1,11 +1,32 @@
 import { useEffect, useState } from 'react';
 import { parceirosApi } from '../../services/modules.service';
-import type { ParceiroAdmin, ParceiroDetalhe } from '../../types';
+import type { ComissaoItem, ParceiroAdmin, ParceiroDetalhe } from '../../types';
 import { formatCurrency, formatDate } from '../../types';
 import { PageHeader, Loading, Card, Button, Badge, Modal, Input } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 
-const formVazio = { nome: '', email: '', telefone: '', senha: '', comissaoPercent: '10', cnpj: '' };
+const formVazio = { nome: '', email: '', telefone: '', senha: '', comissaoPercent: '10', cnpj: '', categoria: 'vendas' };
+
+const editFormVazio = {
+  nome: '',
+  email: '',
+  telefone: '',
+  cnpj: '',
+  categoria: 'vendas',
+  codigo: '',
+  comissaoPercent: '10',
+  senha: '',
+  ativo: true,
+  recalcularPendentes: false,
+};
+
+const comissaoFormVazio = {
+  descricao: '',
+  valorVenda: '',
+  percentual: '',
+  valorComissao: '',
+  status: 'pendente',
+};
 
 export function ParceirosAdminPage() {
   const { toast } = useToast();
@@ -15,7 +36,9 @@ export function ParceirosAdminPage() {
   const [form, setForm] = useState(formVazio);
   const [detalhe, setDetalhe] = useState<ParceiroDetalhe | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ nome: '', email: '', telefone: '', comissaoPercent: '10', senha: '', ativo: true });
+  const [editForm, setEditForm] = useState(editFormVazio);
+  const [comissaoEditId, setComissaoEditId] = useState<string | null>(null);
+  const [comissaoForm, setComissaoForm] = useState(comissaoFormVazio);
 
   const carregar = () => {
     setLoading(true);
@@ -33,6 +56,7 @@ export function ParceirosAdminPage() {
         senha: form.senha,
         comissaoPercent: Number(form.comissaoPercent) || 0,
         cnpj: form.cnpj || undefined,
+        categoria: form.categoria || undefined,
       });
       setModalNovo(false);
       setForm(formVazio);
@@ -43,15 +67,19 @@ export function ParceirosAdminPage() {
     }
   };
 
-  const abrirEditar = (p: ParceiroAdmin) => {
+  const abrirEditar = (p: Pick<ParceiroAdmin, 'id' | 'nome' | 'email' | 'telefone' | 'cnpj' | 'categoria' | 'codigo' | 'comissaoPercent' | 'ativo'>) => {
     setEditId(p.id);
     setEditForm({
       nome: p.nome,
       email: p.email,
       telefone: p.telefone,
+      cnpj: p.cnpj || '',
+      categoria: p.categoria || 'vendas',
+      codigo: p.codigo || '',
       comissaoPercent: String(p.comissaoPercent),
       senha: '',
       ativo: p.ativo,
+      recalcularPendentes: false,
     });
   };
 
@@ -62,13 +90,18 @@ export function ParceirosAdminPage() {
         nome: editForm.nome,
         email: editForm.email,
         telefone: editForm.telefone,
+        cnpj: editForm.cnpj,
+        categoria: editForm.categoria,
+        codigo: editForm.codigo,
         comissaoPercent: Number(editForm.comissaoPercent) || 0,
         ativo: editForm.ativo,
+        recalcularPendentes: editForm.recalcularPendentes,
         ...(editForm.senha ? { senha: editForm.senha } : {}),
       });
       setEditId(null);
       toast('Parceiro atualizado!', 'success');
       carregar();
+      if (detalhe?.id === editId) await verDetalhe(editId);
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro', 'error');
     }
@@ -79,6 +112,7 @@ export function ParceirosAdminPage() {
     try {
       await parceirosApi.remover(p.id);
       toast('Parceiro removido', 'success');
+      if (detalhe?.id === p.id) setDetalhe(null);
       carregar();
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro', 'error');
@@ -88,6 +122,19 @@ export function ParceirosAdminPage() {
   const verDetalhe = async (id: string) => {
     try {
       setDetalhe(await parceirosApi.detalhe(id));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro', 'error');
+    }
+  };
+
+  const recalcularPendentes = async () => {
+    if (!detalhe) return;
+    if (!confirm(`Recalcular todas as comissões pendentes de ${detalhe.nome} com ${detalhe.comissaoPercent}%?`)) return;
+    try {
+      const { recalculadas, detalhe: atualizado } = await parceirosApi.recalcularComissoes(detalhe.id);
+      setDetalhe(atualizado);
+      toast(`${recalculadas} comissão(ões) recalculada(s)`, 'success');
+      carregar();
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro', 'error');
     }
@@ -103,10 +150,58 @@ export function ParceirosAdminPage() {
     }
   };
 
+  const abrirEditarComissao = (c: ComissaoItem) => {
+    setComissaoEditId(c.id);
+    setComissaoForm({
+      descricao: c.descricao || '',
+      valorVenda: String(c.valorVenda),
+      percentual: String(c.percentual),
+      valorComissao: String(c.valorComissao),
+      status: c.status,
+    });
+  };
+
+  const salvarComissao = async () => {
+    if (!comissaoEditId) return;
+    try {
+      await parceirosApi.atualizarComissao(comissaoEditId, {
+        descricao: comissaoForm.descricao,
+        valorVenda: Number(comissaoForm.valorVenda),
+        percentual: Number(comissaoForm.percentual),
+        valorComissao: Number(comissaoForm.valorComissao),
+        status: comissaoForm.status,
+      });
+      setComissaoEditId(null);
+      toast('Comissão atualizada!', 'success');
+      if (detalhe) await verDetalhe(detalhe.id);
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro', 'error');
+    }
+  };
+
+  const excluirComissao = async (c: ComissaoItem) => {
+    if (!confirm(`Excluir comissão de ${formatCurrency(c.valorComissao)}?`)) return;
+    try {
+      await parceirosApi.excluirComissao(c.id);
+      toast('Comissão excluída', 'success');
+      if (detalhe) await verDetalhe(detalhe.id);
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro', 'error');
+    }
+  };
+
   const copiarLink = (link: string | null) => {
     if (!link) return;
     navigator.clipboard.writeText(link);
     toast('Link de indicação copiado!', 'success');
+  };
+
+  const statusComissaoBadge = (status: string) => {
+    if (status === 'paga') return 'bg-green-100 text-green-700';
+    if (status === 'cancelada') return 'bg-slate-100 text-slate-500';
+    return 'bg-amber-100 text-amber-700';
   };
 
   if (loading) return <Loading />;
@@ -195,6 +290,7 @@ export function ParceirosAdminPage() {
         <Input label="Email (login do parceiro)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <Input label="Telefone / WhatsApp" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
         <Input label="CNPJ (opcional)" value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} />
+        <Input label="Categoria" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} />
         <Input label="Comissão (%)" type="number" min={0} max={100} value={form.comissaoPercent} onChange={(e) => setForm({ ...form, comissaoPercent: e.target.value })} />
         <Input label="Senha de acesso" type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} />
         <Button onClick={criar} className="mt-2">Criar parceiro</Button>
@@ -204,13 +300,47 @@ export function ParceirosAdminPage() {
         <Input label="Nome" value={editForm.nome} onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })} />
         <Input label="Email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
         <Input label="Telefone" value={editForm.telefone} onChange={(e) => setEditForm({ ...editForm, telefone: e.target.value })} />
+        <Input label="CNPJ" value={editForm.cnpj} onChange={(e) => setEditForm({ ...editForm, cnpj: e.target.value })} />
+        <Input label="Categoria" value={editForm.categoria} onChange={(e) => setEditForm({ ...editForm, categoria: e.target.value })} />
+        <Input label="Código de indicação" value={editForm.codigo} onChange={(e) => setEditForm({ ...editForm, codigo: e.target.value.toUpperCase() })} />
         <Input label="Comissão (%)" type="number" min={0} max={100} value={editForm.comissaoPercent} onChange={(e) => setEditForm({ ...editForm, comissaoPercent: e.target.value })} />
         <Input label="Nova senha (opcional)" type="password" value={editForm.senha} onChange={(e) => setEditForm({ ...editForm, senha: e.target.value })} />
-        <label className="mb-3 flex items-center gap-2 text-sm">
+        <label className="mb-2 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={editForm.ativo} onChange={(e) => setEditForm({ ...editForm, ativo: e.target.checked })} />
           Parceiro ativo
         </label>
+        <label className="mb-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={editForm.recalcularPendentes}
+            onChange={(e) => setEditForm({ ...editForm, recalcularPendentes: e.target.checked })}
+          />
+          Recalcular comissões pendentes com a nova %
+        </label>
         <Button onClick={salvarEdicao} className="mt-2">Salvar alterações</Button>
+      </Modal>
+
+      <Modal open={!!comissaoEditId} onClose={() => setComissaoEditId(null)} title="Editar comissão">
+        <Input label="Descrição" value={comissaoForm.descricao} onChange={(e) => setComissaoForm({ ...comissaoForm, descricao: e.target.value })} />
+        <Input label="Valor da venda (R$)" type="number" min={0} step="0.01" value={comissaoForm.valorVenda} onChange={(e) => setComissaoForm({ ...comissaoForm, valorVenda: e.target.value })} />
+        <Input label="Percentual (%)" type="number" min={0} max={100} step="0.01" value={comissaoForm.percentual} onChange={(e) => setComissaoForm({ ...comissaoForm, percentual: e.target.value })} />
+        <Input label="Valor da comissão (R$)" type="number" min={0} step="0.01" value={comissaoForm.valorComissao} onChange={(e) => setComissaoForm({ ...comissaoForm, valorComissao: e.target.value })} />
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium">Status</label>
+          <select
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+            value={comissaoForm.status}
+            onChange={(e) => setComissaoForm({ ...comissaoForm, status: e.target.value })}
+          >
+            <option value="pendente">Pendente</option>
+            <option value="paga">Paga</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+        </div>
+        <p className="mb-3 text-xs text-slate-500">
+          Ao alterar o percentual, o valor da comissão será recalculado automaticamente ao salvar (a menos que você edite o valor manualmente).
+        </p>
+        <Button onClick={salvarComissao}>Salvar comissão</Button>
       </Modal>
 
       <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title={detalhe ? `Parceiro — ${detalhe.nome}` : ''}>
@@ -218,8 +348,10 @@ export function ParceirosAdminPage() {
           <div className="space-y-4">
             <div className="rounded-lg bg-slate-50 p-3 text-sm">
               <p className="mb-1"><span className="text-slate-500">Código:</span> <span className="font-mono font-semibold">{detalhe.codigo}</span></p>
+              <p className="mb-1"><span className="text-slate-500">Comissão padrão:</span> <span className="font-semibold">{detalhe.comissaoPercent}%</span></p>
+              {detalhe.cnpj && <p className="mb-1"><span className="text-slate-500">CNPJ:</span> {detalhe.cnpj}</p>}
               {detalhe.link && (
-                <div className="flex items-center gap-2">
+                <div className="mt-2 flex items-center gap-2">
                   <input readOnly value={detalhe.link} className="flex-1 rounded border bg-white px-2 py-1 text-xs" />
                   <Button variant="secondary" className="text-xs" onClick={() => copiarLink(detalhe.link)}>Copiar</Button>
                 </div>
@@ -241,24 +373,37 @@ export function ParceirosAdminPage() {
               </div>
             </div>
 
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" className="text-xs" onClick={() => abrirEditar(detalhe)}>Editar parceiro</Button>
+              <Button variant="secondary" className="text-xs" onClick={() => void recalcularPendentes()}>Recalcular pendentes</Button>
+            </div>
+
             <div>
               <p className="mb-2 text-sm font-semibold">Comissões</p>
               <div className="max-h-56 space-y-2 overflow-y-auto">
                 {detalhe.comissoes.length === 0 ? (
                   <p className="text-sm text-slate-400">Nenhuma comissão gerada ainda.</p>
                 ) : detalhe.comissoes.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                    <div>
-                      <p className="font-medium">{formatCurrency(c.valorComissao)} <span className="text-xs text-slate-400">({c.percentual}% de {formatCurrency(c.valorVenda)})</span></p>
-                      <p className="text-xs text-slate-400">{c.descricao || '—'} · {formatDate(c.createdAt)}</p>
+                  <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{formatCurrency(c.valorComissao)}</p>
+                        <Badge color={statusComissaoBadge(c.status)}>{c.status}</Badge>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        {c.percentual}% de {formatCurrency(c.valorVenda)} · {c.descricao || '—'} · {formatDate(c.createdAt)}
+                      </p>
                     </div>
-                    <Button
-                      variant={c.status === 'paga' ? 'secondary' : 'cta'}
-                      className="text-xs"
-                      onClick={() => marcarComissao(c.id, c.status !== 'paga')}
-                    >
-                      {c.status === 'paga' ? 'Paga ✓' : 'Marcar paga'}
-                    </Button>
+                    <div className="flex shrink-0 flex-wrap gap-1">
+                      <Button variant="secondary" className="text-xs" onClick={() => abrirEditarComissao(c)}>Editar</Button>
+                      {c.status !== 'paga' && (
+                        <Button variant="cta" className="text-xs" onClick={() => marcarComissao(c.id, true)}>Pagar</Button>
+                      )}
+                      {c.status === 'paga' && (
+                        <Button variant="secondary" className="text-xs" onClick={() => marcarComissao(c.id, false)}>Desfazer</Button>
+                      )}
+                      <Button variant="danger" className="text-xs" onClick={() => void excluirComissao(c)}>Excluir</Button>
+                    </div>
                   </div>
                 ))}
               </div>

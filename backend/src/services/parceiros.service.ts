@@ -137,9 +137,13 @@ export class ParceirosService {
       nome: string;
       email: string;
       telefone: string;
+      cnpj: string;
+      categoria: string;
+      codigo: string;
       comissaoPercent: number;
       ativo: boolean;
       senha: string;
+      recalcularPendentes: boolean;
     }>
   ) {
     const parceiro = await prisma.parceiro.findUnique({ where: { id } });
@@ -152,12 +156,33 @@ export class ParceirosService {
       if (dup) throw new Error('Já existe um usuário com este e-mail');
     }
 
+    if (data.codigo !== undefined && data.codigo !== parceiro.codigo) {
+      const codigo = data.codigo.trim().toUpperCase();
+      if (!codigo) throw new Error('Código de indicação não pode ser vazio');
+      const dupCodigo = await prisma.parceiro.findFirst({
+        where: { codigo, NOT: { id } },
+      });
+      if (dupCodigo) throw new Error('Já existe um parceiro com este código');
+    }
+
+    const cnpjLimpo =
+      data.cnpj !== undefined ? data.cnpj.replace(/\D/g, '') || null : undefined;
+    if (cnpjLimpo) {
+      const dupCnpj = await prisma.parceiro.findFirst({
+        where: { cnpj: cnpjLimpo, NOT: { id } },
+      });
+      if (dupCnpj) throw new Error('Já existe um parceiro com este CNPJ');
+    }
+
     await prisma.parceiro.update({
       where: { id },
       data: {
         ...(data.nome !== undefined && { nome: data.nome }),
         ...(data.email !== undefined && { email: data.email }),
         ...(data.telefone !== undefined && { telefone: data.telefone }),
+        ...(cnpjLimpo !== undefined && { cnpj: cnpjLimpo }),
+        ...(data.categoria !== undefined && { categoria: data.categoria }),
+        ...(data.codigo !== undefined && { codigo: data.codigo.trim().toUpperCase() }),
         ...(data.comissaoPercent !== undefined && { comissaoPercent: data.comissaoPercent }),
         ...(data.ativo !== undefined && { ativo: data.ativo }),
       },
@@ -174,7 +199,32 @@ export class ParceirosService {
       }
     }
 
+    if (data.recalcularPendentes && data.comissaoPercent !== undefined) {
+      await this.recalcularComissoesPendentes(id, data.comissaoPercent);
+    }
+
     return this.detalhe(id);
+  }
+
+  async recalcularComissoesPendentes(parceiroId: string, percentual?: number) {
+    const parceiro = await prisma.parceiro.findUnique({ where: { id: parceiroId } });
+    if (!parceiro) throw new Error('Parceiro não encontrado');
+
+    const pct = percentual ?? toNumber(parceiro.comissaoPercent);
+    const pendentes = await prisma.comissao.findMany({
+      where: { parceiroId, status: 'pendente' },
+    });
+
+    for (const c of pendentes) {
+      const valorVenda = toNumber(c.valorVenda);
+      const valorComissao = Number(((valorVenda * pct) / 100).toFixed(2));
+      await prisma.comissao.update({
+        where: { id: c.id },
+        data: { percentual: pct, valorComissao },
+      });
+    }
+
+    return pendentes.length;
   }
 
   async remover(id: string) {
@@ -225,16 +275,67 @@ export class ParceirosService {
   }
 
   async marcarComissao(comissaoId: string, paga: boolean) {
+    return this.atualizarComissao(comissaoId, { status: paga ? 'paga' : 'pendente' });
+  }
+
+  async atualizarComissao(
+    comissaoId: string,
+    data: Partial<{
+      descricao: string;
+      valorVenda: number;
+      percentual: number;
+      valorComissao: number;
+      status: string;
+      paga: boolean;
+    }>
+  ) {
     const comissao = await prisma.comissao.findUnique({ where: { id: comissaoId } });
     if (!comissao) throw new Error('Comissão não encontrada');
+
+    const valorVenda = data.valorVenda !== undefined ? data.valorVenda : toNumber(comissao.valorVenda);
+    const percentual = data.percentual !== undefined ? data.percentual : toNumber(comissao.percentual);
+    let valorComissao =
+      data.valorComissao !== undefined ? data.valorComissao : toNumber(comissao.valorComissao);
+
+    if (data.percentual !== undefined && data.valorComissao === undefined) {
+      valorComissao = Number(((valorVenda * percentual) / 100).toFixed(2));
+    } else if (data.valorVenda !== undefined && data.percentual !== undefined && data.valorComissao === undefined) {
+      valorComissao = Number(((valorVenda * percentual) / 100).toFixed(2));
+    }
+
+    let status = data.status;
+    if (data.paga !== undefined) status = data.paga ? 'paga' : 'pendente';
+    if (status && !['pendente', 'paga', 'cancelada'].includes(status)) {
+      throw new Error('Status inválido');
+    }
+
+    const statusFinal = status ?? comissao.status;
+    const pagaEm =
+      statusFinal === 'paga'
+        ? comissao.pagaEm ?? new Date()
+        : statusFinal === 'pendente'
+          ? null
+          : comissao.pagaEm;
 
     return prisma.comissao.update({
       where: { id: comissaoId },
       data: {
-        status: paga ? 'paga' : 'pendente',
-        pagaEm: paga ? new Date() : null,
+        ...(data.descricao !== undefined && { descricao: data.descricao || null }),
+        ...(data.valorVenda !== undefined && { valorVenda }),
+        ...(data.percentual !== undefined && { percentual }),
+        ...(data.valorComissao !== undefined || data.percentual !== undefined || data.valorVenda !== undefined
+          ? { valorComissao }
+          : {}),
+        ...(status && { status: statusFinal, pagaEm }),
       },
     });
+  }
+
+  async excluirComissao(comissaoId: string) {
+    const comissao = await prisma.comissao.findUnique({ where: { id: comissaoId } });
+    if (!comissao) throw new Error('Comissão não encontrada');
+    await prisma.comissao.delete({ where: { id: comissaoId } });
+    return { id: comissaoId, deleted: true };
   }
 
   /** Dashboard do próprio parceiro logado */

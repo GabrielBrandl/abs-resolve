@@ -355,14 +355,21 @@ export const parceirosApi = {
   listar: () => get<ParceiroAdmin[]>('/parceiros'),
   detalhe: (id: string) => get<ParceiroDetalhe>(`/parceiros/${id}`),
   criar: (body: {
-    nome: string; email: string; telefone: string; senha: string; comissaoPercent: number; cnpj?: string;
+    nome: string; email: string; telefone: string; senha: string; comissaoPercent: number; cnpj?: string; categoria?: string;
   }) => post<ParceiroAdmin>('/parceiros', body),
   atualizar: (id: string, body: Partial<{
-    nome: string; email: string; telefone: string; comissaoPercent: number; ativo: boolean; senha: string;
+    nome: string; email: string; telefone: string; cnpj: string; categoria: string; codigo: string;
+    comissaoPercent: number; ativo: boolean; senha: string; recalcularPendentes: boolean;
   }>) => put<ParceiroDetalhe>(`/parceiros/${id}`, body),
   remover: (id: string) => del(`/parceiros/${id}`),
+  recalcularComissoes: (id: string, percentual?: number) =>
+    post<{ recalculadas: number; detalhe: ParceiroDetalhe }>(`/parceiros/${id}/recalcular-comissoes`, { percentual }),
+  atualizarComissao: (comissaoId: string, body: {
+    descricao?: string; valorVenda?: number; percentual?: number; valorComissao?: number; status?: string; paga?: boolean;
+  }) => patch(`/parceiros/comissoes/${comissaoId}`, body),
   marcarComissao: (comissaoId: string, paga: boolean) =>
     patch(`/parceiros/comissoes/${comissaoId}`, { paga }),
+  excluirComissao: (comissaoId: string) => del(`/parceiros/comissoes/${comissaoId}`),
   meuResumo: () => get<ParceiroDetalhe>('/parceiros/meu-resumo'),
 };
 

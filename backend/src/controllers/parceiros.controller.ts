@@ -46,8 +46,33 @@ export class ParceirosController {
 
   async marcarComissao(req: Request, res: Response) {
     try {
-      const { paga } = req.body;
-      return success(res, await parceirosService.marcarComissao(paramId(req.params.comissaoId), !!paga));
+      const { paga, ...rest } = req.body;
+      const data =
+        rest && Object.keys(rest).length
+          ? rest
+          : { paga: !!paga };
+      return success(res, await parceirosService.atualizarComissao(paramId(req.params.comissaoId), data));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async excluirComissao(req: Request, res: Response) {
+    try {
+      return success(res, await parceirosService.excluirComissao(paramId(req.params.comissaoId)));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async recalcularComissoes(req: Request, res: Response) {
+    try {
+      const { percentual } = req.body;
+      const count = await parceirosService.recalcularComissoesPendentes(
+        paramId(req.params.id),
+        percentual !== undefined ? Number(percentual) : undefined
+      );
+      return success(res, { recalculadas: count, detalhe: await parceirosService.detalhe(paramId(req.params.id)) });
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
     }
