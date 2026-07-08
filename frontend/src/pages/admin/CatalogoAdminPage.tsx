@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { catalogoAdminApi } from '../../services/modules.service';
 import type { CatalogoServicoAdmin } from '../../types';
 import { formatCurrency } from '../../types';
-import { PageHeader, Loading, Card, Button, Badge } from '../../components/ui';
+import { PageHeader, Loading, Button, Badge, Modal } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 import { useAuthStore } from '../../store/authStore';
 
@@ -163,89 +163,86 @@ export function CatalogoAdminPage() {
         </table>
       </div>
 
-      {editId && (
-        <Card className="mt-4 max-w-lg">
-          <h3 className="mb-3 font-semibold">Editar serviço</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Imagem do serviço</label>
-              <div className="flex items-center gap-3">
-                {form.imagemUrl ? (
-                  <img src={form.imagemUrl} alt="Prévia" className="h-20 w-20 rounded-lg border border-slate-200 bg-white object-contain p-1" />
-                ) : (
-                  <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400">Sem imagem</div>
-                )}
-                <div className="flex-1">
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) enviarImagem(file);
-                      e.target.value = '';
-                    }}
-                  />
-                  <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={enviandoImg}>
-                    {enviandoImg ? 'Enviando...' : 'Trocar imagem'}
-                  </Button>
-                  <p className="mt-1 text-xs text-slate-400">PNG, JPG ou WebP (até 10MB).</p>
-                </div>
-              </div>
-              <input
-                className="mt-2 w-full rounded-lg border px-3 py-2 text-xs text-slate-500"
-                placeholder="Ou cole a URL de uma imagem"
-                value={form.imagemUrl || ''}
-                onChange={(e) => setForm((f) => ({ ...f, imagemUrl: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Nome</label>
-              <input className="w-full rounded-lg border px-3 py-2 text-sm" value={form.nome || ''} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium">Preço mínimo</label>
-                <input type="number" className="w-full rounded-lg border px-3 py-2 text-sm" value={form.precoMinimo || ''} onChange={(e) => setForm((f) => ({ ...f, precoMinimo: Number(e.target.value) }))} />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Tipo de preço</label>
-                <select
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  value={form.tipoPreco || 'fixo'}
-                  onChange={(e) => setForm((f) => ({ ...f, tipoPreco: e.target.value }))}
-                >
-                  <option value="fixo">Preço fixo (mostra valor + carrinho)</option>
-                  <option value="a_partir">A partir de (mostra valor + carrinho)</option>
-                  <option value="sob_orcamento">Sob orçamento (sem carrinho)</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Texto preço</label>
-              <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Ex: R$ 149,00 ou A partir de R$ 199,00" value={form.precoTexto || ''} onChange={(e) => setForm((f) => ({ ...f, precoTexto: e.target.value }))} />
-              {form.tipoPreco === 'sob_orcamento' && Number(form.precoMinimo) > 0 && (
-                <p className="mt-1 text-xs text-amber-600">
-                  Este serviço tem preço definido. Use &quot;Preço fixo&quot; ou &quot;A partir de&quot; para o cliente ver o valor.
-                </p>
+      <Modal open={!!editId} onClose={() => setEditId(null)} title="Editar serviço">
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Imagem do serviço</label>
+            <div className="flex items-center gap-3">
+              {form.imagemUrl ? (
+                <img src={form.imagemUrl} alt="Prévia" className="h-20 w-20 rounded-lg border border-slate-200 bg-white object-contain p-1" />
+              ) : (
+                <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400">Sem imagem</div>
               )}
+              <div className="flex-1">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) enviarImagem(file);
+                    e.target.value = '';
+                  }}
+                />
+                <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={enviandoImg}>
+                  {enviandoImg ? 'Enviando...' : 'Trocar imagem'}
+                </Button>
+                <p className="mt-1 text-xs text-slate-400">PNG, JPG ou WebP (até 10MB).</p>
+              </div>
+            </div>
+            <input
+              className="mt-2 w-full rounded-lg border px-3 py-2 text-xs text-slate-500"
+              placeholder="Ou cole a URL de uma imagem"
+              value={form.imagemUrl || ''}
+              onChange={(e) => setForm((f) => ({ ...f, imagemUrl: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Nome</label>
+            <input className="w-full rounded-lg border px-3 py-2 text-sm" value={form.nome || ''} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Preço mínimo</label>
+              <input type="number" className="w-full rounded-lg border px-3 py-2 text-sm" value={form.precoMinimo || ''} onChange={(e) => setForm((f) => ({ ...f, precoMinimo: Number(e.target.value) }))} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Descrição</label>
-              <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={form.descricao || ''} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} />
+              <label className="mb-1 block text-sm font-medium">Tipo de preço</label>
+              <select
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                value={form.tipoPreco || 'fixo'}
+                onChange={(e) => setForm((f) => ({ ...f, tipoPreco: e.target.value }))}
+              >
+                <option value="fixo">Preço fixo (mostra valor + carrinho)</option>
+                <option value="a_partir">A partir de (mostra valor + carrinho)</option>
+                <option value="sob_orcamento">Sob orçamento (sem carrinho)</option>
+              </select>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.ativo ?? true} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} />
-              Ativo
-            </label>
           </div>
-          <div className="mt-4 flex gap-2">
-            <Button variant="cta" onClick={salvar}>Salvar</Button>
-            <Button variant="secondary" onClick={() => setEditId(null)}>Cancelar</Button>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Texto preço</label>
+            <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Ex: R$ 149,00 ou A partir de R$ 199,00" value={form.precoTexto || ''} onChange={(e) => setForm((f) => ({ ...f, precoTexto: e.target.value }))} />
+            {form.tipoPreco === 'sob_orcamento' && Number(form.precoMinimo) > 0 && (
+              <p className="mt-1 text-xs text-amber-600">
+                Este serviço tem preço definido. Use &quot;Preço fixo&quot; ou &quot;A partir de&quot; para o cliente ver o valor.
+              </p>
+            )}
           </div>
-        </Card>
-      )}
+          <div>
+            <label className="mb-1 block text-sm font-medium">Descrição</label>
+            <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} value={form.descricao || ''} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form.ativo ?? true} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} />
+            Ativo
+          </label>
+        </div>
+        <div className="mt-4 flex gap-2">
+          <Button variant="cta" onClick={salvar}>Salvar</Button>
+          <Button variant="secondary" onClick={() => setEditId(null)}>Cancelar</Button>
+        </div>
+      </Modal>
     </div>
   );
 }

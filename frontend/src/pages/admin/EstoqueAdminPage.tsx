@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { catalogoAdminApi } from '../../services/modules.service';
 import type { ProdutoEstoque } from '../../types';
-import { PageHeader, Loading, Badge, Card, Button } from '../../components/ui';
+import { PageHeader, Loading, Badge, Button, Modal } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 
 export function EstoqueAdminPage() {
@@ -77,23 +77,20 @@ export function EstoqueAdminPage() {
         {!produtos.length && <p className="p-6 text-center text-slate-400">Nenhum produto cadastrado</p>}
       </div>
 
-      {editId && (
-        <Card className="mt-4 max-w-sm">
-          <h3 className="mb-3 font-semibold">Ajustar estoque</h3>
-          <div className="mb-3">
-            <label className="mb-1 block text-sm font-medium">Quantidade</label>
-            <input type="number" className="w-full rounded-lg border px-3 py-2 text-sm" value={quantidade} onChange={(e) => setQuantidade(Number(e.target.value))} />
-          </div>
-          <div className="mb-3">
-            <label className="mb-1 block text-sm font-medium">Mínimo</label>
-            <input type="number" className="w-full rounded-lg border px-3 py-2 text-sm" value={minimo} onChange={(e) => setMinimo(Number(e.target.value))} />
-          </div>
-          <div className="flex gap-2">
-            <Button variant="cta" onClick={salvar}>Salvar</Button>
-            <Button variant="secondary" onClick={() => setEditId(null)}>Cancelar</Button>
-          </div>
-        </Card>
-      )}
+      <Modal open={!!editId} onClose={() => setEditId(null)} title="Ajustar estoque">
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium">Quantidade</label>
+          <input type="number" className="w-full rounded-lg border px-3 py-2 text-sm" value={quantidade} onChange={(e) => setQuantidade(Number(e.target.value))} />
+        </div>
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium">Mínimo</label>
+          <input type="number" className="w-full rounded-lg border px-3 py-2 text-sm" value={minimo} onChange={(e) => setMinimo(Number(e.target.value))} />
+        </div>
+        <div className="flex gap-2">
+          <Button variant="cta" onClick={salvar}>Salvar</Button>
+          <Button variant="secondary" onClick={() => setEditId(null)}>Cancelar</Button>
+        </div>
+      </Modal>
     </div>
   );
 }

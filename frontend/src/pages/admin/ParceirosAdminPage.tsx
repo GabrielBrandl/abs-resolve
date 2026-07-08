@@ -296,7 +296,7 @@ export function ParceirosAdminPage() {
         <Button onClick={criar} className="mt-2">Criar parceiro</Button>
       </Modal>
 
-      <Modal open={!!editId} onClose={() => setEditId(null)} title="Editar parceiro">
+      <Modal open={!!editId} onClose={() => setEditId(null)} title="Editar parceiro" zIndex={detalhe ? 60 : 50}>
         <Input label="Nome" value={editForm.nome} onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })} />
         <Input label="Email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
         <Input label="Telefone" value={editForm.telefone} onChange={(e) => setEditForm({ ...editForm, telefone: e.target.value })} />
@@ -320,7 +320,7 @@ export function ParceirosAdminPage() {
         <Button onClick={salvarEdicao} className="mt-2">Salvar alterações</Button>
       </Modal>
 
-      <Modal open={!!comissaoEditId} onClose={() => setComissaoEditId(null)} title="Editar comissão">
+      <Modal open={!!comissaoEditId} onClose={() => setComissaoEditId(null)} title="Editar comissão" zIndex={detalhe ? 60 : 50}>
         <Input label="Descrição" value={comissaoForm.descricao} onChange={(e) => setComissaoForm({ ...comissaoForm, descricao: e.target.value })} />
         <Input label="Valor da venda (R$)" type="number" min={0} step="0.01" value={comissaoForm.valorVenda} onChange={(e) => setComissaoForm({ ...comissaoForm, valorVenda: e.target.value })} />
         <Input label="Percentual (%)" type="number" min={0} max={100} step="0.01" value={comissaoForm.percentual} onChange={(e) => setComissaoForm({ ...comissaoForm, percentual: e.target.value })} />

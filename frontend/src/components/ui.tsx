@@ -1,4 +1,5 @@
 import type React from 'react';
+import { createPortal } from 'react-dom';
 
 export function Badge({ children, color = 'bg-abs-gray text-primary-700' }: { children: React.ReactNode; color?: string }) {
   return (
@@ -40,18 +41,39 @@ export function EmptyState({ message }: { message: string }) {
   return <p className="py-8 text-center text-slate-400">{message}</p>;
 }
 
-export function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  zIndex = 50,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  zIndex?: number;
+}) {
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black/50 p-4"
+      style={{ zIndex }}
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-primary-700">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
