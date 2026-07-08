@@ -21,6 +21,7 @@ import solicitacaoRoutes from './routes/solicitacao.routes.js';
 import agendamentoRoutes from './routes/agendamento.routes.js';
 import diagnosticoRoutes from './routes/diagnostico.routes.js';
 import catalogoAdminRoutes from './routes/catalogo-admin.routes.js';
+import iaTreinamentoRoutes from './routes/ia-treinamento.routes.js';
 import parceirosRoutes from './routes/parceiros.routes.js';
 import tecnicoRoutes from './routes/tecnico.routes.js';
 import { pagamentosController } from './controllers/pagamentos.controller.js';
@@ -30,6 +31,7 @@ import { prisma } from './utils/prisma.js';
 import { isSupabaseConfigured } from './utils/supabase.js';
 import { iniciarCronJobs } from './services/cron.service.js';
 import { fluxoConfigService } from './services/fluxo-config.service.js';
+import { catalogoAdminService } from './services/catalogo-admin.service.js';
 
 function databaseHint(): string {
   const url = process.env.DATABASE_URL;
@@ -136,6 +138,7 @@ app.use('/solicitacao', solicitacaoRoutes);
 app.use('/agendamentos', agendamentoRoutes);
 app.use('/diagnostico', diagnosticoRoutes);
 app.use('/admin/catalogo', catalogoAdminRoutes);
+app.use('/admin/ia', iaTreinamentoRoutes);
 app.use('/parceiros', parceirosRoutes);
 app.use('/tecnico', tecnicoRoutes);
 app.post('/webhooks/asaas', (req, res) => pagamentosController.webhookAsaas(req, res));
@@ -150,4 +153,5 @@ app.listen(PORT, () => {
   console.log(`ABS Resolve API v2.0 rodando em http://localhost:${PORT}`);
   iniciarCronJobs();
   void fluxoConfigService.initCache();
+  void catalogoAdminService.sincronizarTiposPreco();
 });

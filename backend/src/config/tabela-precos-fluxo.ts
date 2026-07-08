@@ -1327,5 +1327,13 @@ export function calcularPrecoFluxo(
       adicionarItem(breakdown, 'Forno interno', tem(respostas, 'fornoInterno', ['sim']) ? 50 : 0);
       return finalizarResultado(breakdown, mensagens);
     }
+
+    default: {
+      const base = precoConfig?.precoBase ?? minimoCatalogo(slug);
+      if (base > 0) {
+        adicionarItem(breakdown, 'Preço base do serviço', base);
+      }
+      return finalizarResultado(breakdown, mensagens);
+    }
   }
 }

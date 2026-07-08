@@ -4,7 +4,47 @@ import { estoqueService } from './estoque.service.js';
 import { listarHorariosDisponiveis } from '../engines/capacity.engine.js';
 import { storageService } from './storage.service.js';
 
+type TipoPreco = 'fixo' | 'a_partir' | 'sob_orcamento';
+
+function formatPrecoBRL(valor: number): string {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function normalizarPreco(data: {
+  tipoPreco?: string;
+  precoMinimo?: number | null;
+  precoTexto?: string | null;
+}): { tipoPreco?: TipoPreco; precoTexto?: string } {
+  const result: { tipoPreco?: TipoPreco; precoTexto?: string } = {};
+  let tipo = (data.tipoPreco as TipoPreco | undefined) ?? undefined;
+  const preco = data.precoMinimo;
+
+  if (tipo === 'sob_orcamento' && preco != null && preco > 0) {
+    tipo = 'fixo';
+  }
+
+  if (tipo) result.tipoPreco = tipo;
+
+  if (!data.precoTexto?.trim() && preco != null && preco > 0) {
+    result.precoTexto =
+      tipo === 'a_partir' ? `A partir de ${formatPrecoBRL(preco)}` : formatPrecoBRL(preco);
+  }
+
+  return result;
+}
+
 export class CatalogoAdminService {
+  async sincronizarTiposPreco() {
+    const r = await prisma.catalogoServico.updateMany({
+      where: { tipoPreco: 'sob_orcamento', precoMinimo: { gt: 0 } },
+      data: { tipoPreco: 'fixo' },
+    });
+    if (r.count > 0) {
+      console.log(`[catalogo] ${r.count} serviço(s) corrigido(s): sob_orcamento → fixo (tinham preço definido)`);
+    }
+    return r.count;
+  }
+
   async listarServicos() {
     return prisma.catalogoServico.findMany({
       orderBy: [{ categoria: 'asc' }, { ordem: 'asc' }],
@@ -16,6 +56,7 @@ export class CatalogoAdminService {
     nome: string;
     precoMinimo: number;
     precoTexto: string;
+    tipoPreco: string;
     descricao: string;
     pontos: number;
     garantiaDias: number;
@@ -23,18 +64,30 @@ export class CatalogoAdminService {
     ordem: number;
     imagemUrl: string;
   }>) {
+    const atual = await prisma.catalogoServico.findUnique({ where: { id } });
+    if (!atual) throw new Error('Serviço não encontrado');
+
+    const precoMinimo =
+      data.precoMinimo !== undefined ? data.precoMinimo : Number(atual.precoMinimo) || null;
+    const tipoPreco = data.tipoPreco ?? atual.tipoPreco;
+    const precoTexto = data.precoTexto ?? atual.precoTexto;
+    const normalizado = normalizarPreco({ tipoPreco, precoMinimo, precoTexto });
+
     return prisma.catalogoServico.update({
       where: { id },
       data: {
         ...(data.nome !== undefined && { nome: data.nome }),
         ...(data.precoMinimo !== undefined && { precoMinimo: data.precoMinimo }),
         ...(data.precoTexto !== undefined && { precoTexto: data.precoTexto }),
+        ...(data.tipoPreco !== undefined && { tipoPreco: data.tipoPreco }),
         ...(data.descricao !== undefined && { descricao: data.descricao }),
         ...(data.pontos !== undefined && { pontos: data.pontos }),
         ...(data.garantiaDias !== undefined && { garantiaDias: data.garantiaDias }),
         ...(data.ativo !== undefined && { ativo: data.ativo }),
         ...(data.ordem !== undefined && { ordem: data.ordem }),
         ...(data.imagemUrl !== undefined && { imagemUrl: data.imagemUrl }),
+        ...(normalizado.tipoPreco && { tipoPreco: normalizado.tipoPreco }),
+        ...(normalizado.precoTexto && !data.precoTexto?.trim() && { precoTexto: normalizado.precoTexto }),
       },
     });
   }

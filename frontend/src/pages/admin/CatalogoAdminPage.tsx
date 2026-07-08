@@ -25,7 +25,23 @@ export function CatalogoAdminPage() {
 
   const iniciarEdicao = (s: CatalogoServicoAdmin) => {
     setEditId(s.id);
-    setForm({ nome: s.nome, precoMinimo: Number(s.precoMinimo), precoTexto: s.precoTexto || '', descricao: s.descricao || '', pontos: s.pontos, garantiaDias: s.garantiaDias, ativo: s.ativo, imagemUrl: s.imagemUrl });
+    setForm({
+      nome: s.nome,
+      precoMinimo: Number(s.precoMinimo),
+      precoTexto: s.precoTexto || '',
+      tipoPreco: s.tipoPreco || 'fixo',
+      descricao: s.descricao || '',
+      pontos: s.pontos,
+      garantiaDias: s.garantiaDias,
+      ativo: s.ativo,
+      imagemUrl: s.imagemUrl,
+    });
+  };
+
+  const labelTipoPreco = (tipo: string) => {
+    if (tipo === 'sob_orcamento') return 'Sob orçamento';
+    if (tipo === 'a_partir') return 'A partir de';
+    return 'Preço fixo';
   };
 
   const salvar = async () => {
@@ -92,6 +108,7 @@ export function CatalogoAdminPage() {
               <th className="px-4 py-3 text-left">Nome</th>
               <th className="px-4 py-3 text-left">Categoria</th>
               <th className="px-4 py-3 text-left">Preço</th>
+              <th className="px-4 py-3 text-left">Tipo</th>
               <th className="px-4 py-3 text-left">Pontos</th>
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-left">Ações</th>
@@ -110,6 +127,19 @@ export function CatalogoAdminPage() {
                 <td className="px-4 py-3 font-medium">{s.nome}</td>
                 <td className="px-4 py-3 capitalize">{s.categoria.replace(/-/g, ' ')}</td>
                 <td className="px-4 py-3">{s.precoTexto || (s.precoMinimo ? formatCurrency(s.precoMinimo) : '—')}</td>
+                <td className="px-4 py-3">
+                  <Badge
+                    color={
+                      s.tipoPreco === 'sob_orcamento'
+                        ? 'bg-amber-100 text-amber-800'
+                        : s.tipoPreco === 'a_partir'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-slate-100 text-slate-700'
+                    }
+                  >
+                    {labelTipoPreco(s.tipoPreco)}
+                  </Badge>
+                </td>
                 <td className="px-4 py-3">{s.pontos}</td>
                 <td className="px-4 py-3">
                   <Badge color={s.ativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
@@ -180,9 +210,26 @@ export function CatalogoAdminPage() {
                 <input type="number" className="w-full rounded-lg border px-3 py-2 text-sm" value={form.precoMinimo || ''} onChange={(e) => setForm((f) => ({ ...f, precoMinimo: Number(e.target.value) }))} />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Texto preço</label>
-                <input className="w-full rounded-lg border px-3 py-2 text-sm" value={form.precoTexto || ''} onChange={(e) => setForm((f) => ({ ...f, precoTexto: e.target.value }))} />
+                <label className="mb-1 block text-sm font-medium">Tipo de preço</label>
+                <select
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  value={form.tipoPreco || 'fixo'}
+                  onChange={(e) => setForm((f) => ({ ...f, tipoPreco: e.target.value }))}
+                >
+                  <option value="fixo">Preço fixo (mostra valor + carrinho)</option>
+                  <option value="a_partir">A partir de (mostra valor + carrinho)</option>
+                  <option value="sob_orcamento">Sob orçamento (sem carrinho)</option>
+                </select>
               </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Texto preço</label>
+              <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Ex: R$ 149,00 ou A partir de R$ 199,00" value={form.precoTexto || ''} onChange={(e) => setForm((f) => ({ ...f, precoTexto: e.target.value }))} />
+              {form.tipoPreco === 'sob_orcamento' && Number(form.precoMinimo) > 0 && (
+                <p className="mt-1 text-xs text-amber-600">
+                  Este serviço tem preço definido. Use &quot;Preço fixo&quot; ou &quot;A partir de&quot; para o cliente ver o valor.
+                </p>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Descrição</label>

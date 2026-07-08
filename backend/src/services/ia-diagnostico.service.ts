@@ -5,6 +5,7 @@ import {
   CUSTO_PRODUTO_NIVEL,
 } from '../config/catalogo.js';
 import { CATEGORIAS, SERVICOS_CATALOGO } from '../config/catalogo-servicos.js';
+import { iaTreinamentoService } from './ia-treinamento.service.js';
 
 export interface AtributoProduto {
   label: string;
@@ -111,13 +112,18 @@ function camposPorServico(slug: string | null): string {
   return 'Identifique atributos técnicos relevantes ao produto (amperagem, potência, dimensão, material, etc.).';
 }
 
-function buildPrompt(servicoSlug: string, opcoes?: Record<string, string>): string {
+async function buildPrompt(servicoSlug: string, opcoes?: Record<string, string>): Promise<string> {
   const contexto = opcoes?.descricao || opcoes?.contexto || '';
   const modeloInformado = opcoes?.modelo;
   const slugCatalogo = resolverSlugCatalogo(servicoSlug, opcoes);
   const servicoNome = slugCatalogo
     ? SERVICOS_CATALOGO.find((s) => s.slug === slugCatalogo)?.nome
     : null;
+
+  const conhecimento = await iaTreinamentoService.buscarConhecimentoAtivo(slugCatalogo);
+  const conhecimentoTxt = conhecimento.length
+    ? `\n\nCONHECIMENTO ADICIONAL (treinamento admin):\n${conhecimento.map((c) => `- ${c.conteudo}`).join('\n')}`
+    : '';
 
   return `Você é especialista técnico da ABS Resolve Já (elétrica, hidráulica, montagem, ar-condicionado).
 Analise as fotos e IDENTIFIQUE O PRODUTO/EQUIPAMENTO com o máximo de detalhes possível.
@@ -128,7 +134,7 @@ ${contexto ? `Contexto: ${contexto}` : ''}
 ${camposPorServico(slugCatalogo)}
 
 Catálogo de serviços ABS Resolve (associe o produto ao slug mais próximo):
-${catalogoResumo()}
+${catalogoResumo()}${conhecimentoTxt}
 
 Responda APENAS JSON válido:
 {
@@ -258,7 +264,7 @@ async function analisarComOpenAI(
 
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
   const imageParts = await Promise.all(fotos.map(fotoParaOpenAI));
-  const prompt = buildPrompt(servicoSlug, opcoesInformadas);
+  const prompt = await buildPrompt(servicoSlug, opcoesInformadas);
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',

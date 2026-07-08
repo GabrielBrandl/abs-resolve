@@ -24,6 +24,7 @@ const navItems: NavItem[] = [
   { label: 'Agenda', path: '/admin/agenda', roles: ['admin', 'comercial'], icon: '📅' },
   { label: 'Orçamentos', path: '/admin/orcamentos', roles: ['admin', 'comercial'], icon: '📝' },
   { label: 'Questionários', path: '/admin/questionarios', roles: ['admin'], icon: '❓' },
+  { label: 'Treinamento IA', path: '/admin/ia', roles: ['admin'], icon: '🤖' },
   { label: 'Parceiros', path: '/admin/parceiros', roles: ['admin'], icon: '🤝' },
   { label: 'Admin', path: '/admin', roles: ['admin'], icon: '⚙️' },
 ];

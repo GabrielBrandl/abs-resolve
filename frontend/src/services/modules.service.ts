@@ -2,7 +2,7 @@ import { api } from './api';
 import type {
   ApiResponse, Cliente, Lead, Pedido, Pagamento, Servico, OrdemServico, DashboardKPIs,
   PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
-  EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin,
+  EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin, IaConhecimento,
   ParceiroAdmin, ParceiroDetalhe,
 } from '../types';
 
@@ -298,6 +298,15 @@ export const catalogoAdminApi = {
   }>>('/admin/catalogo/orcamentos'),
   responderOrcamento: (id: string, body: { precoFinal: number; observacao?: string }) =>
     post(`/admin/catalogo/orcamentos/${id}/responder`, body),
+};
+
+export const iaTreinamentoApi = {
+  listar: () => get<IaConhecimento[]>('/admin/ia/conhecimento'),
+  chat: (body: { mensagem: string; servicoSlug?: string; salvar?: boolean }) =>
+    post<{ resposta: string; conhecimento: IaConhecimento | null }>('/admin/ia/chat', body),
+  atualizar: (id: string, body: { ativo?: boolean; conteudo?: string }) =>
+    patch<IaConhecimento>(`/admin/ia/conhecimento/${id}`, body),
+  excluir: (id: string) => del(`/admin/ia/conhecimento/${id}`),
 };
 
 export const fluxoAdminApi = {

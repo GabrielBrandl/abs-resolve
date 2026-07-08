@@ -28,10 +28,25 @@ model User {
   auditLogs     AuditLog[]
   cliente       Cliente?       @relation(fields: [clienteId], references: [id])
   tecnico       Tecnico?
-  parceiro      Parceiro?
-  resetTokens   PasswordResetToken[]
+  parceiro          Parceiro?
+  resetTokens       PasswordResetToken[]
+  iaConhecimentos   IaConhecimento[]
 
   @@map("users")
+}
+
+model IaConhecimento {
+  id          String   @id @default(uuid())
+  categoria   String   @default("geral")
+  servicoSlug String?  @map("servico_slug")
+  conteudo    String   @db.Text
+  ativo       Boolean  @default(true)
+  adminId     String?  @map("admin_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  admin       User?    @relation(fields: [adminId], references: [id])
+
+  @@map("ia_conhecimento")
 }
 
 model PasswordResetToken {

@@ -347,6 +347,16 @@ export interface CatalogoServicoAdmin {
   imagemUrl: string | null;
 }
 
+export interface IaConhecimento {
+  id: string;
+  categoria: string;
+  servicoSlug: string | null;
+  conteudo: string;
+  ativo: boolean;
+  createdAt: string;
+  admin?: { nome: string };
+}
+
 export interface ParceiroAdmin {
   id: string;
   nome: string;

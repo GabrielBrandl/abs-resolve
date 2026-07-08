@@ -30,6 +30,7 @@ const AgendaAdminPage = lazy(() => import('./pages/admin/AgendaAdminPage').then(
 const OrcamentosAdminPage = lazy(() => import('./pages/admin/OrcamentosAdminPage').then((m) => ({ default: m.OrcamentosAdminPage })));
 const QuestionariosAdminPage = lazy(() => import('./pages/admin/QuestionariosAdminPage').then((m) => ({ default: m.QuestionariosAdminPage })));
 const ParceirosAdminPage = lazy(() => import('./pages/admin/ParceirosAdminPage').then((m) => ({ default: m.ParceirosAdminPage })));
+const IaTreinamentoAdminPage = lazy(() => import('./pages/admin/IaTreinamentoAdminPage').then((m) => ({ default: m.IaTreinamentoAdminPage })));
 const ParceiroDashboardPage = lazy(() => import('./pages/parceiro/ParceiroDashboardPage').then((m) => ({ default: m.ParceiroDashboardPage })));
 const ClienteLayout = lazy(() => import('./pages/cliente/ClienteLayout').then((m) => ({ default: m.ClienteLayout })));
 const ClientePedidosPage = lazy(() => import('./pages/cliente/ClientePedidosPage').then((m) => ({ default: m.ClientePedidosPage })));
@@ -102,6 +103,7 @@ function AppRoutes() {
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/questionarios" element={<QuestionariosAdminPage />} />
               <Route path="/admin/parceiros" element={<ParceirosAdminPage />} />
+              <Route path="/admin/ia" element={<IaTreinamentoAdminPage />} />
             </Route>
           </Route>
         </Route>
