@@ -87,7 +87,9 @@ export function QuestionarioServico({
 
   const imagemAtual = imagemServicoComRespostas(slug, respostas, imagemCatalogo);
 
-  const todasRespondidas = visiveis.length > 0 && visiveis.every((p) => respostas[p.id]);
+  const todasRespondidas =
+    (fluxo?.perguntas.length ?? 0) === 0 ||
+    (visiveis.length > 0 && visiveis.every((p) => respostas[p.id]));
 
   useEffect(() => {
     if (!todasRespondidas) {
@@ -159,6 +161,11 @@ export function QuestionarioServico({
         <h3 className="mb-1 text-lg font-bold text-primary-800">{nome}</h3>
         <p className="mb-4 text-sm text-slate-500">Quantidade no carrinho: {quantidade}</p>
 
+        {fluxo.perguntas.length === 0 ? (
+          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+            Este serviço usa <strong>preço fixo</strong>. O valor será confirmado automaticamente abaixo.
+          </div>
+        ) : (
         <Card className="mb-4 border border-blue-100 bg-blue-50/50">
           <p className="mb-2 text-sm font-semibold text-primary-800">Não sabe o tipo? Use a IA</p>
           <p className="mb-3 text-xs text-slate-600">
@@ -180,6 +187,7 @@ export function QuestionarioServico({
           </Button>
           {msgIa && <p className="mt-2 text-xs text-green-700">{msgIa}</p>}
         </Card>
+        )}
 
         <div className="space-y-4">
           {visiveis.map((p) => (

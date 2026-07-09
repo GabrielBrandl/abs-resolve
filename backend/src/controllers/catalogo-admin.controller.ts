@@ -13,6 +13,22 @@ export class CatalogoAdminController {
     }
   }
 
+  async categorias(_req: Request, res: Response) {
+    try {
+      return success(res, catalogoAdminService.listarCategorias());
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
+
+  async criar(req: Request, res: Response) {
+    try {
+      return success(res, await catalogoAdminService.criarServico(req.body), 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async atualizar(req: Request, res: Response) {
     try {
       const data = await catalogoAdminService.atualizarServico(paramId(req.params.id), req.body);

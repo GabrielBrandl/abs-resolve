@@ -9,6 +9,8 @@ const router = Router();
 router.use(authMiddleware, checkRole('admin', 'comercial'));
 
 router.get('/servicos', (req, res) => catalogoAdminController.listar(req, res));
+router.post('/servicos', checkRole('admin'), (req, res) => catalogoAdminController.criar(req, res));
+router.get('/categorias', (req, res) => catalogoAdminController.categorias(req, res));
 router.put('/servicos/:id', (req, res) => catalogoAdminController.atualizar(req, res));
 router.post('/servicos/:id/imagem', upload.single('imagem'), (req, res) => catalogoAdminController.uploadImagem(req, res));
 router.delete('/servicos/:id', checkRole('admin'), (req, res) => catalogoAdminController.excluir(req, res));

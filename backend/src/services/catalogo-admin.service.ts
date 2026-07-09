@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { estoqueService } from './estoque.service.js';
 import { listarHorariosDisponiveis } from '../engines/capacity.engine.js';
 import { storageService } from './storage.service.js';
+import { CATEGORIAS } from '../config/catalogo-servicos.js';
+import { fluxoConfigService } from './fluxo-config.service.js';
 
 type TipoPreco = 'fixo' | 'a_partir' | 'sob_orcamento';
 
@@ -33,6 +35,25 @@ function normalizarPreco(data: {
   return result;
 }
 
+function gerarSlug(nome: string): string {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+async function slugUnico(base: string): Promise<string> {
+  let slug = base || 'servico';
+  let n = 0;
+  while (await prisma.catalogoServico.findUnique({ where: { slug } })) {
+    n += 1;
+    slug = `${base}-${n}`;
+  }
+  return slug;
+}
+
 export class CatalogoAdminService {
   async sincronizarTiposPreco() {
     const r = await prisma.catalogoServico.updateMany({
@@ -50,6 +71,82 @@ export class CatalogoAdminService {
       orderBy: [{ categoria: 'asc' }, { ordem: 'asc' }],
       include: { precosFixos: true },
     });
+  }
+
+  listarCategorias() {
+    return CATEGORIAS.map((c) => ({ slug: c.slug, nome: c.nome, icone: c.icone }));
+  }
+
+  async criarServico(data: {
+    nome: string;
+    slug?: string;
+    categoria: string;
+    descricao?: string;
+    precoMinimo?: number | null;
+    precoTexto?: string;
+    tipoPreco?: string;
+    pontos?: number;
+    garantiaDias?: number;
+    ordem?: number;
+    imagemUrl?: string;
+    ativo?: boolean;
+  }) {
+    if (!data.nome?.trim()) throw new Error('Nome é obrigatório');
+
+    const categoriaValida = CATEGORIAS.some((c) => c.slug === data.categoria);
+    if (!categoriaValida) throw new Error('Categoria inválida');
+
+    const slugBase = data.slug?.trim()
+      ? gerarSlug(data.slug.trim())
+      : gerarSlug(data.nome);
+    if (!slugBase) throw new Error('Não foi possível gerar o identificador (slug) do serviço');
+
+    const slug = await slugUnico(slugBase);
+    const precoMinimo = data.precoMinimo ?? null;
+    let tipoPreco = (data.tipoPreco as TipoPreco) || 'fixo';
+    if (tipoPreco === 'sob_orcamento' && precoMinimo != null && precoMinimo > 0) {
+      tipoPreco = 'fixo';
+    }
+
+    const normalizado = normalizarPreco({
+      tipoPreco,
+      precoMinimo,
+      precoTexto: data.precoTexto ?? null,
+    });
+    const tipoFinal = normalizado.tipoPreco ?? tipoPreco;
+
+    const maxOrdem = await prisma.catalogoServico.aggregate({
+      where: { categoria: data.categoria },
+      _max: { ordem: true },
+    });
+    const ordem = data.ordem ?? (maxOrdem._max.ordem ?? 0) + 1;
+
+    const servico = await prisma.catalogoServico.create({
+      data: {
+        slug,
+        nome: data.nome.trim(),
+        categoria: data.categoria,
+        tipo: 'C',
+        pontos: data.pontos ?? 1,
+        descricao: data.descricao?.trim() || null,
+        precoMinimo,
+        precoTexto: data.precoTexto?.trim() || normalizado.precoTexto || null,
+        tipoPreco: tipoFinal,
+        garantiaDias: data.garantiaDias ?? 90,
+        imagemUrl: data.imagemUrl?.trim() || null,
+        ordem,
+        upsells: [],
+        ativo: data.ativo ?? true,
+      },
+      include: { precosFixos: true },
+    });
+
+    await fluxoConfigService.criarFluxoPrecoFixo(
+      slug,
+      precoMinimo != null && precoMinimo > 0 ? precoMinimo : null
+    );
+
+    return servico;
   }
 
   async atualizarServico(id: string, data: Partial<{

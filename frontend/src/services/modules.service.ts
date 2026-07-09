@@ -262,6 +262,9 @@ export const agendamentoApi = {
 
 export const catalogoAdminApi = {
   servicos: () => get<CatalogoServicoAdmin[]>('/admin/catalogo/servicos'),
+  categorias: () => get<Array<{ slug: string; nome: string; icone: string }>>('/admin/catalogo/categorias'),
+  criarServico: (body: Partial<CatalogoServicoAdmin> & { nome: string; categoria: string; slug?: string }) =>
+    post<CatalogoServicoAdmin>('/admin/catalogo/servicos', body),
   atualizarServico: (id: string, body: Partial<CatalogoServicoAdmin>) =>
     put<CatalogoServicoAdmin>(`/admin/catalogo/servicos/${id}`, body),
   excluirServico: (id: string) => del(`/admin/catalogo/servicos/${id}`),

@@ -2,15 +2,33 @@ import { useEffect, useRef, useState } from 'react';
 import { catalogoAdminApi } from '../../services/modules.service';
 import type { CatalogoServicoAdmin } from '../../types';
 import { formatCurrency } from '../../types';
-import { PageHeader, Loading, Button, Badge, Modal } from '../../components/ui';
+import { PageHeader, Loading, Button, Badge, Modal, Input } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 import { useAuthStore } from '../../store/authStore';
+
+const novoFormVazio = {
+  nome: '',
+  slug: '',
+  categoria: 'eletricista',
+  descricao: '',
+  precoMinimo: '',
+  precoTexto: '',
+  tipoPreco: 'fixo',
+  pontos: '1',
+  garantiaDias: '90',
+  imagemUrl: '',
+  ativo: true,
+};
 
 export function CatalogoAdminPage() {
   const { toast } = useToast();
   const isAdmin = useAuthStore((s) => s.hasRole('admin'));
   const [servicos, setServicos] = useState<CatalogoServicoAdmin[]>([]);
+  const [categorias, setCategorias] = useState<Array<{ slug: string; nome: string; icone: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [modalNovo, setModalNovo] = useState(false);
+  const [novoForm, setNovoForm] = useState(novoFormVazio);
+  const [salvandoNovo, setSalvandoNovo] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<CatalogoServicoAdmin>>({});
   const [enviandoImg, setEnviandoImg] = useState(false);
@@ -21,7 +39,41 @@ export function CatalogoAdminPage() {
     catalogoAdminApi.servicos().then(setServicos).finally(() => setLoading(false));
   };
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => {
+    carregar();
+    catalogoAdminApi.categorias().then(setCategorias).catch(() => {});
+  }, []);
+
+  const criarServico = async () => {
+    if (!novoForm.nome.trim()) {
+      toast('Informe o nome do serviço', 'error');
+      return;
+    }
+    setSalvandoNovo(true);
+    try {
+      await catalogoAdminApi.criarServico({
+        nome: novoForm.nome.trim(),
+        slug: novoForm.slug.trim() || undefined,
+        categoria: novoForm.categoria,
+        descricao: novoForm.descricao.trim() || undefined,
+        precoMinimo: novoForm.precoMinimo ? Number(novoForm.precoMinimo) : null,
+        precoTexto: novoForm.precoTexto.trim() || undefined,
+        tipoPreco: novoForm.tipoPreco,
+        pontos: Number(novoForm.pontos) || 1,
+        garantiaDias: Number(novoForm.garantiaDias) || 90,
+        imagemUrl: novoForm.imagemUrl.trim() || undefined,
+        ativo: novoForm.ativo,
+      });
+      setModalNovo(false);
+      setNovoForm(novoFormVazio);
+      toast('Serviço criado! Configure o questionário em Admin → Questionários, se necessário.', 'success');
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao criar', 'error');
+    } finally {
+      setSalvandoNovo(false);
+    }
+  };
 
   const iniciarEdicao = (s: CatalogoServicoAdmin) => {
     setEditId(s.id);
@@ -98,7 +150,11 @@ export function CatalogoAdminPage() {
 
   return (
     <div>
-      <PageHeader title="Catálogo de Serviços" subtitle="Gerencie preços e disponibilidade" />
+      <PageHeader
+        title="Catálogo de Serviços"
+        subtitle="Gerencie preços e disponibilidade"
+        action={isAdmin ? <Button onClick={() => setModalNovo(true)}>Novo serviço</Button> : undefined}
+      />
 
       <div className="overflow-hidden rounded-xl border bg-white">
         <table className="w-full text-sm">
@@ -162,6 +218,83 @@ export function CatalogoAdminPage() {
           </tbody>
         </table>
       </div>
+
+      <Modal open={modalNovo} onClose={() => setModalNovo(false)} title="Novo serviço no catálogo">
+        <Input label="Nome *" value={novoForm.nome} onChange={(e) => setNovoForm({ ...novoForm, nome: e.target.value })} />
+        <Input
+          label="Identificador (slug) — opcional"
+          placeholder="Ex: troca-tomada (gerado automaticamente se vazio)"
+          value={novoForm.slug}
+          onChange={(e) => setNovoForm({ ...novoForm, slug: e.target.value })}
+        />
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium text-primary-700">Categoria *</label>
+          <select
+            className="w-full rounded-lg border border-abs-gray px-3 py-2 text-sm"
+            value={novoForm.categoria}
+            onChange={(e) => setNovoForm({ ...novoForm, categoria: e.target.value })}
+          >
+            {categorias.map((c) => (
+              <option key={c.slug} value={c.slug}>{c.icone} {c.nome}</option>
+            ))}
+          </select>
+        </div>
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium text-primary-700">Descrição</label>
+          <textarea
+            className="w-full rounded-lg border border-abs-gray px-3 py-2 text-sm"
+            rows={2}
+            value={novoForm.descricao}
+            onChange={(e) => setNovoForm({ ...novoForm, descricao: e.target.value })}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Preço mínimo (R$)"
+            type="number"
+            min={0}
+            value={novoForm.precoMinimo}
+            onChange={(e) => setNovoForm({ ...novoForm, precoMinimo: e.target.value })}
+          />
+          <div className="mb-3">
+            <label className="mb-1 block text-sm font-medium text-primary-700">Tipo de preço</label>
+            <select
+              className="w-full rounded-lg border border-abs-gray px-3 py-2 text-sm"
+              value={novoForm.tipoPreco}
+              onChange={(e) => setNovoForm({ ...novoForm, tipoPreco: e.target.value })}
+            >
+              <option value="fixo">Preço fixo</option>
+              <option value="a_partir">A partir de</option>
+              <option value="sob_orcamento">Sob orçamento</option>
+            </select>
+          </div>
+        </div>
+        <Input
+          label="Texto do preço (opcional)"
+          placeholder="Ex: R$ 149,00"
+          value={novoForm.precoTexto}
+          onChange={(e) => setNovoForm({ ...novoForm, precoTexto: e.target.value })}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Pontos" type="number" min={1} value={novoForm.pontos} onChange={(e) => setNovoForm({ ...novoForm, pontos: e.target.value })} />
+          <Input label="Garantia (dias)" type="number" min={0} value={novoForm.garantiaDias} onChange={(e) => setNovoForm({ ...novoForm, garantiaDias: e.target.value })} />
+        </div>
+        <Input
+          label="URL da imagem (opcional)"
+          value={novoForm.imagemUrl}
+          onChange={(e) => setNovoForm({ ...novoForm, imagemUrl: e.target.value })}
+        />
+        <label className="mb-3 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={novoForm.ativo} onChange={(e) => setNovoForm({ ...novoForm, ativo: e.target.checked })} />
+          Ativo (visível para clientes)
+        </label>
+        <p className="mb-3 text-xs text-slate-500">
+          Serviços novos começam com preço fixo simples. Para questionário com opções, use <strong>Admin → Questionários</strong> após criar.
+        </p>
+        <Button variant="cta" onClick={() => void criarServico()} disabled={salvandoNovo}>
+          {salvandoNovo ? 'Criando...' : 'Criar serviço'}
+        </Button>
+      </Modal>
 
       <Modal open={!!editId} onClose={() => setEditId(null)} title="Editar serviço">
         <div className="space-y-3">
