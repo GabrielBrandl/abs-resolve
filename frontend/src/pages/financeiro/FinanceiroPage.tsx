@@ -62,7 +62,20 @@ export function FinanceiroPage() {
 
   return (
     <div>
-      <PageHeader title="Financeiro" subtitle="Cobranças e pagamentos" action={<Button onClick={abrirModal}>Nova Cobrança</Button>} />
+      <PageHeader title="Financeiro" subtitle="Cobranças e pagamentos" action={
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={async () => {
+            try {
+              const r = await pagamentosApi.sincronizarAsaas();
+              toast(`Asaas: ${r.confirmados} pagos, ${r.atualizados} atualizados`, 'success');
+              carregar();
+            } catch (e) {
+              toast(e instanceof Error ? e.message : 'Erro ao sincronizar', 'error');
+            }
+          }}>Sincronizar Asaas</Button>
+          <Button onClick={abrirModal}>Nova Cobrança</Button>
+        </div>
+      } />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[

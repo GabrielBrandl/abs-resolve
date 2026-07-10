@@ -12,6 +12,7 @@ router.get('/', (req, res) => pagamentosController.listar(req, res));
 router.get('/dashboard', (req, res) => pagamentosController.dashboard(req, res));
 router.post('/cobrar', (req, res) => pagamentosController.cobrar(req, res));
 router.post('/registrar-recebido', (req, res) => pagamentosController.registrarRecebido(req, res));
+router.post('/sincronizar-asaas', (req, res) => pagamentosController.sincronizarAsaas(req, res));
 router.get('/:id/segunda-via', (req, res) => pagamentosController.segundaVia(req, res));
 
 export default router;

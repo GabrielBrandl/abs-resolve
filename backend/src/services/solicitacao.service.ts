@@ -540,7 +540,39 @@ export class SolicitacaoService {
     });
     if (!sol) throw new Error('Solicitação não encontrada');
 
-    const pagamento = sol.pedido?.pagamentos[0];
+    let pagamento = sol.pedido?.pagamentos[0];
+
+    // Se ainda pendente, consulta o Asaas (webhook pode ter falhado)
+    if (pagamento && (pagamento.status === 'PENDING' || pagamento.status === 'OVERDUE') && pagamento.asaasId) {
+      try {
+        const { asaasService } = await import('./asaas.service.js');
+        await asaasService.sincronizarPagamentoLocal(pagamento.id);
+        const atualizado = await prisma.solicitacaoServico.findFirst({
+          where: { id, clienteId },
+          include: {
+            pedido: {
+              include: {
+                pagamentos: { orderBy: { createdAt: 'desc' }, take: 1 },
+                ordemServico: true,
+              },
+            },
+            agendamento: true,
+            servico: true,
+          },
+        });
+        if (atualizado) {
+          pagamento = atualizado.pedido?.pagamentos[0];
+          Object.assign(sol, {
+            status: atualizado.status,
+            pedido: atualizado.pedido,
+            agendamento: atualizado.agendamento,
+          });
+        }
+      } catch (err) {
+        console.warn('[statusPagamento] sync Asaas:', err instanceof Error ? err.message : err);
+      }
+    }
+
     return {
       solicitacaoId: sol.id,
       status: sol.status,
@@ -555,7 +587,7 @@ export class SolicitacaoService {
             pixCode: pagamento.pixCode,
           }
         : null,
-      podeAgendar: sol.status === 'pago',
+      podeAgendar: sol.status === 'pago' || pagamento?.status === 'RECEIVED',
       agendamento: sol.agendamento,
     };
   }

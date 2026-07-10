@@ -80,6 +80,8 @@ export const pagamentosApi = {
   segundaVia: (id: string) => get<Pagamento>(`/pagamentos/${id}/segunda-via`),
   registrarRecebido: (body: { pedidoId: string; metodo?: string; valor?: number }) =>
     post('/pagamentos/registrar-recebido', body),
+  sincronizarAsaas: () =>
+    post<{ verificados: number; atualizados: number; confirmados: number }>('/pagamentos/sincronizar-asaas', {}),
 };
 
 export const marketplaceApi = {

@@ -50,6 +50,15 @@ export class PagamentosController {
     }
   }
 
+  async sincronizarAsaas(_req: Request, res: Response) {
+    try {
+      const data = await asaasService.sincronizarPendentes();
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
+
   async dashboard(_req: Request, res: Response) {
     try {
       const data = await pagamentosService.dashboardFinanceiro();
