@@ -40,9 +40,16 @@ export class PedidosService {
       where: { id },
       include: {
         cliente: true,
-        ordemServico: true,
+        ordemServico: {
+          include: { tecnico: { select: { id: true, nome: true } } },
+        },
         servico: true,
         pagamentos: true,
+        solicitacao: { include: { servico: true } },
+        agendamentos: {
+          orderBy: { data: 'desc' },
+          include: { tecnico: { select: { id: true, nome: true } } },
+        },
       },
     });
     if (!pedido) throw new Error('Pedido não encontrado');

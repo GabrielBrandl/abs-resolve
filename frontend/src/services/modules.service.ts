@@ -133,7 +133,7 @@ export const adminApi = {
     agendamentosAtivos: number; osEmAndamento: number;
   }>>('/admin/tecnicos-carga'),
   atribuirTecnico: (agendamentoId: string, tecnicoId: string | null) =>
-    patch(`/admin/agendamentos/${agendamentoId}/tecnico`, { tecnicoId }),
+    patch(`/admin/catalogo/agenda/${agendamentoId}/tecnico`, { tecnicoId }),
   auditoria: () => get('/admin/auditoria'),
   notificacoes: () => get('/admin/notificacoes'),
 };

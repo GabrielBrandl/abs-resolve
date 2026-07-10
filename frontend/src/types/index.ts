@@ -96,7 +96,45 @@ export interface OrdemServico {
   etapa: string;
   observacoes?: string;
   parceiro?: string;
-  pedido?: Pedido & { cliente?: { nome: string } };
+  checklist?: Record<string, string> | null;
+  checklistCompleto?: boolean;
+  garantiaId?: string | null;
+  tecnicoId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  tecnico?: { id: string; nome: string } | null;
+  pedido?: Pedido & {
+    cliente?: {
+      id?: string;
+      nome: string;
+      email?: string;
+      telefone?: string;
+      endereco?: Record<string, string> | null;
+    };
+    servico?: { id?: string; nome: string; categoria?: string } | null;
+    solicitacao?: {
+      fotos?: unknown;
+      opcoes?: unknown;
+      precoFinal?: number | string;
+      servico?: { nome: string; categoria?: string; slug?: string };
+    } | null;
+    agendamentos?: Array<{
+      id: string;
+      data: string;
+      horarioInicio: string;
+      horarioFim: string;
+      status: string;
+      tecnico?: { id: string; nome: string } | null;
+    }>;
+    pagamentos?: Array<{
+      id: string;
+      status: string;
+      valor: number | string;
+      metodo: string;
+      paymentDate?: string | null;
+      dueDate?: string;
+    }>;
+  };
 }
 
 export interface Pagamento {

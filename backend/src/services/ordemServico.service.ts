@@ -21,8 +21,37 @@ export class OrdemServicoService {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
+        tecnico: { select: { id: true, nome: true } },
         pedido: {
-          include: { cliente: { select: { nome: true } } },
+          include: {
+            cliente: {
+              select: {
+                id: true,
+                nome: true,
+                email: true,
+                telefone: true,
+                endereco: true,
+              },
+            },
+            servico: { select: { id: true, nome: true, categoria: true } },
+            solicitacao: {
+              include: { servico: { select: { nome: true, categoria: true, slug: true } } },
+            },
+            agendamentos: {
+              orderBy: { data: 'desc' },
+              include: { tecnico: { select: { id: true, nome: true } } },
+            },
+            pagamentos: {
+              select: {
+                id: true,
+                status: true,
+                valor: true,
+                metodo: true,
+                paymentDate: true,
+                dueDate: true,
+              },
+            },
+          },
         },
       },
     });
@@ -31,7 +60,21 @@ export class OrdemServicoService {
   async buscarPorId(id: string) {
     const os = await prisma.ordemServico.findUnique({
       where: { id },
-      include: { pedido: { include: { cliente: true } } },
+      include: {
+        tecnico: { select: { id: true, nome: true } },
+        pedido: {
+          include: {
+            cliente: true,
+            servico: true,
+            solicitacao: { include: { servico: true } },
+            agendamentos: {
+              orderBy: { data: 'desc' },
+              include: { tecnico: { select: { id: true, nome: true } } },
+            },
+            pagamentos: true,
+          },
+        },
+      },
     });
     if (!os) throw new Error('Ordem de serviço não encontrada');
     return os;

@@ -116,14 +116,27 @@ export class PagamentosService {
 
   async dashboardFinanceiro() {
     const agora = new Date();
-    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+    }).formatToParts(agora);
+    const y = parts.find((p) => p.type === 'year')!.value;
+    const m = parts.find((p) => p.type === 'month')!.value;
+    const inicioMes = new Date(`${y}-${m}-01T00:00:00-03:00`);
 
     const [recebidos, pendentes, vencidos, totalMes] = await Promise.all([
       prisma.pagamento.findMany({ where: { status: 'RECEIVED' } }),
       prisma.pagamento.findMany({ where: { status: 'PENDING' } }),
       prisma.pagamento.findMany({ where: { status: 'OVERDUE' } }),
       prisma.pagamento.findMany({
-        where: { status: 'RECEIVED', paymentDate: { gte: inicioMes } },
+        where: {
+          status: 'RECEIVED',
+          OR: [
+            { paymentDate: { gte: inicioMes } },
+            { paymentDate: null, createdAt: { gte: inicioMes } },
+          ],
+        },
       }),
     ]);
 

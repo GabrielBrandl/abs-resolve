@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { catalogoAdminController } from '../controllers/catalogo-admin.controller.js';
+import { adminEquipeController } from '../controllers/admin-equipe.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { checkRole } from '../middlewares/role.middleware.js';
 import { upload } from '../middlewares/upload.middleware.js';
@@ -21,6 +22,7 @@ router.put('/estoque/:id', (req, res) => catalogoAdminController.updateEstoque(r
 router.get('/tecnicos', (req, res) => catalogoAdminController.tecnicos(req, res));
 router.post('/tecnicos', (req, res) => catalogoAdminController.criarTecnico(req, res));
 router.get('/agenda', (req, res) => catalogoAdminController.agenda(req, res));
+router.patch('/agenda/:id/tecnico', (req, res) => adminEquipeController.atribuirTecnico(req, res));
 router.get('/orcamentos', (req, res) => catalogoAdminController.orcamentos(req, res));
 router.post('/orcamentos/:id/responder', (req, res) => catalogoAdminController.responderOrcamento(req, res));
 

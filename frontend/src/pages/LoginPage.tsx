@@ -34,6 +34,10 @@ export function LoginPage() {
     try {
       if (modo === 'equipe') {
         const user = await login(email, senha);
+        if (user.role === 'parceiro') {
+          navigate('/parceiro');
+          return;
+        }
         if (!isStaffRole(user.role)) {
           await logout();
           setError(
