@@ -101,6 +101,48 @@ export class PagamentosService {
     return confirmarPagamentoRecebido(pagamentoId);
   }
 
+  /** Admin/comercial: registra pagamento recebido (PIX externo, dinheiro, etc.) e avança o pedido */
+  async registrarRecebido(data: {
+    pedidoId: string;
+    metodo?: 'PIX' | 'BOLETO' | 'CARTAO' | 'DINHEIRO';
+    valor?: number;
+  }) {
+    const pedido = await prisma.pedido.findUnique({
+      where: { id: data.pedidoId },
+      include: { pagamentos: { orderBy: { createdAt: 'desc' } } },
+    });
+    if (!pedido) throw new Error('Pedido não encontrado');
+
+    const pendente = pedido.pagamentos.find((p) => p.status === 'PENDING' || p.status === 'OVERDUE');
+    if (pendente) {
+      await prisma.pagamento.update({
+        where: { id: pendente.id },
+        data: { status: 'RECEIVED', paymentDate: new Date() },
+      });
+      return confirmarPagamentoRecebido(pendente.id);
+    }
+
+    const jaRecebido = pedido.pagamentos.find((p) => p.status === 'RECEIVED');
+    if (jaRecebido) {
+      await prisma.pedido.update({ where: { id: pedido.id }, data: { status: 'em_execucao' } });
+      return confirmarPagamentoRecebido(jaRecebido.id);
+    }
+
+    const pagamento = await prisma.pagamento.create({
+      data: {
+        clienteId: pedido.clienteId,
+        pedidoId: pedido.id,
+        valor: data.valor ?? pedido.valor,
+        metodo: data.metodo || 'PIX',
+        status: 'RECEIVED',
+        dueDate: new Date(),
+        paymentDate: new Date(),
+      },
+    });
+
+    return confirmarPagamentoRecebido(pagamento.id);
+  }
+
   async segundaVia(id: string) {
     const pagamento = await prisma.pagamento.findUnique({ where: { id } });
     if (!pagamento) throw new Error('Pagamento não encontrado');

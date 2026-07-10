@@ -111,20 +111,35 @@ export class AsaasService {
     const pagamento = await prisma.pagamento.findUnique({ where: { asaasId: payment.id } });
     if (!pagamento) return null;
 
-    const statusMap: Record<string, string> = {
+    // Asaas envia event=PAYMENT_RECEIVED e payment.status=RECEIVED — mapear os dois
+    const eventMap: Record<string, string> = {
       PAYMENT_RECEIVED: 'RECEIVED',
       PAYMENT_CONFIRMED: 'RECEIVED',
       PAYMENT_OVERDUE: 'OVERDUE',
       PAYMENT_REFUNDED: 'REFUNDED',
+      PAYMENT_DELETED: 'REFUNDED',
+    };
+    const statusMap: Record<string, string> = {
+      RECEIVED: 'RECEIVED',
+      CONFIRMED: 'RECEIVED',
+      OVERDUE: 'OVERDUE',
+      REFUNDED: 'REFUNDED',
+      PENDING: 'PENDING',
     };
 
-    const novoStatus = statusMap[payment.status] || pagamento.status;
+    const novoStatus = eventMap[event] || statusMap[payment.status] || pagamento.status;
+    const paymentDate =
+      payment.paymentDate
+        ? new Date(payment.paymentDate)
+        : novoStatus === 'RECEIVED' && !pagamento.paymentDate
+          ? new Date()
+          : undefined;
 
     const updated = await prisma.pagamento.update({
       where: { id: pagamento.id },
       data: {
         status: novoStatus,
-        paymentDate: payment.paymentDate ? new Date(payment.paymentDate) : undefined,
+        ...(paymentDate ? { paymentDate } : {}),
       },
       include: { cliente: true },
     });

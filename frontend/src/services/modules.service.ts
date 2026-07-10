@@ -78,6 +78,8 @@ export const pagamentosApi = {
   cobrar: (body: unknown) => post<Pagamento>('/pagamentos/cobrar', body),
   dashboard: () => get<Record<string, number>>('/pagamentos/dashboard'),
   segundaVia: (id: string) => get<Pagamento>(`/pagamentos/${id}/segunda-via`),
+  registrarRecebido: (body: { pedidoId: string; metodo?: string; valor?: number }) =>
+    post('/pagamentos/registrar-recebido', body),
 };
 
 export const marketplaceApi = {

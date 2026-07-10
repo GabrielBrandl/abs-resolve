@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { pedidosApi, osApi } from '../../services/modules.service';
+import { pedidosApi, osApi, pagamentosApi } from '../../services/modules.service';
 import type { Pedido, OrdemServico } from '../../types';
 import { STATUS_PEDIDO, ETAPAS_OS, formatCurrency, formatDate, formatEndereco } from '../../types';
 import { PageHeader, Loading, Badge, Button, Card } from '../../components/ui';
@@ -32,6 +32,7 @@ export function PedidoDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [pedido, setPedido] = useState<PedidoDetalhe | null>(null);
   const [loading, setLoading] = useState(true);
+  const [registrandoPagamento, setRegistrandoPagamento] = useState(false);
   const { toast } = useToast();
 
   const carregar = () => {
@@ -75,6 +76,21 @@ export function PedidoDetailPage() {
     }
   };
 
+  const registrarPagamento = async () => {
+    if (!id || !pedido) return;
+    if (!confirm(`Confirmar recebimento de ${formatCurrency(pedido.valor)} deste pedido?`)) return;
+    setRegistrandoPagamento(true);
+    try {
+      await pagamentosApi.registrarRecebido({ pedidoId: id, metodo: 'PIX' });
+      toast('Pagamento registrado! Pedido atualizado.', 'success');
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao registrar pagamento', 'error');
+    } finally {
+      setRegistrandoPagamento(false);
+    }
+  };
+
   if (loading) return <Loading />;
   if (!pedido) return <p>Pedido não encontrado</p>;
 
@@ -82,13 +98,34 @@ export function PedidoDetailPage() {
   const os = pedido.ordemServico;
   const osIdx = os ? ETAPAS_OS.findIndex((e) => e.key === os.etapa) : -1;
   const servicoNome = pedido.solicitacao?.servico?.nome || pedido.servico?.nome || pedido.descricao;
+  const pago = pedido.pagamentos?.some((p) => p.status === 'RECEIVED');
 
   return (
     <div>
-      <PageHeader title={pedido.numero} subtitle={pedido.cliente?.nome} />
+      <PageHeader
+        title={pedido.numero}
+        subtitle={pedido.cliente?.nome}
+        action={
+          !pago ? (
+            <Button variant="cta" onClick={registrarPagamento} disabled={registrandoPagamento}>
+              {registrandoPagamento ? 'Registrando...' : 'Registrar pagamento'}
+            </Button>
+          ) : undefined
+        }
+      />
 
       <Card className="mb-6">
         <h3 className="mb-4 font-semibold">Fluxo do Pedido</h3>
+        <div className="mb-3 flex flex-wrap gap-2">
+          <Badge color={STATUS_PEDIDO.find((s) => s.key === pedido.status)?.color}>
+            {STATUS_PEDIDO.find((s) => s.key === pedido.status)?.label || pedido.status}
+          </Badge>
+          {pago ? (
+            <Badge color="bg-green-100 text-green-700">Pagamento confirmado</Badge>
+          ) : (
+            <Badge color="bg-orange-100 text-orange-700">Pagamento pendente</Badge>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           {STATUS_PEDIDO.map((s, i) => (
             <div key={s.key} className="flex items-center gap-1">
@@ -188,9 +225,16 @@ export function PedidoDetailPage() {
           </Card>
         )}
 
-        {!!pedido.pagamentos?.length && (
-          <Card>
-            <h3 className="mb-3 font-semibold">Pagamentos</h3>
+        <Card>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="font-semibold">Pagamentos</h3>
+            {!pago && (
+              <Button variant="secondary" onClick={registrarPagamento} disabled={registrandoPagamento}>
+                Confirmar recebimento
+              </Button>
+            )}
+          </div>
+          {pedido.pagamentos?.length ? (
             <ul className="space-y-2 text-sm">
               {pedido.pagamentos.map((p) => (
                 <li key={p.id} className="flex justify-between rounded-lg border border-abs-gray px-3 py-2">
@@ -199,8 +243,10 @@ export function PedidoDetailPage() {
                 </li>
               ))}
             </ul>
-          </Card>
-        )}
+          ) : (
+            <p className="text-sm text-slate-400">Nenhum pagamento registrado. Use &quot;Registrar pagamento&quot; se o cliente já pagou.</p>
+          )}
+        </Card>
       </div>
     </div>
   );

@@ -67,16 +67,24 @@ export function PedidosPage() {
               </tr>
             </thead>
             <tbody>
-              {pedidos.map((p) => (
+              {pedidos.map((p) => {
+                const pago = p.pagamentos?.some((pg) => pg.status === 'RECEIVED');
+                return (
                 <tr key={p.id} className="border-t hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium">{p.numero}</td>
                   <td className="px-4 py-3">{p.cliente?.nome}</td>
                   <td className="px-4 py-3">{formatCurrency(p.valor)}</td>
-                  <td className="px-4 py-3"><Badge color={statusInfo(p.status)?.color}>{statusInfo(p.status)?.label || p.status}</Badge></td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge color={statusInfo(p.status)?.color}>{statusInfo(p.status)?.label || p.status}</Badge>
+                      {pago && <Badge color="bg-green-100 text-green-700">Pago</Badge>}
+                    </div>
+                  </td>
                   <td className="px-4 py-3">{formatDate(p.createdAt)}</td>
                   <td className="px-4 py-3"><Link to={`/pedidos/${p.id}`} className="text-primary-600 hover:underline">Ver</Link></td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </TableWrapper>

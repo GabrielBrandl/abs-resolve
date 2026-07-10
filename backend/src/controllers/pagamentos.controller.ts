@@ -37,6 +37,19 @@ export class PagamentosController {
     }
   }
 
+  async registrarRecebido(req: Request, res: Response) {
+    try {
+      const data = await pagamentosService.registrarRecebido({
+        pedidoId: req.body.pedidoId,
+        metodo: req.body.metodo,
+        valor: req.body.valor != null ? Number(req.body.valor) : undefined,
+      });
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async dashboard(_req: Request, res: Response) {
     try {
       const data = await pagamentosService.dashboardFinanceiro();

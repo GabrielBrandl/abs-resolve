@@ -221,8 +221,9 @@ export const STATUS_PEDIDO = [
   { key: 'recebido', label: 'Recebido', color: 'bg-slate-100 text-slate-700' },
   { key: 'em_analise', label: 'Em Análise', color: 'bg-blue-100 text-blue-700' },
   { key: 'aguardando_documentacao', label: 'Aguardando Docs', color: 'bg-amber-100 text-amber-700' },
-  { key: 'em_processamento', label: 'Processamento', color: 'bg-purple-100 text-purple-700' },
-  { key: 'em_execucao', label: 'Em Execução', color: 'bg-indigo-100 text-indigo-700' },
+  { key: 'aguardando_pagamento', label: 'Aguardando Pagamento', color: 'bg-orange-100 text-orange-700' },
+  { key: 'em_processamento', label: 'Em Processamento', color: 'bg-purple-100 text-purple-700' },
+  { key: 'em_execucao', label: 'Pago · Em Execução', color: 'bg-indigo-100 text-indigo-700' },
   { key: 'finalizado', label: 'Finalizado', color: 'bg-green-100 text-green-700' },
   { key: 'cancelado', label: 'Cancelado', color: 'bg-red-100 text-red-700' },
 ];

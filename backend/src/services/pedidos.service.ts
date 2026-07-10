@@ -6,6 +6,7 @@ const STATUS_PEDIDO = [
   'recebido',
   'em_analise',
   'aguardando_documentacao',
+  'aguardando_pagamento',
   'em_processamento',
   'em_execucao',
   'finalizado',
@@ -31,6 +32,10 @@ export class PedidosService {
         cliente: { select: { id: true, nome: true, email: true, telefone: true } },
         ordemServico: true,
         servico: { select: { nome: true } },
+        pagamentos: {
+          select: { id: true, status: true, valor: true, metodo: true, paymentDate: true },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
   }

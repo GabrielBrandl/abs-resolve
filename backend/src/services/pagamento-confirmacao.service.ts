@@ -75,7 +75,7 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
 
   await prisma.pedido.update({
     where: { id: pedido.id },
-    data: { status: 'em_processamento' },
+    data: { status: 'em_execucao' },
   });
 
   if (sol && sol.status === 'aguardando_pagamento') {
