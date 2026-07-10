@@ -108,12 +108,12 @@ export function CadastroPage() {
             <Input label="Confirmar senha" type="password" value={form.confirmar} onChange={(e) => setForm({ ...form, confirmar: e.target.value })} required />
 
             <p className="mb-2 text-sm font-medium text-primary-700">Endereço de atendimento</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Input label="CEP" value={form.cep} onChange={(e) => setForm({ ...form, cep: e.target.value })} />
               <Input label="UF" value={form.uf} onChange={(e) => setForm({ ...form, uf: e.target.value })} />
             </div>
             <Input label="Rua" value={form.rua} onChange={(e) => setForm({ ...form, rua: e.target.value })} />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Input label="Número" value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} />
               <Input label="Bairro" value={form.bairro} onChange={(e) => setForm({ ...form, bairro: e.target.value })} />
             </div>

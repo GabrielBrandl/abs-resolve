@@ -11,7 +11,7 @@ export function Badge({ children, color = 'bg-abs-gray text-primary-700' }: { ch
 
 export function Card({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) {
   return (
-    <div onClick={onClick} className={`rounded-xl border border-abs-gray bg-white p-6 shadow-sm ${className}`}>
+    <div onClick={onClick} className={`rounded-xl border border-abs-gray bg-white p-4 shadow-sm sm:p-6 ${className}`}>
       {children}
     </div>
   );
@@ -19,12 +19,20 @@ export function Card({ children, className = '', onClick }: { children: React.Re
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex items-start justify-between">
-      <div>
-        <h1 className="text-2xl font-bold text-primary-700">{title}</h1>
-        {subtitle && <p className="mt-1 text-slate-500">{subtitle}</p>}
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold text-primary-700 sm:text-2xl">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-slate-500 sm:text-base">{subtitle}</p>}
       </div>
-      {action}
+      {action && <div className="flex shrink-0 flex-wrap gap-2">{action}</div>}
+    </div>
+  );
+}
+
+export function TableWrapper({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`-mx-4 overflow-x-auto sm:mx-0 rounded-xl border bg-white ${className}`}>
+      {children}
     </div>
   );
 }
@@ -122,18 +130,21 @@ export function Button({ children, variant = 'primary', ...props }: { children: 
 
 export function Tabs({ tabs, active, onChange }: { tabs: { key: string; label: string }[]; active: string; onChange: (k: string) => void }) {
   return (
-    <div className="mb-6 flex gap-1 border-b border-abs-gray">
-      {tabs.map((t) => (
-        <button
-          key={t.key}
-          onClick={() => onChange(t.key)}
-          className={`px-4 py-2 text-sm font-medium transition ${
-            active === t.key ? 'border-b-2 border-accent-500 text-primary-700' : 'text-slate-500 hover:text-primary-600'
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
+    <div className="mb-6 -mx-1 overflow-x-auto px-1">
+      <div className="flex min-w-max gap-1 border-b border-abs-gray">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => onChange(t.key)}
+            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition ${
+              active === t.key ? 'border-b-2 border-accent-500 text-primary-700' : 'text-slate-500 hover:text-primary-600'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

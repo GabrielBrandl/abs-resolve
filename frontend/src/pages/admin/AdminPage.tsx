@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adminApi, adminApiExtra } from '../../services/modules.service';
 import { formatDate } from '../../types';
-import { PageHeader, Loading, Tabs, Card, Badge, Button, Modal, Input, Select } from '../../components/ui';
+import { PageHeader, Loading, Tabs, Card, Badge, Button, Modal, Input, Select, TableWrapper } from '../../components/ui';
 import { BotaoVerFotos } from '../../components/GaleriaFotos';
 import { fotosDaSolicitacao, fotosDoChecklist } from '../../utils/fotos';
 import { useToast } from '../../components/Toast';
@@ -195,8 +195,8 @@ export function AdminPage() {
       {loading ? <Loading /> : (
         <>
           {tab === 'equipe' && (
-            <div className="overflow-hidden rounded-xl border bg-white">
-              <table className="w-full text-sm">
+            <TableWrapper>
+              <table className="w-full min-w-[560px] text-sm">
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 text-left">Nome</th>
@@ -239,7 +239,7 @@ export function AdminPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableWrapper>
           )}
 
           {tab === 'atribuicoes' && (
@@ -258,8 +258,8 @@ export function AdminPage() {
                 ))}
               </div>
 
-              <div className="overflow-hidden rounded-xl border bg-white">
-                <table className="w-full text-sm">
+              <TableWrapper>
+                <table className="w-full min-w-[640px] text-sm">
                   <thead className="bg-slate-50">
                     <tr>
                       <th className="px-4 py-3 text-left">Data</th>
@@ -322,7 +322,7 @@ export function AdminPage() {
                     })}
                   </tbody>
                 </table>
-              </div>
+              </TableWrapper>
             </>
           )}
 
@@ -390,7 +390,7 @@ export function AdminPage() {
         <Input label="Telefone" value={clienteForm.telefone} onChange={(e) => setClienteForm({ ...clienteForm, telefone: e.target.value })} />
         <Input label="Senha portal" type="password" value={clienteForm.senha} onChange={(e) => setClienteForm({ ...clienteForm, senha: e.target.value })} />
         <p className="mb-2 text-xs font-medium text-slate-500">Endereço (opcional)</p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Input label="Rua" value={clienteForm.rua} onChange={(e) => setClienteForm({ ...clienteForm, rua: e.target.value })} />
           <Input label="Nº" value={clienteForm.numero} onChange={(e) => setClienteForm({ ...clienteForm, numero: e.target.value })} />
           <Input label="Bairro" value={clienteForm.bairro} onChange={(e) => setClienteForm({ ...clienteForm, bairro: e.target.value })} />

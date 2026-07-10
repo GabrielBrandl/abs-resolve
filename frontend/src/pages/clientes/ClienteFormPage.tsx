@@ -102,7 +102,7 @@ export function ClienteFormPage() {
           <Input label="Telefone" value={form.telefone} onChange={(e) => set('telefone', e.target.value)} required />
           <Input label="WhatsApp" value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} />
           <p className="mb-2 text-sm font-medium text-slate-700">Endereço</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Input label="Rua" value={form.rua} onChange={(e) => set('rua', e.target.value)} />
             <Input label="Número" value={form.numero} onChange={(e) => set('numero', e.target.value)} />
             <Input label="Cidade" value={form.cidade} onChange={(e) => set('cidade', e.target.value)} />

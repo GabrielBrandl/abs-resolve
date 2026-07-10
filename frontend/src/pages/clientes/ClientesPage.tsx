@@ -4,7 +4,7 @@ import { clientesApi } from '../../services/modules.service';
 import { exportarCsv } from '../../utils/export';
 import { useToast } from '../../components/Toast';
 import type { Cliente } from '../../types';
-import { PageHeader, Loading, Badge, Button } from '../../components/ui';
+import { PageHeader, Loading, Badge, Button, TableWrapper } from '../../components/ui';
 
 export function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -61,8 +61,8 @@ export function ClientesPage() {
       </div>
 
       {loading ? <Loading /> : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="w-full text-sm">
+        <TableWrapper className="border-slate-200">
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
                 <th className="px-4 py-3">Nome</th>
@@ -88,7 +88,7 @@ export function ClientesPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrapper>
       )}
     </div>
   );

@@ -5,7 +5,7 @@ import { exportarCsv } from '../../utils/export';
 import { useToast } from '../../components/Toast';
 import type { Pedido, Cliente } from '../../types';
 import { STATUS_PEDIDO, formatCurrency, formatDate } from '../../types';
-import { PageHeader, Loading, Badge, Modal, Input, Select, Button } from '../../components/ui';
+import { PageHeader, Loading, Badge, Modal, Input, Select, Button, TableWrapper } from '../../components/ui';
 
 export function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -45,17 +45,17 @@ export function PedidosPage() {
         </div>
       } />
 
-      <div className="mb-4 flex gap-3">
-        <input placeholder="Buscar..." value={busca} onChange={(e) => setBusca(e.target.value)} className="rounded-lg border px-3 py-2 text-sm" />
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+        <input placeholder="Buscar..." value={busca} onChange={(e) => setBusca(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm sm:flex-1" />
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto">
           <option value="">Todos</option>
           {STATUS_PEDIDO.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
         </select>
       </div>
 
       {loading ? <Loading /> : (
-        <div className="overflow-hidden rounded-xl border bg-white">
-          <table className="w-full text-sm">
+        <TableWrapper>
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
                 <th className="px-4 py-3">Número</th>
@@ -79,7 +79,7 @@ export function PedidosPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrapper>
       )}
 
       <Modal open={modal} onClose={() => setModal(false)} title="Novo Pedido">

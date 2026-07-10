@@ -106,7 +106,7 @@ export function ClienteLayout() {
           </div>
         )}
 
-        <main className="flex-1 bg-slate-50 p-4 pb-20 md:p-8 md:pb-8">
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-slate-50 p-4 pb-20 md:p-8 md:pb-8">
           <Outlet />
         </main>
 

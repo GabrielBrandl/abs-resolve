@@ -447,13 +447,14 @@ export function AgendarServicoPage() {
   ];
 
   return (
-    <div className="pb-24">
+    <div>
       <PageHeader
         title="Solicitar Serviço"
         subtitle="Escolha os serviços, finalize o pagamento e agende o atendimento"
       />
 
-      <div className="mb-6 flex flex-wrap gap-2 text-xs font-medium">
+      <div className="mb-6 -mx-1 overflow-x-auto px-1">
+        <div className="flex min-w-max gap-2 text-xs font-medium">
         {stepOrder.map((s, i) => {
           const active = step === s;
           const done = stepOrder.indexOf(step) > i;
@@ -468,6 +469,7 @@ export function AgendarServicoPage() {
             </span>
           );
         })}
+        </div>
       </div>
 
       {step === 'catalogo' && (
@@ -522,7 +524,7 @@ export function AgendarServicoPage() {
                   </p>
                   <h3 className="mt-1 font-bold text-primary-900">{s.nome}</h3>
                   <p className="mt-2 line-clamp-2 flex-1 text-xs text-slate-500">{s.descricao}</p>
-                  <div className="mt-3 flex items-end justify-between gap-2">
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <p className="text-lg font-bold text-primary-700">{s.precoTexto || 'Consulte'}</p>
                       {s.garantiaDias > 0 && (
@@ -532,7 +534,7 @@ export function AgendarServicoPage() {
                     {s.tipoPreco === 'sob_orcamento' ? (
                       <Button
                         variant="cta"
-                        className="shrink-0 text-sm"
+                        className="w-full shrink-0 text-sm sm:w-auto"
                         onClick={() => { setOrcamentoModal(s); setOrcamentoDesc(''); }}
                       >
                         Solicitar orçamento
@@ -540,7 +542,7 @@ export function AgendarServicoPage() {
                     ) : (
                       <Button
                         variant="cta"
-                        className="shrink-0 text-sm"
+                        className="w-full shrink-0 text-sm sm:w-auto"
                         onClick={() => {
                           cart.add({
                             slug: s.slug,
@@ -573,7 +575,7 @@ export function AgendarServicoPage() {
           ) : (
             <ul className="divide-y divide-abs-gray">
               {cart.items.map((item) => (
-                <li key={item.slug} className="flex flex-wrap items-center gap-3 py-4">
+                <li key={item.slug} className="flex flex-col gap-3 py-4 sm:flex-row sm:flex-wrap sm:items-center">
                   <img
                     src={imagemServicoComRespostas(item.slug, respostasPorSlug[item.slug] || {}, item.imagemUrl)}
                     alt=""
@@ -583,15 +585,17 @@ export function AgendarServicoPage() {
                     <p className="font-semibold text-primary-800">{item.nome}</p>
                     <p className="text-sm text-slate-500">{item.precoTexto}</p>
                   </div>
+                  <div className="flex items-center justify-between gap-2 sm:contents">
                   <div className="flex items-center gap-2">
                     <button type="button" className="h-8 w-8 rounded border" onClick={() => cart.setQty(item.slug, item.quantidade - 1)}>−</button>
                     <span className="w-6 text-center">{item.quantidade}</span>
                     <button type="button" className="h-8 w-8 rounded border" onClick={() => cart.setQty(item.slug, item.quantidade + 1)}>+</button>
                   </div>
-                  <p className="w-24 text-right font-bold text-primary-700">
+                  <p className="font-bold text-primary-700 sm:ml-auto sm:w-24 sm:text-right">
                     {formatCurrency((item.precoMinimo || 0) * item.quantidade)}
                   </p>
-                  <button type="button" className="text-sm text-red-500" onClick={() => cart.remove(item.slug)}>Remover</button>
+                  <button type="button" className="text-sm text-red-500 sm:order-last" onClick={() => cart.remove(item.slug)}>Remover</button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -602,12 +606,14 @@ export function AgendarServicoPage() {
             <span className="font-medium">Atendimento Express (+ {formatCurrency(expressValor)})</span>
           </label>
 
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+          <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div>
             <p className="text-xl font-bold text-primary-800">
               A partir de: {formatCurrency(cart.total() + (express ? expressValor : 0))}
             </p>
             <p className="text-xs text-slate-500">O valor final será calculado após o questionário</p>
-            <div className="flex gap-2">
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={() => setStep('catalogo')}>Continuar comprando</Button>
               <Button variant="cta" onClick={irQuestionario} disabled={!cart.count()}>
                 Responder perguntas
@@ -811,7 +817,7 @@ export function AgendarServicoPage() {
                   key={i}
                   type="button"
                   onClick={() => setSlotSel({ data: s.data, horarioInicio: s.horarioInicio, horarioFim: s.horarioFim })}
-                  className={`flex w-full items-center justify-between rounded-lg border p-3 text-left ${
+                  className={`flex w-full flex-col items-start gap-2 rounded-lg border p-3 text-left sm:flex-row sm:items-center sm:justify-between ${
                     slotSel?.data === s.data && slotSel?.horarioInicio === s.horarioInicio
                       ? 'border-primary-600 bg-primary-50' : 'border-abs-gray'
                   }`}
@@ -837,8 +843,8 @@ export function AgendarServicoPage() {
       )}
 
       {step === 'catalogo' && cart.count() > 0 && (
-        <div className="fixed bottom-20 left-1/2 z-20 -translate-x-1/2 md:bottom-6">
-          <Button variant="cta" className="shadow-xl" onClick={irCarrinho}>
+        <div className="fixed bottom-[4.75rem] left-4 right-4 z-30 md:bottom-6 md:left-1/2 md:right-auto md:w-auto md:-translate-x-1/2">
+          <Button variant="cta" className="w-full shadow-xl md:w-auto" onClick={irCarrinho}>
             Ver carrinho ({cart.count()}) — {formatCurrency(cart.total())}
           </Button>
         </div>

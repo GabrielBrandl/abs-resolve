@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { pagamentosApi, clientesApi } from '../../services/modules.service';
 import type { Pagamento, Cliente } from '../../types';
 import { formatCurrency, formatDate } from '../../types';
-import { PageHeader, Loading, Badge, Modal, Input, Select, Button, Card } from '../../components/ui';
+import { PageHeader, Loading, Badge, Modal, Input, Select, Button, Card, TableWrapper } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 
 export function FinanceiroPage() {
@@ -86,8 +86,8 @@ export function FinanceiroPage() {
       </select>
 
       {loading ? <Loading /> : (
-        <div className="overflow-hidden rounded-xl border bg-white">
-          <table className="w-full text-sm">
+        <TableWrapper>
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
                 <th className="px-4 py-3">Cliente</th>
@@ -115,7 +115,7 @@ export function FinanceiroPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrapper>
       )}
 
       <Modal open={modal} onClose={() => setModal(false)} title="Nova Cobrança">

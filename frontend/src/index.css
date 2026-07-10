@@ -29,7 +29,11 @@
 }
 
 body {
-  @apply bg-white text-slate-900 antialiased;
+  @apply bg-white text-slate-900 antialiased overflow-x-hidden;
+}
+
+html {
+  overflow-x: hidden;
 }
 
 .abs-gradient {

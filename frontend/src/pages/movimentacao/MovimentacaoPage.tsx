@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { movimentacaoApi } from '../../services/modules.service';
 import { formatCurrency, formatDate } from '../../types';
-import { PageHeader, Loading, Card, Modal, Input, Select, Button, Badge } from '../../components/ui';
+import { PageHeader, Loading, Card, Modal, Input, Select, Button, Badge, TableWrapper } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 
 interface Movimentacao {
@@ -68,8 +68,8 @@ export function MovimentacaoPage() {
       </select>
 
       {loading ? <Loading /> : (
-        <div className="overflow-hidden rounded-xl border bg-white">
-          <table className="w-full text-sm">
+        <TableWrapper>
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-slate-50 text-left"><tr>
               <th className="px-4 py-3">Data</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Categoria</th>
               <th className="px-4 py-3">Descrição</th><th className="px-4 py-3">Qtd</th><th className="px-4 py-3">Valor</th>
@@ -87,7 +87,7 @@ export function MovimentacaoPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrapper>
       )}
 
       <Modal open={modal} onClose={() => setModal(false)} title="Nova Movimentação">

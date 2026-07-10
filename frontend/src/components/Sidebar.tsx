@@ -29,7 +29,7 @@ const navItems: NavItem[] = [
   { label: 'Admin', path: '/admin', roles: ['admin'], icon: '⚙️' },
 ];
 
-export function Sidebar() {
+function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout, hasRole } = useAuthStore();
   const navigate = useNavigate();
 
@@ -43,18 +43,19 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex w-64 flex-col bg-sidebar text-white">
+    <>
       <div className="border-b border-primary-600/30 px-4 py-4">
         <Logo variant="sidebar" className="h-14" />
         <p className="mt-1 text-xs text-accent-400">Plataforma de Gestão</p>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {visibleItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             end={item.path === '/'}
+            onClick={onNavigate}
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
@@ -78,12 +79,34 @@ export function Sidebar() {
           </span>
         </div>
         <button
+          type="button"
           onClick={handleLogout}
           className="w-full rounded-lg bg-primary-700 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-primary-600"
         >
           Sair
         </button>
       </div>
+    </>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <aside className="hidden w-64 shrink-0 flex-col bg-sidebar text-white md:flex">
+      <SidebarPanel />
     </aside>
+  );
+}
+
+export function SidebarMobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-40 md:hidden">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+      <aside className="absolute left-0 top-0 flex h-full w-[min(100vw-3rem,16rem)] flex-col bg-sidebar text-white shadow-xl">
+        <SidebarPanel onNavigate={onClose} />
+      </aside>
+    </div>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { parceirosApi } from '../../services/modules.service';
 import type { ComissaoItem, ParceiroAdmin, ParceiroDetalhe } from '../../types';
 import { formatCurrency, formatDate } from '../../types';
-import { PageHeader, Loading, Card, Button, Badge, Modal, Input } from '../../components/ui';
+import { PageHeader, Loading, Card, Button, Badge, Modal, Input, TableWrapper } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 
 const formVazio = { nome: '', email: '', telefone: '', senha: '', comissaoPercent: '10', cnpj: '', categoria: 'vendas' };
@@ -233,8 +233,8 @@ export function ParceirosAdminPage() {
         </Card>
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-white">
-        <table className="w-full text-sm">
+      <TableWrapper>
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-4 py-3 text-left">Parceiro</th>
@@ -283,7 +283,7 @@ export function ParceirosAdminPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </TableWrapper>
 
       <Modal open={modalNovo} onClose={() => setModalNovo(false)} title="Novo Parceiro">
         <Input label="Nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
@@ -358,7 +358,7 @@ export function ParceirosAdminPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="grid grid-cols-1 gap-2 text-center sm:grid-cols-3">
               <div className="rounded-lg border p-2">
                 <p className="text-xs text-slate-500">Vendas</p>
                 <p className="font-bold">{detalhe.vendas}</p>
@@ -384,7 +384,7 @@ export function ParceirosAdminPage() {
                 {detalhe.comissoes.length === 0 ? (
                   <p className="text-sm text-slate-400">Nenhuma comissão gerada ainda.</p>
                 ) : detalhe.comissoes.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
+                  <div key={c.id} className="flex flex-col gap-2 rounded-lg border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium">{formatCurrency(c.valorComissao)}</p>

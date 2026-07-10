@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { catalogoAdminApi } from '../../services/modules.service';
 import type { ProdutoEstoque } from '../../types';
-import { PageHeader, Loading, Badge, Button, Modal } from '../../components/ui';
+import { PageHeader, Loading, Badge, Button, Modal, TableWrapper } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 
 export function EstoqueAdminPage() {
@@ -37,8 +37,8 @@ export function EstoqueAdminPage() {
     <div>
       <PageHeader title="Estoque" subtitle="Controle de materiais e insumos" />
 
-      <div className="overflow-hidden rounded-xl border bg-white">
-        <table className="w-full text-sm">
+      <TableWrapper>
+        <table className="w-full min-w-[560px] text-sm">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-4 py-3 text-left">Produto</th>
@@ -75,7 +75,7 @@ export function EstoqueAdminPage() {
           </tbody>
         </table>
         {!produtos.length && <p className="p-6 text-center text-slate-400">Nenhum produto cadastrado</p>}
-      </div>
+      </TableWrapper>
 
       <Modal open={!!editId} onClose={() => setEditId(null)} title="Ajustar estoque">
         <div className="mb-3">

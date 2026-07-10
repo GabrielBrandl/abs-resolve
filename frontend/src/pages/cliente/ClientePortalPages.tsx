@@ -135,12 +135,12 @@ export function ClienteCadastroPage() {
           {buscandoCep && <p className="self-end pb-3 text-xs text-slate-400">Buscando...</p>}
         </div>
         <Input label="Rua" value={endereco.rua} onChange={(e) => setEndereco((p) => ({ ...p, rua: e.target.value }))} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label="Número" value={endereco.numero} onChange={(e) => setEndereco((p) => ({ ...p, numero: e.target.value }))} />
           <Input label="Complemento" value={endereco.complemento || ''} onChange={(e) => setEndereco((p) => ({ ...p, complemento: e.target.value }))} />
         </div>
         <Input label="Bairro" value={endereco.bairro} onChange={(e) => setEndereco((p) => ({ ...p, bairro: e.target.value }))} />
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="col-span-2">
             <Input label="Cidade" value={endereco.cidade} onChange={(e) => setEndereco((p) => ({ ...p, cidade: e.target.value }))} />
           </div>

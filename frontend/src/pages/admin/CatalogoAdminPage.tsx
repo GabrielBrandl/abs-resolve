@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { catalogoAdminApi } from '../../services/modules.service';
 import type { CatalogoServicoAdmin } from '../../types';
 import { formatCurrency } from '../../types';
-import { PageHeader, Loading, Button, Badge, Modal, Input } from '../../components/ui';
+import { PageHeader, Loading, Button, Badge, Modal, Input, TableWrapper } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 import { useAuthStore } from '../../store/authStore';
 
@@ -156,8 +156,8 @@ export function CatalogoAdminPage() {
         action={isAdmin ? <Button onClick={() => setModalNovo(true)}>Novo serviço</Button> : undefined}
       />
 
-      <div className="overflow-hidden rounded-xl border bg-white">
-        <table className="w-full text-sm">
+      <TableWrapper>
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-4 py-3 text-left">Imagem</th>
@@ -217,7 +217,7 @@ export function CatalogoAdminPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </TableWrapper>
 
       <Modal open={modalNovo} onClose={() => setModalNovo(false)} title="Novo serviço no catálogo">
         <Input label="Nome *" value={novoForm.nome} onChange={(e) => setNovoForm({ ...novoForm, nome: e.target.value })} />
@@ -248,7 +248,7 @@ export function CatalogoAdminPage() {
             onChange={(e) => setNovoForm({ ...novoForm, descricao: e.target.value })}
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input
             label="Preço mínimo (R$)"
             type="number"
@@ -275,7 +275,7 @@ export function CatalogoAdminPage() {
           value={novoForm.precoTexto}
           onChange={(e) => setNovoForm({ ...novoForm, precoTexto: e.target.value })}
         />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label="Pontos" type="number" min={1} value={novoForm.pontos} onChange={(e) => setNovoForm({ ...novoForm, pontos: e.target.value })} />
           <Input label="Garantia (dias)" type="number" min={0} value={novoForm.garantiaDias} onChange={(e) => setNovoForm({ ...novoForm, garantiaDias: e.target.value })} />
         </div>
@@ -335,7 +335,7 @@ export function CatalogoAdminPage() {
             <label className="mb-1 block text-sm font-medium">Nome</label>
             <input className="w-full rounded-lg border px-3 py-2 text-sm" value={form.nome || ''} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">Preço mínimo</label>
               <input type="number" className="w-full rounded-lg border px-3 py-2 text-sm" value={form.precoMinimo || ''} onChange={(e) => setForm((f) => ({ ...f, precoMinimo: Number(e.target.value) }))} />
