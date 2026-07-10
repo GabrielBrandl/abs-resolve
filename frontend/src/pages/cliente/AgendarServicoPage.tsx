@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { solicitacaoApi } from '../../services/modules.service';
 import { useCartStore } from '../../store/cartStore';
 import { formatCurrency } from '../../types';
@@ -95,6 +95,7 @@ function PixQrArea({ pixCode, invoiceUrl }: { pixCode?: string; invoiceUrl?: str
 
 export function AgendarServicoPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const cart = useCartStore();
   const [step, setStep] = useState<Step>('catalogo');
@@ -125,6 +126,7 @@ export function AgendarServicoPage() {
   >({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const previewsIaRef = useRef<string[]>([]);
+  const retomouAgendamento = useRef(false);
 
   useEffect(() => {
     Promise.all([solicitacaoApi.catalogo(), solicitacaoApi.config()])
@@ -135,6 +137,33 @@ export function AgendarServicoPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  // Retomar agendamento de pedido já pago (ex.: veio de Meus Pedidos)
+  useEffect(() => {
+    const solId = searchParams.get('agendar');
+    if (!solId || retomouAgendamento.current || loading) return;
+    retomouAgendamento.current = true;
+    (async () => {
+      try {
+        const status = await solicitacaoApi.status(solId);
+        if (status.agendamento) {
+          toast('Este pedido já possui agendamento.', 'success');
+          navigate('/cliente/agendamentos');
+          return;
+        }
+        if (!status.podeAgendar) {
+          toast('Pagamento ainda não confirmado para este pedido.', 'error');
+          return;
+        }
+        setSolicitacaoId(solId);
+        setStep('horario');
+        setSearchParams({}, { replace: true });
+        toast('Escolha o dia e horário do atendimento.', 'success');
+      } catch (e) {
+        toast(e instanceof Error ? e.message : 'Não foi possível abrir o agendamento', 'error');
+      }
+    })();
+  }, [searchParams, loading, navigate, setSearchParams, toast]);
 
   useEffect(() => {
     return () => {
@@ -214,9 +243,8 @@ export function AgendarServicoPage() {
           if (pollRef.current) clearInterval(pollRef.current);
           setAguardandoPagamento(false);
           cart.clear();
-          toast('Pagamento confirmado! Acompanhe sua ordem de serviço.', 'success');
-          const destino = status.pedidoId ? `/cliente?pedido=${status.pedidoId}` : '/cliente';
-          navigate(destino);
+          toast('Pagamento confirmado! Escolha o horário de atendimento.', 'success');
+          setStep('horario');
         }
       } catch {
         /* retry on next interval */
@@ -839,6 +867,7 @@ export function AgendarServicoPage() {
           <p className="text-4xl">✅</p>
           <h3 className="mt-3 text-xl font-bold text-primary-800">Pedido confirmado!</h3>
           <p className="mt-2 text-slate-600">Pagamento registrado e técnico agendado. Acompanhe em Meus Pedidos.</p>
+          <Button className="mt-4" onClick={() => navigate('/cliente')}>Ver meus pedidos</Button>
         </Card>
       )}
 

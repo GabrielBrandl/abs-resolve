@@ -437,7 +437,20 @@ export class SolicitacaoService {
     });
     if (!sol) throw new Error('Solicitação não encontrada');
     if (sol.status !== 'pago') {
-      throw new Error('Realize o pagamento antes de agendar');
+      const pag = sol.pedidoId
+        ? await prisma.pagamento.findFirst({
+            where: { pedidoId: sol.pedidoId, status: 'RECEIVED' },
+            orderBy: { createdAt: 'desc' },
+          })
+        : null;
+      if (pag) {
+        await prisma.solicitacaoServico.update({
+          where: { id: sol.id },
+          data: { status: 'pago' },
+        });
+      } else {
+        throw new Error('Realize o pagamento antes de agendar');
+      }
     }
 
     const pontos = pontosSolicitacao(sol);

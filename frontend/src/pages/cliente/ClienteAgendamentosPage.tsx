@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { solicitacaoApi, agendamentoApi } from '../../services/modules.service';
 import type { SolicitacaoMinha } from '../../types';
 import { formatDate } from '../../types';
@@ -31,6 +32,7 @@ export function ClienteAgendamentosPage() {
   useEffect(() => { carregar(); }, []);
 
   const comAgendamento = solicitacoes.filter((s) => s.agendamento);
+  const paraAgendar = solicitacoes.filter((s) => !s.agendamento && s.status === 'pago');
 
   const cancelar = async (agendamentoId: string) => {
     if (!confirm('Deseja cancelar este agendamento? Taxa pode ser aplicada se faltar menos de 2h.')) return;
@@ -78,7 +80,27 @@ export function ClienteAgendamentosPage() {
     <div>
       <PageHeader title="Meus Agendamentos" subtitle="Gerencie seus horários de atendimento" />
 
-      {comAgendamento.length === 0 ? (
+      {paraAgendar.length > 0 && (
+        <div className="mb-6">
+          <h3 className="mb-3 text-sm font-semibold text-amber-800">Aguardando escolha de horário</h3>
+          {paraAgendar.map((s) => (
+            <Card key={s.id} className="mb-3 border border-amber-200 bg-amber-50">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-primary-800">{s.servico?.nome || 'Serviço'}</h3>
+                  {s.pedido && <p className="text-sm text-slate-500">Pedido {s.pedido.numero}</p>}
+                  <p className="mt-1 text-sm text-amber-800">Pagamento confirmado — escolha o dia e horário.</p>
+                </div>
+                <Link to={`/cliente/agendar?agendar=${s.id}`}>
+                  <Button variant="cta">Agendar horário</Button>
+                </Link>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {comAgendamento.length === 0 && paraAgendar.length === 0 ? (
         <Card><p className="text-slate-400">Nenhum agendamento encontrado</p></Card>
       ) : (
         comAgendamento.map((s) => {

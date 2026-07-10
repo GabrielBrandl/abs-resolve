@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { clientePortalApi, agendamentoApi } from '../../services/modules.service';
 import type { PedidoTimeline } from '../../types';
 import { STATUS_PEDIDO, formatCurrency, formatDate } from '../../types';
@@ -55,6 +55,12 @@ export function ClientePedidosPage() {
           const statusInfo = STATUS_PEDIDO.find((s) => s.key === p.status);
           const ag = p.agendamento;
           const podeCancelar = ag && ['confirmado', 'a_caminho'].includes(ag.status);
+          const pago = p.pagamentos?.some((pg) => pg.status === 'RECEIVED')
+            || p.solicitacao?.status === 'pago'
+            || ['em_execucao', 'em_processamento', 'finalizado'].includes(p.status);
+          const precisaAgendar = Boolean(
+            pago && !ag && p.solicitacao?.id && p.solicitacao.status !== 'agendado' && p.solicitacao.status !== 'cancelado'
+          );
 
           return (
             <div key={p.id} id={`pedido-${p.id}`}>
@@ -91,6 +97,17 @@ export function ClientePedidosPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {precisaAgendar && (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="mb-2 text-sm font-medium text-amber-800">
+                    Pagamento confirmado — falta escolher o dia e horário.
+                  </p>
+                  <Link to={`/cliente/agendar?agendar=${p.solicitacao!.id}`}>
+                    <Button variant="cta">Agendar horário</Button>
+                  </Link>
                 </div>
               )}
 

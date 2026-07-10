@@ -301,6 +301,8 @@ export interface PedidoTimeline extends Pedido {
     status: string;
   } | null;
   solicitacao?: {
+    id?: string;
+    status?: string;
     servico?: { nome: string };
     agendamento?: { id: string; data: string; horarioInicio: string; status: string };
   };
