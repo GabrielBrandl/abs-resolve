@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { diagnosticoApi, solicitacaoApi } from '../../services/modules.service';
 import { formatCurrency } from '../../types';
 import {
@@ -8,6 +8,7 @@ import {
   temImagemOpcao,
 } from '../../config/imagens-opcoes';
 import { mapearDiagnosticoParaRespostas } from '../../utils/mapear-diagnostico';
+import { gtmPush } from '../../utils/gtm';
 import { Button, Card, Loading, Logo, TextoComMarca } from '../ui';
 
 export interface FluxoPergunta {
@@ -95,19 +96,26 @@ export function QuestionarioServico({
     if (!todasRespondidas) {
       setPreco(null);
       onPrecoChange(null);
+      setErro('');
       return;
     }
     let cancelled = false;
     setCalculando(true);
+    setErro('');
     solicitacaoApi
       .calcularPreco({ slug, respostas, quantidade })
       .then((r) => {
         if (cancelled) return;
         setPreco(r);
         onPrecoChange(r);
+        setErro('');
       })
       .catch((e) => {
-        if (!cancelled) setErro(e instanceof Error ? e.message : 'Erro ao calcular preço');
+        if (!cancelled) {
+          setPreco(null);
+          onPrecoChange(null);
+          setErro(e instanceof Error ? e.message : 'Faltam alguns campos a serem selecionados.');
+        }
       })
       .finally(() => {
         if (!cancelled) setCalculando(false);
@@ -172,17 +180,18 @@ export function QuestionarioServico({
             O diagnóstico é feito por inteligência artificial e pode conter erros (margem estimada de até{' '}
             {MARGEM_ERRO_IA_PERCENT}%). Envie uma foto nítida do produto/local.
           </p>
-          <input
-            type="file"
-            accept="image/*"
+          <BotaoEnviarFoto
             multiple
-            className="mb-2 block w-full text-sm"
-            onChange={(e) => {
-              if (e.target.files?.length) setFotosIa(Array.from(e.target.files));
-              e.target.value = '';
+            label="Enviar foto para IA"
+            onFiles={(files) => {
+              setFotosIa(files);
+              gtmPush('agendar_foto_ia_enviada', { servico_slug: slug, qtd_fotos: files.length });
             }}
           />
-          <Button variant="cta" className="text-sm" disabled={analisandoIa} onClick={analisarComIa}>
+          {fotosIa.length > 0 && (
+            <p className="mt-2 text-xs text-slate-600">{fotosIa.length} foto(s) selecionada(s)</p>
+          )}
+          <Button variant="cta" className="mt-2 text-sm" disabled={analisandoIa} onClick={analisarComIa}>
             {analisandoIa ? 'Analisando...' : 'Identificar com IA'}
           </Button>
           {msgIa && <p className="mt-2 text-xs text-green-700">{msgIa}</p>}
@@ -201,7 +210,17 @@ export function QuestionarioServico({
                     <button
                       key={op.id}
                       type="button"
-                      onClick={() => onResposta(p.id, op.id)}
+                      onClick={() => {
+                        setErro('');
+                        onResposta(p.id, op.id);
+                        gtmPush('agendar_opcao_selecionada', {
+                          servico_slug: slug,
+                          pergunta_id: p.id,
+                          pergunta: p.titulo,
+                          opcao_id: op.id,
+                          opcao: op.label,
+                        });
+                      }}
                       className={`flex max-w-[140px] flex-col items-center gap-1 rounded-lg border px-2 py-2 text-sm transition ${
                         selecionada
                           ? 'border-primary-600 bg-primary-50 font-semibold text-primary-800'
@@ -236,6 +255,18 @@ export function QuestionarioServico({
         </div>
 
         {calculando && <p className="mt-4 text-sm text-slate-500">Calculando preço...</p>}
+
+        {erro && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {erro}
+          </div>
+        )}
+
+        {!todasRespondidas && fluxo.perguntas.length > 0 && (
+          <p className="mt-4 text-sm text-slate-500">
+            Selecione todas as opções acima para calcular o preço.
+          </p>
+        )}
 
         {preco && (
           <Card className="mt-4 bg-slate-50">
@@ -298,10 +329,52 @@ interface FotosServicoProps {
   onChange: (files: File[]) => void;
 }
 
-export function FotosServicoStep({ nome, labels, arquivos, onChange }: FotosServicoProps) {
-  const adicionar = (files: FileList | null) => {
-    if (!files?.length) return;
-    onChange([...arquivos, ...Array.from(files)]);
+function BotaoEnviarFoto({
+  label = 'Enviar foto',
+  multiple = true,
+  onFiles,
+}: {
+  label?: string;
+  multiple?: boolean;
+  onFiles: (files: File[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple={multiple}
+        className="sr-only"
+        onChange={(e) => {
+          if (e.target.files?.length) onFiles(Array.from(e.target.files));
+          e.target.value = '';
+        }}
+      />
+      <Button
+        type="button"
+        variant="cta"
+        className="w-full sm:w-auto"
+        onClick={() => inputRef.current?.click()}
+      >
+        📷 {label}
+      </Button>
+    </div>
+  );
+}
+
+export function FotosServicoStep({ slug, nome, labels, arquivos, onChange }: FotosServicoProps) {
+  const adicionar = (files: File[]) => {
+    if (!files.length) return;
+    onChange([...arquivos, ...files]);
+    gtmPush('agendar_foto_enviada', {
+      servico_slug: slug,
+      servico_nome: nome,
+      qtd_fotos: files.length,
+      total_fotos: arquivos.length + files.length,
+    });
   };
 
   const remover = (idx: number) => {
@@ -311,23 +384,14 @@ export function FotosServicoStep({ nome, labels, arquivos, onChange }: FotosServ
   return (
     <div className="mb-6">
       <h4 className="font-semibold text-primary-800">{nome}</h4>
-      <p className="mb-2 text-xs text-slate-500">Fotos sugeridas: {labels.join(', ')}</p>
-      <input
-        type="file"
-        accept="image/*"
-        multiple
-        className="mb-2 block w-full text-sm"
-        onChange={(e) => {
-          adicionar(e.target.files);
-          e.target.value = '';
-        }}
-      />
+      <p className="mb-3 text-xs text-slate-500">Fotos sugeridas: {labels.join(', ')}</p>
+      <BotaoEnviarFoto onFiles={adicionar} />
       {arquivos.length > 0 && (
-        <ul className="space-y-1 text-sm text-slate-600">
+        <ul className="mt-3 space-y-1 text-sm text-slate-600">
           {arquivos.map((f, i) => (
-            <li key={i} className="flex items-center justify-between gap-2">
-              <span className="truncate">{f.name}</span>
-              <button type="button" className="text-red-500" onClick={() => remover(i)}>
+            <li key={i} className="flex items-center justify-between gap-2 rounded-lg border border-abs-gray bg-white px-3 py-2">
+              <span className="truncate">✓ {f.name}</span>
+              <button type="button" className="shrink-0 text-red-500" onClick={() => remover(i)}>
                 Remover
               </button>
             </li>
@@ -348,8 +412,22 @@ interface NavProps {
 export function QuestionarioNav({ onVoltar, onAvancar, avancarLabel = 'Continuar', disabled }: NavProps) {
   return (
     <div className="mt-6 flex flex-wrap gap-2 border-t pt-4">
-      <Button onClick={onVoltar}>Voltar</Button>
-      <Button variant="cta" onClick={onAvancar} disabled={disabled}>
+      <Button
+        onClick={() => {
+          gtmPush('agendar_nav_voltar', { botao: 'Voltar' });
+          onVoltar();
+        }}
+      >
+        Voltar
+      </Button>
+      <Button
+        variant="cta"
+        onClick={() => {
+          gtmPush('agendar_nav_avancar', { botao: avancarLabel });
+          onAvancar();
+        }}
+        disabled={disabled}
+      >
         {avancarLabel}
       </Button>
     </div>

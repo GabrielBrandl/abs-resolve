@@ -7,6 +7,7 @@ import { imagemServicoComRespostas, MARGEM_ERRO_IA_PERCENT } from '../../config/
 import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal, Logo } from '../../components/ui';
 import { QuestionarioServico, FotosServicoStep, QuestionarioNav, type PrecoCalculado } from '../../components/cliente/QuestionarioServico';
 import { useToast } from '../../components/Toast';
+import { gtmEtapaAgendar, gtmPush } from '../../utils/gtm';
 
 type Step = 'catalogo' | 'carrinho' | 'questionario' | 'resumo' | 'fotos' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
 
@@ -81,11 +82,23 @@ function PixQrArea({ pixCode, invoiceUrl }: { pixCode?: string; invoiceUrl?: str
             />
           </div>
           <p className="mb-1 text-xs font-medium text-green-800">PIX copia e cola:</p>
-          <textarea readOnly value={pixCode} className="w-full rounded border p-2 text-xs" rows={3} />
+          <textarea
+            readOnly
+            value={pixCode}
+            className="w-full rounded border p-2 text-xs"
+            rows={3}
+            onFocus={() => gtmPush('agendar_pix_copia_cola_focado')}
+          />
         </>
       )}
       {invoiceUrl && (
-        <a href={invoiceUrl} target="_blank" rel="noreferrer" className="mt-2 block text-center text-sm text-primary-600 underline">
+        <a
+          href={invoiceUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 block text-center text-sm text-primary-600 underline"
+          onClick={() => gtmPush('agendar_pagamento_link_externo', { url: invoiceUrl })}
+        >
           Abrir link de pagamento
         </a>
       )}
@@ -171,6 +184,14 @@ export function AgendarServicoPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (loading) return;
+    gtmEtapaAgendar(step, {
+      solicitacao_id: solicitacaoId || undefined,
+      itens_carrinho: cart.count(),
+    });
+  }, [step, loading]);
+
   const usouDiagnosticoIa = useMemo(
     () => cart.items.some((item) => (diagnosticoIaPorSlug[item.slug]?.fotos.length ?? 0) > 0),
     [cart.items, diagnosticoIaPorSlug]
@@ -243,6 +264,11 @@ export function AgendarServicoPage() {
           if (pollRef.current) clearInterval(pollRef.current);
           setAguardandoPagamento(false);
           cart.clear();
+          gtmPush('agendar_pagamento_confirmado', {
+            solicitacao_id: solId,
+            pedido_id: status.pedidoId,
+            pedido_numero: status.pedidoNumero,
+          });
           toast('Pagamento confirmado! Escolha o horário de atendimento.', 'success');
           setStep('horario');
         }
@@ -383,6 +409,11 @@ export function AgendarServicoPage() {
 
       setSolicitacaoId(sol.id);
       setPreco(Number(sol.precoFinal));
+      gtmPush('agendar_pedido_criado', {
+        solicitacao_id: sol.id,
+        valor: Number(sol.precoFinal),
+        qtd_itens: cart.items.length,
+      });
       setStep('pagamento');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao criar pedido', 'error');
@@ -394,11 +425,23 @@ export function AgendarServicoPage() {
   const pagar = async (metodo: string) => {
     setSubmitting(true);
     try {
+      gtmPush('agendar_pagamento_iniciado', {
+        solicitacao_id: solicitacaoId,
+        metodo,
+        valor: preco,
+      });
       const res = await solicitacaoApi.pagar(solicitacaoId, metodo) as {
         pagamento: { id?: string; invoiceUrl?: string; pixCode?: string };
       };
       setPagamento(res.pagamento);
       cart.clear();
+      gtmPush(metodo === 'PIX' ? 'agendar_pagamento_pix_gerado' : 'agendar_pagamento_cartao_gerado', {
+        solicitacao_id: solicitacaoId,
+        metodo,
+        valor: preco,
+        tem_invoice: Boolean(res.pagamento?.invoiceUrl),
+        tem_pix: Boolean(res.pagamento?.pixCode),
+      });
       setStep('aguardando');
       iniciarPolling(solicitacaoId);
       toast('Pagamento gerado! Aguardando confirmação...', 'success');
@@ -415,6 +458,12 @@ export function AgendarServicoPage() {
     try {
       await solicitacaoApi.agendar(solicitacaoId, slotSel);
       if (pollRef.current) clearInterval(pollRef.current);
+      gtmPush('agendar_horario_confirmado', {
+        solicitacao_id: solicitacaoId,
+        data: slotSel.data,
+        horario_inicio: slotSel.horarioInicio,
+        horario_fim: slotSel.horarioFim,
+      });
       setStep('concluido');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao agendar', 'error');
@@ -580,6 +629,12 @@ export function AgendarServicoPage() {
                             precoTexto: s.precoTexto || '',
                             tipoPreco: s.tipoPreco,
                             imagemUrl: s.imagemUrl,
+                          });
+                          gtmPush('agendar_servico_adicionado_carrinho', {
+                            servico_slug: s.slug,
+                            servico_nome: s.nome,
+                            categoria: s.categoria,
+                            valor: s.precoMinimo ? Number(s.precoMinimo) : 0,
                           });
                           toast(`${s.nome} adicionado`, 'success');
                         }}
@@ -844,7 +899,15 @@ export function AgendarServicoPage() {
                 <button
                   key={i}
                   type="button"
-                  onClick={() => setSlotSel({ data: s.data, horarioInicio: s.horarioInicio, horarioFim: s.horarioFim })}
+                  onClick={() => {
+                    setSlotSel({ data: s.data, horarioInicio: s.horarioInicio, horarioFim: s.horarioFim });
+                    gtmPush('agendar_horario_selecionado', {
+                      solicitacao_id: solicitacaoId,
+                      data: s.data,
+                      horario_inicio: s.horarioInicio,
+                      label: s.label,
+                    });
+                  }}
                   className={`flex w-full flex-col items-start gap-2 rounded-lg border p-3 text-left sm:flex-row sm:items-center sm:justify-between ${
                     slotSel?.data === s.data && slotSel?.horarioInicio === s.horarioInicio
                       ? 'border-primary-600 bg-primary-50' : 'border-abs-gray'

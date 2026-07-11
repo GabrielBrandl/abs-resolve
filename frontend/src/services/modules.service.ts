@@ -1,4 +1,5 @@
 import { api } from './api';
+import { mensagemErroApi } from '../utils/api-error';
 import type {
   ApiResponse, Cliente, Lead, Pedido, Pagamento, Servico, OrdemServico, DashboardKPIs,
   PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
@@ -7,33 +8,53 @@ import type {
 } from '../types';
 
 async function get<T>(url: string) {
-  const { data } = await api.get<ApiResponse<T>>(url);
-  if (!data.success) throw new Error(data.error);
-  return data.data!;
+  try {
+    const { data } = await api.get<ApiResponse<T>>(url);
+    if (!data.success) throw new Error(data.error || 'Erro na requisição');
+    return data.data!;
+  } catch (err) {
+    throw new Error(mensagemErroApi(err));
+  }
 }
 
 async function post<T>(url: string, body?: unknown) {
-  const { data } = await api.post<ApiResponse<T>>(url, body);
-  if (!data.success) throw new Error(data.error);
-  return data.data!;
+  try {
+    const { data } = await api.post<ApiResponse<T>>(url, body);
+    if (!data.success) throw new Error(data.error || 'Erro na requisição');
+    return data.data!;
+  } catch (err) {
+    throw new Error(mensagemErroApi(err));
+  }
 }
 
 async function put<T>(url: string, body?: unknown) {
-  const { data } = await api.put<ApiResponse<T>>(url, body);
-  if (!data.success) throw new Error(data.error);
-  return data.data!;
+  try {
+    const { data } = await api.put<ApiResponse<T>>(url, body);
+    if (!data.success) throw new Error(data.error || 'Erro na requisição');
+    return data.data!;
+  } catch (err) {
+    throw new Error(mensagemErroApi(err));
+  }
 }
 
 async function patch<T>(url: string, body?: unknown) {
-  const { data } = await api.patch<ApiResponse<T>>(url, body);
-  if (!data.success) throw new Error(data.error);
-  return data.data!;
+  try {
+    const { data } = await api.patch<ApiResponse<T>>(url, body);
+    if (!data.success) throw new Error(data.error || 'Erro na requisição');
+    return data.data!;
+  } catch (err) {
+    throw new Error(mensagemErroApi(err));
+  }
 }
 
 async function del<T>(url: string) {
-  const { data } = await api.delete<ApiResponse<T>>(url);
-  if (!data.success) throw new Error(data.error);
-  return data.data!;
+  try {
+    const { data } = await api.delete<ApiResponse<T>>(url);
+    if (!data.success) throw new Error(data.error || 'Erro na requisição');
+    return data.data!;
+  } catch (err) {
+    throw new Error(mensagemErroApi(err));
+  }
 }
 
 export const clientesApi = {
