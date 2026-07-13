@@ -18,6 +18,7 @@ router.use(authMiddleware, checkRole('cliente'));
 router.post('/orcamento', (req, res) => solicitacaoController.solicitarOrcamento(req, res));
 
 router.get('/minhas', (req, res) => solicitacaoController.minhas(req, res));
+router.get('/desconto-primeiro-servico', (req, res) => solicitacaoController.descontoPrimeiroServico(req, res));
 router.post('/carrinho', (req, res) => solicitacaoController.criarCarrinho(req, res));
 router.post('/', (req, res) => solicitacaoController.criar(req, res));
 router.post('/:id/checkout', (req, res) => solicitacaoController.checkout(req, res));

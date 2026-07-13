@@ -52,6 +52,22 @@ export class SolicitacaoController {
     }
   }
 
+  async descontoPrimeiroServico(req: Request, res: Response) {
+    try {
+      const clienteId = await clienteIdFromReq(req);
+      const elegivel = await solicitacaoService.clienteElegivelDescontoPrimeiroServico(clienteId);
+      return success(res, {
+        elegivel,
+        percentual: 10,
+        mensagem: elegivel
+          ? '10% de desconto no primeiro serviço (PIX, crédito ou débito).'
+          : 'Desconto de primeiro serviço já utilizado.',
+      });
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async criarCarrinho(req: Request, res: Response) {
     try {
       const clienteId = await clienteIdFromReq(req);

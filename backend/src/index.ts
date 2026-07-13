@@ -60,7 +60,7 @@ function corsAllowedOrigins(): string[] {
     (v): v is string => !!v && !v.includes('$(PRIMARY_DOMAIN)')
   );
   if (process.env.NODE_ENV !== 'production') {
-    origins.push('http://localhost:5173', 'http://localhost:5174');
+    origins.push('http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175');
   }
   return origins;
 }

@@ -202,7 +202,13 @@ export class SolicitacaoService {
 
     const config = await getConfigPrecificacao();
     const expressValor = express ? toNumber(config.expressValor) : 0;
-    const precoFinal = precoSubtotal + expressValor;
+
+    const elegivelPrimeiroServico = await this.clienteElegivelDescontoPrimeiroServico(clienteId);
+    const percentualDesconto = elegivelPrimeiroServico ? 10 : 0;
+    const valorDesconto = elegivelPrimeiroServico
+      ? Math.round(precoSubtotal * (percentualDesconto / 100) * 100) / 100
+      : 0;
+    const precoFinal = Math.max(0, precoSubtotal - valorDesconto) + expressValor;
 
     const anchor = await prisma.catalogoServico.findUnique({ where: { slug: itens[0].slug } });
     if (!anchor) throw new Error('Serviço inválido');
@@ -220,6 +226,9 @@ export class SolicitacaoService {
           requerValidacaoTecnica: false,
           aceiteIaDiagnostico,
           aceiteIaEm: aceiteIaDiagnostico ? new Date().toISOString() : undefined,
+          descontoPrimeiroServico: percentualDesconto || undefined,
+          valorDesconto: valorDesconto || undefined,
+          elegivelPrimeiroServico,
         },
         fotos: fotosTodas,
         precoBase: precoSubtotal,
@@ -231,25 +240,77 @@ export class SolicitacaoService {
     });
   }
 
+  /** Novo cliente: 10% no primeiro serviço pago (PIX/cartão). */
+  async clienteElegivelDescontoPrimeiroServico(clienteId: string) {
+    const pagos = await prisma.pagamento.count({
+      where: { clienteId, status: 'RECEIVED' },
+    });
+    return pagos === 0;
+  }
+
   async atualizarCheckout(id: string, clienteId: string, express: boolean) {
     const sol = await prisma.solicitacaoServico.findFirst({ where: { id, clienteId } });
     if (!sol) throw new Error('Solicitação não encontrada');
     if (sol.status !== 'checkout') throw new Error('Checkout indisponível');
 
-    const opcoes = sol.opcoes as { itens?: unknown[]; pontosTotal?: number };
+    const opcoes = (sol.opcoes || {}) as {
+      itens?: unknown[];
+      pontosTotal?: number;
+      valorDesconto?: number;
+      descontoPrimeiroServico?: number;
+      elegivelPrimeiroServico?: boolean;
+    };
     const config = await getConfigPrecificacao();
     const base = toNumber(sol.precoBase || 0);
     const expressValor = express ? toNumber(config.expressValor) : 0;
+    const elegivel = await this.clienteElegivelDescontoPrimeiroServico(clienteId);
+    const percentualDesconto = elegivel ? 10 : 0;
+    const valorDesconto = elegivel ? Math.round(base * (percentualDesconto / 100) * 100) / 100 : 0;
 
     return prisma.solicitacaoServico.update({
       where: { id },
       data: {
         express,
-        precoFinal: base + expressValor,
-        opcoes: { ...opcoes, pontosTotal: opcoes.pontosTotal } as Prisma.InputJsonValue,
+        precoFinal: Math.max(0, base - valorDesconto) + expressValor,
+        opcoes: {
+          ...opcoes,
+          pontosTotal: opcoes.pontosTotal,
+          descontoPrimeiroServico: percentualDesconto || undefined,
+          valorDesconto: valorDesconto || undefined,
+          elegivelPrimeiroServico: elegivel,
+        } as Prisma.InputJsonValue,
         status: 'checkout',
       },
       include: { servico: true },
+    });
+  }
+
+  /** Recalcula desconto de 1º serviço antes de gerar cobrança. */
+  async aplicarDescontoPrimeiroServicoNoCheckout(id: string, clienteId: string) {
+    const sol = await prisma.solicitacaoServico.findFirst({ where: { id, clienteId } });
+    if (!sol) throw new Error('Solicitação não encontrada');
+
+    const opcoes = (sol.opcoes || {}) as Record<string, unknown>;
+    const config = await getConfigPrecificacao();
+    const base = toNumber(sol.precoBase || 0);
+    const expressValor = sol.express ? toNumber(config.expressValor) : 0;
+    const elegivel = await this.clienteElegivelDescontoPrimeiroServico(clienteId);
+    const percentualDesconto = elegivel ? 10 : 0;
+    const valorDesconto = elegivel ? Math.round(base * (percentualDesconto / 100) * 100) / 100 : 0;
+    const precoFinal = Math.max(0, base - valorDesconto) + expressValor;
+
+    return prisma.solicitacaoServico.update({
+      where: { id },
+      data: {
+        precoFinal,
+        opcoes: {
+          ...opcoes,
+          descontoPrimeiroServico: percentualDesconto || undefined,
+          valorDesconto: valorDesconto || undefined,
+          elegivelPrimeiroServico: elegivel,
+        } as Prisma.InputJsonValue,
+      },
+      include: { servico: true, cliente: true, agendamento: true },
     });
   }
 
@@ -494,7 +555,7 @@ export class SolicitacaoService {
   }
 
   async finalizarPagamento(id: string, clienteId: string, metodo: 'PIX' | 'BOLETO' | 'CARTAO') {
-    const sol = await prisma.solicitacaoServico.findFirst({
+    let sol = await prisma.solicitacaoServico.findFirst({
       where: { id, clienteId },
       include: { servico: true, cliente: true, agendamento: true },
     });
@@ -503,6 +564,7 @@ export class SolicitacaoService {
       throw new Error('Checkout inválido para pagamento');
     }
 
+    sol = await this.aplicarDescontoPrimeiroServicoNoCheckout(id, clienteId);
     const valor = toNumber(sol.precoFinal || 0);
     const numero = `ABS-${Date.now().toString().slice(-8)}`;
 

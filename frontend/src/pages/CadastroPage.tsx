@@ -92,6 +92,10 @@ export function CadastroPage() {
         </div>
 
         <Card>
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            <strong>Boas-vindas:</strong> ao se cadastrar, você ganha <strong>10% de desconto</strong> no
+            primeiro serviço — válido no PIX, crédito ou débito.
+          </div>
           {ref && (
             <div className="mb-4 rounded-lg bg-accent-500/15 px-4 py-3 text-sm text-primary-700">
               Você foi indicado pelo parceiro <span className="font-semibold">{ref}</span>.

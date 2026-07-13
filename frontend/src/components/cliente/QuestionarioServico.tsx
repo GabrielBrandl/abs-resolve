@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { diagnosticoApi, solicitacaoApi } from '../../services/modules.service';
+import { Link } from 'react-router-dom';
+import { solicitacaoApi } from '../../services/modules.service';
 import { formatCurrency } from '../../types';
 import {
   imagemParaOpcao,
   imagemServicoComRespostas,
-  MARGEM_ERRO_IA_PERCENT,
   temImagemOpcao,
 } from '../../config/imagens-opcoes';
-import { mapearDiagnosticoParaRespostas } from '../../utils/mapear-diagnostico';
 import { gtmPush } from '../../utils/gtm';
 import { Button, Card, Loading, Logo, TextoComMarca } from '../ui';
 
@@ -49,7 +48,6 @@ interface Props {
   onResposta: (perguntaId: string, valor: string) => void;
   onPrecoChange: (preco: PrecoCalculado | null) => void;
   onRespostasBulk?: (patch: Record<string, string>) => void;
-  onDiagnosticoIaUsado?: (dados: { fotos: File[]; mensagem?: string }) => void;
 }
 
 export function QuestionarioServico({
@@ -60,17 +58,12 @@ export function QuestionarioServico({
   respostas,
   onResposta,
   onPrecoChange,
-  onRespostasBulk,
-  onDiagnosticoIaUsado,
 }: Props) {
   const [fluxo, setFluxo] = useState<FluxoServicoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [calculando, setCalculando] = useState(false);
   const [preco, setPreco] = useState<PrecoCalculado | null>(null);
   const [erro, setErro] = useState('');
-  const [fotosIa, setFotosIa] = useState<File[]>([]);
-  const [analisandoIa, setAnalisandoIa] = useState(false);
-  const [msgIa, setMsgIa] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -126,39 +119,6 @@ export function QuestionarioServico({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, quantidade, respostas, todasRespondidas]);
 
-  const analisarComIa = async () => {
-    if (!fotosIa.length) {
-      setErro('Envie pelo menos uma foto para a IA identificar');
-      return;
-    }
-    setAnalisandoIa(true);
-    setErro('');
-    try {
-      const res = await diagnosticoApi.analisar(fotosIa, undefined, slug);
-      const spec = res.analise?.especificacao as { tipo?: string | null } | undefined;
-      let mensagemIa = '';
-      if (spec) {
-        const patch = mapearDiagnosticoParaRespostas(slug, spec);
-        if (Object.keys(patch).length && onRespostasBulk) {
-          onRespostasBulk(patch);
-          mensagemIa = `IA identificou: ${res.analise.produtoIdentificado || spec.tipo || 'produto'} (${res.analise.confianca ?? '—'}% confiança). Campos preenchidos automaticamente — confira antes de continuar.`;
-          setMsgIa(mensagemIa);
-        } else {
-          mensagemIa = `IA: ${res.analise.produtoIdentificado || res.analise.descricao || 'Análise concluída'}. Ajuste as respostas manualmente se necessário.`;
-          setMsgIa(mensagemIa);
-        }
-      } else {
-        mensagemIa = `IA: ${res.analise?.produtoIdentificado || res.analise?.descricao || 'Análise concluída'}.`;
-        setMsgIa(mensagemIa);
-      }
-      onDiagnosticoIaUsado?.({ fotos: [...fotosIa], mensagem: mensagemIa });
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro na análise IA');
-    } finally {
-      setAnalisandoIa(false);
-    }
-  };
-
   if (loading) return <Loading />;
   if (erro && !fluxo) return <p className="text-red-600">{erro}</p>;
   if (!fluxo) return null;
@@ -174,28 +134,13 @@ export function QuestionarioServico({
             Este serviço usa <strong>preço fixo</strong>. O valor será confirmado automaticamente abaixo.
           </div>
         ) : (
-        <Card className="mb-4 border border-blue-100 bg-blue-50/50">
-          <p className="mb-2 text-sm font-semibold text-primary-800">Não sabe o tipo? Use a IA</p>
-          <p className="mb-3 text-xs text-slate-600">
-            O diagnóstico é feito por inteligência artificial e pode conter erros (margem estimada de até{' '}
-            {MARGEM_ERRO_IA_PERCENT}%). Envie uma foto nítida do produto/local.
-          </p>
-          <BotaoEnviarFoto
-            multiple
-            label="Enviar foto para IA"
-            onFiles={(files) => {
-              setFotosIa(files);
-              gtmPush('agendar_foto_ia_enviada', { servico_slug: slug, qtd_fotos: files.length });
-            }}
-          />
-          {fotosIa.length > 0 && (
-            <p className="mt-2 text-xs text-slate-600">{fotosIa.length} foto(s) selecionada(s)</p>
-          )}
-          <Button variant="cta" className="mt-2 text-sm" disabled={analisandoIa} onClick={analisarComIa}>
-            {analisandoIa ? 'Analisando...' : 'Identificar com IA'}
-          </Button>
-          {msgIa && <p className="mt-2 text-xs text-green-700">{msgIa}</p>}
-        </Card>
+        <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          Prefere conversar em vez de preencher tudo de uma vez? Use o{' '}
+          <Link to="/cliente/diagnostico" className="font-semibold text-primary-700 underline">
+            Consultor ABS
+          </Link>
+          .
+        </div>
         )}
 
         <div className="space-y-4">

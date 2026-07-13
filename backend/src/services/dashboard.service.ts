@@ -2,61 +2,50 @@ import { prisma } from '../utils/prisma.js';
 import { toNumber } from '../utils/helpers.js';
 import { getConfigPrecificacao, estimarLucro } from '../engines/pricing.engine.js';
 
-/** Meia-noite (ou 1º do mês) no fuso America/Sao_Paulo, como Date UTC. */
-function inicioDiaBrasil(ref = new Date()): Date {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+function ymdBrasil(ref = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).formatToParts(ref);
-  const y = parts.find((p) => p.type === 'year')!.value;
-  const m = parts.find((p) => p.type === 'month')!.value;
-  const d = parts.find((p) => p.type === 'day')!.value;
-  return new Date(`${y}-${m}-${d}T00:00:00-03:00`);
+  }).format(ref);
 }
 
 function inicioMesBrasil(ref = new Date()): Date {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-  }).formatToParts(ref);
-  const y = parts.find((p) => p.type === 'year')!.value;
-  const m = parts.find((p) => p.type === 'month')!.value;
+  const [y, m] = ymdBrasil(ref).split('-');
   return new Date(`${y}-${m}-01T00:00:00-03:00`);
 }
 
-/** Pagamentos RECEIVED no intervalo; usa paymentDate ou createdAt se paymentDate for null. */
-function filtroRecebidoNoPeriodo(inicio: Date, fim?: Date) {
-  const range = fim ? { gte: inicio, lt: fim } : { gte: inicio };
-  return {
-    status: 'RECEIVED' as const,
-    OR: [
-      { paymentDate: range },
-      { paymentDate: null, createdAt: range },
-    ],
-  };
+function dataEfetivaPagamento(p: { paymentDate: Date | null; createdAt: Date }) {
+  return p.paymentDate ?? p.createdAt;
+}
+
+function pagamentoNoDiaBrasil(p: { paymentDate: Date | null; createdAt: Date }, diaYmd: string) {
+  return ymdBrasil(dataEfetivaPagamento(p)) === diaYmd;
+}
+
+function pagamentoNoMesBrasil(p: { paymentDate: Date | null; createdAt: Date }, mesPrefix: string) {
+  return ymdBrasil(dataEfetivaPagamento(p)).startsWith(mesPrefix);
 }
 
 export class DashboardService {
   async getKPIs() {
-    const inicioMes = inicioMesBrasil();
-    const inicioDia = inicioDiaBrasil();
-    const fimDia = new Date(inicioDia);
-    fimDia.setDate(fimDia.getDate() + 1);
+    const agora = new Date();
+    const hojeYmd = ymdBrasil(agora);
+    const mesPrefix = hojeYmd.slice(0, 7);
+    const inicioMes = inicioMesBrasil(agora);
+    const inicioJanela = new Date(inicioMes);
+    inicioJanela.setDate(inicioJanela.getDate() - 2);
 
     const [
       totalLeads,
       leadsFechados,
       totalPedidos,
-      pedidosFinalizados,
       pedidosCancelados,
       osEmAndamento,
       osConcluidas,
       pagamentosRecebidos,
-      pagamentosMes,
-      pagamentosDia,
+      pagamentosJanela,
       totalClientes,
       leadsPorEtapa,
       pedidosPorStatus,
@@ -68,13 +57,19 @@ export class DashboardService {
       prisma.lead.count(),
       prisma.lead.count({ where: { etapa: 'fechado' } }),
       prisma.pedido.count(),
-      prisma.pedido.count({ where: { status: 'finalizado' } }),
       prisma.pedido.count({ where: { status: 'cancelado' } }),
       prisma.ordemServico.count({ where: { etapa: { notIn: ['conclusao', 'avaliacao'] } } }),
       prisma.ordemServico.count({ where: { etapa: { in: ['conclusao', 'avaliacao'] } } }),
       prisma.pagamento.findMany({ where: { status: 'RECEIVED' } }),
-      prisma.pagamento.findMany({ where: filtroRecebidoNoPeriodo(inicioMes) }),
-      prisma.pagamento.findMany({ where: filtroRecebidoNoPeriodo(inicioDia, fimDia) }),
+      prisma.pagamento.findMany({
+        where: {
+          status: 'RECEIVED',
+          OR: [
+            { paymentDate: { gte: inicioJanela } },
+            { paymentDate: null, createdAt: { gte: inicioJanela } },
+          ],
+        },
+      }),
       prisma.cliente.count({ where: { status: 'ativo' } }),
       prisma.lead.groupBy({ by: ['etapa'], _count: true }),
       prisma.pedido.groupBy({ by: ['status'], _count: true }),
@@ -87,12 +82,17 @@ export class DashboardService {
       prisma.campanhaCrm.count({ where: { status: 'pendente' } }),
     ]);
 
+    const pagamentosMes = pagamentosJanela.filter((p) => pagamentoNoMesBrasil(p, mesPrefix));
+    const pagamentosDia = pagamentosJanela.filter((p) => pagamentoNoDiaBrasil(p, hojeYmd));
+
     const receitaTotal = pagamentosRecebidos.reduce((s, p) => s + toNumber(p.valor), 0);
     const receitaMes = pagamentosMes.reduce((s, p) => s + toNumber(p.valor), 0);
     const faturamentoDiario = pagamentosDia.reduce((s, p) => s + toNumber(p.valor), 0);
-    const ticketMedio = pedidosFinalizados > 0 ? receitaTotal / pedidosFinalizados : 0;
+    const nTickets = pagamentosRecebidos.length;
+    const ticketMedio = nTickets > 0 ? receitaTotal / nTickets : 0;
     const taxaConversao = totalLeads > 0 ? (leadsFechados / totalLeads) * 100 : 0;
     const clientesRecorrentesCount = clientesRecorrentes.filter((c) => c._count._all > 1).length;
+    const pedidosFinalizados = pedidosPorStatus.find((p) => p.status === 'finalizado')?._count ?? 0;
 
     const vencidos = await prisma.pagamento.count({ where: { status: 'OVERDUE' } });
     const totalPagamentos = pagamentosRecebidos.length + vencidos;
@@ -168,14 +168,7 @@ export class DashboardService {
 
     const porMes: Record<string, number> = {};
     pagamentos.forEach((p) => {
-      const data = p.paymentDate ?? p.createdAt;
-      const key = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/Sao_Paulo',
-        year: 'numeric',
-        month: '2-digit',
-      })
-        .format(data)
-        .slice(0, 7);
+      const key = ymdBrasil(dataEfetivaPagamento(p)).slice(0, 7);
       porMes[key] = (porMes[key] || 0) + toNumber(p.valor);
     });
 
@@ -186,21 +179,29 @@ export class DashboardService {
 
   async getFaturamentoDiario(dias = 14) {
     const resultado: { dia: string; valor: number }[] = [];
-    const hojeInicio = inicioDiaBrasil();
+    const hojeYmd = ymdBrasil();
+    const [y, m, d] = hojeYmd.split('-').map(Number);
+    const inicioJanela = new Date(Date.UTC(y, m - 1, d - (dias + 1)));
+
+    const pagamentos = await prisma.pagamento.findMany({
+      where: {
+        status: 'RECEIVED',
+        OR: [
+          { paymentDate: { gte: inicioJanela } },
+          { paymentDate: null, createdAt: { gte: inicioJanela } },
+        ],
+      },
+      select: { valor: true, paymentDate: true, createdAt: true },
+    });
 
     for (let i = dias - 1; i >= 0; i--) {
-      const inicio = new Date(hojeInicio);
-      inicio.setDate(inicio.getDate() - i);
-      const fim = new Date(inicio);
-      fim.setDate(fim.getDate() + 1);
-
-      const pagamentos = await prisma.pagamento.findMany({
-        where: filtroRecebidoNoPeriodo(inicio, fim),
-      });
-      resultado.push({
-        dia: inicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' }),
-        valor: pagamentos.reduce((s, p) => s + toNumber(p.valor), 0),
-      });
+      const ref = new Date(Date.UTC(y, m - 1, d - i, 15, 0, 0));
+      const diaKey = ymdBrasil(ref);
+      const valor = pagamentos
+        .filter((p) => ymdBrasil(dataEfetivaPagamento(p)) === diaKey)
+        .reduce((s, p) => s + toNumber(p.valor), 0);
+      const [, mm, dd] = diaKey.split('-');
+      resultado.push({ dia: `${dd}/${mm}`, valor });
     }
 
     return resultado;

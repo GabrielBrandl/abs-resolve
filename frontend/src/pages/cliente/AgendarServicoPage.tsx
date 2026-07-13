@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { solicitacaoApi } from '../../services/modules.service';
 import { useCartStore } from '../../store/cartStore';
 import { formatCurrency } from '../../types';
-import { imagemServicoComRespostas, MARGEM_ERRO_IA_PERCENT } from '../../config/imagens-opcoes';
+import { imagemServicoComRespostas } from '../../config/imagens-opcoes';
 import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal, Logo } from '../../components/ui';
 import { QuestionarioServico, FotosServicoStep, QuestionarioNav, type PrecoCalculado } from '../../components/cliente/QuestionarioServico';
 import { useToast } from '../../components/Toast';
@@ -133,20 +133,24 @@ export function AgendarServicoPage() {
   const [precosPorSlug, setPrecosPorSlug] = useState<Record<string, PrecoCalculado | null>>({});
   const [fotosPorSlug, setFotosPorSlug] = useState<Record<string, File[]>>({});
   const [fluxosFotos, setFluxosFotos] = useState<Record<string, string[]>>({});
-  const [aceiteIa, setAceiteIa] = useState(false);
-  const [diagnosticoIaPorSlug, setDiagnosticoIaPorSlug] = useState<
-    Record<string, { fotos: File[]; mensagem?: string }>
-  >({});
+  const [descontoElegivel, setDescontoElegivel] = useState(false);
+  const [valorDescontoAplicado, setValorDescontoAplicado] = useState(0);
+  const [pctDescontoAplicado, setPctDescontoAplicado] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const previewsIaRef = useRef<string[]>([]);
   const retomouAgendamento = useRef(false);
+  const assistenteImportado = useRef(false);
 
   useEffect(() => {
-    Promise.all([solicitacaoApi.catalogo(), solicitacaoApi.config()])
-      .then(([data, config]) => {
+    Promise.all([
+      solicitacaoApi.catalogo(),
+      solicitacaoApi.config(),
+      solicitacaoApi.descontoPrimeiroServico().catch(() => ({ elegivel: false, percentual: 10 })),
+    ])
+      .then(([data, config, desc]) => {
         setCategorias(data.categorias || []);
         if (data.categorias?.[0]) setCatAtiva(data.categorias[0].slug);
         setExpressValor(config.expressValor);
+        setDescontoElegivel(Boolean(desc.elegivel));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -178,6 +182,46 @@ export function AgendarServicoPage() {
     })();
   }, [searchParams, loading, navigate, setSearchParams, toast]);
 
+  // Importar respostas do Consultor ABS (conversa guiada)
+  useEffect(() => {
+    if (loading || assistenteImportado.current) return;
+    if (searchParams.get('assistente') !== '1') return;
+    const raw = sessionStorage.getItem('abs-guided-selling');
+    if (!raw) return;
+    assistenteImportado.current = true;
+    try {
+      const data = JSON.parse(raw) as {
+        slug: string;
+        nome: string;
+        categoria: string;
+        precoMinimo: number | null;
+        precoTexto: string;
+        tipoPreco: string;
+        imagemUrl?: string | null;
+        respostas: Record<string, string>;
+      };
+      sessionStorage.removeItem('abs-guided-selling');
+      if (!cart.items.some((i) => i.slug === data.slug)) {
+        cart.add({
+          slug: data.slug,
+          nome: data.nome,
+          categoria: data.categoria,
+          precoMinimo: data.precoMinimo,
+          precoTexto: data.precoTexto,
+          tipoPreco: data.tipoPreco,
+          imagemUrl: data.imagemUrl,
+        });
+      }
+      setRespostasPorSlug({ [data.slug]: data.respostas || {} });
+      setItemQuestionarioIdx(0);
+      setStep('questionario');
+      setSearchParams({}, { replace: true });
+      toast('Orçamento do consultor carregado. Confira e continue.', 'success');
+    } catch {
+      sessionStorage.removeItem('abs-guided-selling');
+    }
+  }, [loading, searchParams, setSearchParams, toast, cart]);
+
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -191,39 +235,6 @@ export function AgendarServicoPage() {
       itens_carrinho: cart.count(),
     });
   }, [step, loading]);
-
-  const usouDiagnosticoIa = useMemo(
-    () => cart.items.some((item) => (diagnosticoIaPorSlug[item.slug]?.fotos.length ?? 0) > 0),
-    [cart.items, diagnosticoIaPorSlug]
-  );
-
-  const previewsDiagnosticoIa = useMemo(() => {
-    previewsIaRef.current.forEach((url) => URL.revokeObjectURL(url));
-    const porSlug: Record<string, string[]> = {};
-    const urls: string[] = [];
-    for (const item of cart.items) {
-      const registro = diagnosticoIaPorSlug[item.slug];
-      if (!registro?.fotos.length) continue;
-      porSlug[item.slug] = registro.fotos.map((f) => {
-        const url = URL.createObjectURL(f);
-        urls.push(url);
-        return url;
-      });
-    }
-    previewsIaRef.current = urls;
-    return porSlug;
-  }, [cart.items, diagnosticoIaPorSlug]);
-
-  useEffect(() => {
-    return () => {
-      previewsIaRef.current.forEach((url) => URL.revokeObjectURL(url));
-      previewsIaRef.current = [];
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!usouDiagnosticoIa) setAceiteIa(false);
-  }, [usouDiagnosticoIa]);
 
   useEffect(() => {
     if (step !== 'horario' || !solicitacaoId) return;
@@ -309,6 +320,11 @@ export function AgendarServicoPage() {
     }, 0);
   }, [cart.items, precosPorSlug]);
 
+  const descontoEstimado = descontoElegivel
+    ? Math.round(totalCalculado * 0.1 * 100) / 100
+    : 0;
+  const totalComDescontoEstimado = Math.max(0, totalCalculado - descontoEstimado);
+
   const temValidacaoTecnica = cart.items.some((i) => precosPorSlug[i.slug]?.requerValidacaoTecnica);
 
   const questionarioCompleto = cart.items.every((item) => {
@@ -321,22 +337,6 @@ export function AgendarServicoPage() {
     setRespostasPorSlug((prev) => ({
       ...prev,
       [itemAtual.slug]: { ...(prev[itemAtual.slug] || {}), [perguntaId]: valor },
-    }));
-  };
-
-  const setRespostasBulkAtual = (patch: Record<string, string>) => {
-    if (!itemAtual) return;
-    setRespostasPorSlug((prev) => ({
-      ...prev,
-      [itemAtual.slug]: { ...(prev[itemAtual.slug] || {}), ...patch },
-    }));
-  };
-
-  const registrarDiagnosticoIa = (dados: { fotos: File[]; mensagem?: string }) => {
-    if (!itemAtual) return;
-    setDiagnosticoIaPorSlug((prev) => ({
-      ...prev,
-      [itemAtual.slug]: { fotos: dados.fotos, mensagem: dados.mensagem },
     }));
   };
 
@@ -360,10 +360,6 @@ export function AgendarServicoPage() {
   const irFotos = async () => {
     if (!questionarioCompleto) {
       toast('Complete o questionário de todos os serviços', 'error');
-      return;
-    }
-    if (usouDiagnosticoIa && !aceiteIa) {
-      toast('Aceite o termo sobre diagnóstico por IA para continuar', 'error');
       return;
     }
     const cache: Record<string, string[]> = { ...fluxosFotos };
@@ -394,11 +390,10 @@ export function AgendarServicoPage() {
         quantidade: i.quantidade,
         respostas: respostasPorSlug[i.slug] || {},
       }));
-      const sol = (await solicitacaoApi.criarCarrinho({
+      const sol = await solicitacaoApi.criarCarrinho({
         itens,
         express,
-        aceiteIaDiagnostico: usouDiagnosticoIa && aceiteIa,
-      })) as { id: string; precoFinal: number };
+      });
 
       for (const item of cart.items) {
         const files = fotosPorSlug[item.slug];
@@ -409,10 +404,13 @@ export function AgendarServicoPage() {
 
       setSolicitacaoId(sol.id);
       setPreco(Number(sol.precoFinal));
+      setValorDescontoAplicado(Number(sol.opcoes?.valorDesconto || 0));
+      setPctDescontoAplicado(Number(sol.opcoes?.descontoPrimeiroServico || 0));
       gtmPush('agendar_pedido_criado', {
         solicitacao_id: sol.id,
         valor: Number(sol.precoFinal),
         qtd_itens: cart.items.length,
+        desconto_primeiro_servico: Number(sol.opcoes?.valorDesconto || 0),
       });
       setStep('pagamento');
     } catch (e) {
@@ -529,6 +527,21 @@ export function AgendarServicoPage() {
         title="Solicitar Serviço"
         subtitle="Escolha os serviços, finalize o pagamento e agende o atendimento"
       />
+
+      {descontoElegivel && (
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <strong>Primeiro serviço:</strong> 10% de desconto automático no PIX, crédito ou débito.
+          Prefere conversar? Use o{' '}
+          <button
+            type="button"
+            className="font-semibold underline"
+            onClick={() => navigate('/cliente/diagnostico')}
+          >
+            Consultor ABS
+          </button>
+          .
+        </div>
+      )}
 
       <div className="mb-6 -mx-1 overflow-x-auto px-1">
         <div className="flex min-w-max gap-2 text-xs font-medium">
@@ -719,8 +732,6 @@ export function AgendarServicoPage() {
             respostas={respostasAtual}
             onResposta={setRespostaAtual}
             onPrecoChange={setPrecoAtual}
-            onRespostasBulk={setRespostasBulkAtual}
-            onDiagnosticoIaUsado={registrarDiagnosticoIa}
           />
           <QuestionarioNav
             onVoltar={() => {
@@ -771,56 +782,17 @@ export function AgendarServicoPage() {
               );
             })}
           </ul>
-          {usouDiagnosticoIa && (
-            <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm">
-              <p className="mb-3 font-semibold text-primary-800">Diagnóstico por inteligência artificial</p>
-              <div className="mb-4 space-y-4">
-                {cart.items
-                  .filter((item) => diagnosticoIaPorSlug[item.slug]?.fotos.length)
-                  .map((item) => {
-                    const registro = diagnosticoIaPorSlug[item.slug];
-                    const previews = previewsDiagnosticoIa[item.slug] || [];
-                    return (
-                      <div key={item.slug}>
-                        <p className="mb-2 font-medium text-primary-700">{item.nome}</p>
-                        {registro.mensagem && (
-                          <p className="mb-2 text-xs text-slate-600">{registro.mensagem}</p>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          {previews.map((url, i) => (
-                            <img
-                              key={i}
-                              src={url}
-                              alt={`Foto enviada para diagnóstico — ${item.nome}`}
-                              className="h-28 w-28 rounded-lg border border-blue-200 bg-white object-cover shadow-sm"
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={aceiteIa}
-                  onChange={(e) => setAceiteIa(e.target.checked)}
-                />
-                <span>
-                  Estou ciente de que o diagnóstico por inteligência artificial pode conter imprecisões (margem
-                  estimada de até {MARGEM_ERRO_IA_PERCENT}%) e concordo em prosseguir com o serviço com base nas
-                  informações fornecidas.
-                </span>
-              </label>
-            </div>
-          )}
           <label className="mt-4 flex items-center gap-2 rounded-lg border-2 border-accent-400 bg-accent-50 p-3">
             <input type="checkbox" checked={express} onChange={(e) => setExpress(e.target.checked)} />
             <span className="font-medium">Atendimento Express (+ {formatCurrency(expressValor)})</span>
           </label>
-          <p className="mt-4 text-xl font-bold text-primary-800">
-            Total: {formatCurrency(totalCalculado + (express ? expressValor : 0))}
+          {descontoElegivel && descontoEstimado > 0 && (
+            <p className="mt-3 text-sm text-emerald-700">
+              Desconto novo cliente (10%): −{formatCurrency(descontoEstimado)}
+            </p>
+          )}
+          <p className="mt-2 text-xl font-bold text-primary-800">
+            Total: {formatCurrency(totalComDescontoEstimado + (express ? expressValor : 0))}
           </p>
           <QuestionarioNav
             onVoltar={() => {
@@ -828,7 +800,7 @@ export function AgendarServicoPage() {
               setStep('questionario');
             }}
             onAvancar={irFotos}
-            disabled={!questionarioCompleto || (usouDiagnosticoIa && !aceiteIa)}
+            disabled={!questionarioCompleto}
             avancarLabel="Enviar fotos"
           />
         </Card>
@@ -862,6 +834,11 @@ export function AgendarServicoPage() {
       {step === 'pagamento' && (
         <Card>
           <h3 className="mb-2 text-lg font-bold text-primary-800">Pagamento</h3>
+          {valorDescontoAplicado > 0 && (
+            <p className="mb-2 text-sm text-emerald-700">
+              Desconto primeiro serviço ({pctDescontoAplicado}%): −{formatCurrency(valorDescontoAplicado)}
+            </p>
+          )}
           <p className="mb-4 text-2xl font-bold text-primary-700">{formatCurrency(preco)}</p>
           <label className="mb-4 flex items-center gap-2 rounded-lg border p-3">
             <input type="checkbox" checked={express} onChange={(e) => toggleExpress(e.target.checked)} />

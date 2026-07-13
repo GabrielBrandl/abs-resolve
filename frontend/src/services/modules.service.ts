@@ -217,7 +217,19 @@ export const solicitacaoApi = {
     itens: Array<{ slug: string; quantidade: number; respostas?: Record<string, string>; fotos?: string[] }>;
     express?: boolean;
     aceiteIaDiagnostico?: boolean;
-  }) => post('/solicitacao/carrinho', body),
+  }) =>
+    post<{
+      id: string;
+      precoFinal: number | string;
+      precoBase?: number | string;
+      opcoes?: {
+        valorDesconto?: number;
+        descontoPrimeiroServico?: number;
+        elegivelPrimeiroServico?: boolean;
+      };
+    }>('/solicitacao/carrinho', body),
+  descontoPrimeiroServico: () =>
+    get<{ elegivel: boolean; percentual: number; mensagem: string }>('/solicitacao/desconto-primeiro-servico'),
   fluxo: (slug: string) =>
     get<{
       slug: string;

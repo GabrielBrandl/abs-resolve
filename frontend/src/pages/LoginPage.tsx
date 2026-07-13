@@ -125,6 +125,9 @@ export function LoginPage() {
                 Não tem conta?{' '}
                 <Link to="/cadastro" className="font-semibold text-primary-600">Cadastre-se — obrigatório</Link>
               </p>
+              <p className="mt-2 text-center text-xs text-emerald-700">
+                Novos clientes: 10% de desconto no primeiro serviço (PIX, crédito ou débito).
+              </p>
             </>
           )}
         </form>
