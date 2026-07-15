@@ -1,9 +1,22 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { leadsController } from '../controllers/leads.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { checkRole } from '../middlewares/role.middleware.js';
 
 const router = Router();
+
+const capturaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Muitas tentativas. Aguarde alguns minutos.' },
+});
+
+router.post('/captura-consultor', capturaLimiter, (req, res) =>
+  leadsController.capturarConsultor(req, res)
+);
 
 router.use(authMiddleware);
 router.use(checkRole('admin', 'comercial'));

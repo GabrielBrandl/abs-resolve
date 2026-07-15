@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { solicitacaoApi } from '../../services/modules.service';
 import { formatCurrency } from '../../types';
 import {
@@ -136,9 +135,13 @@ export function QuestionarioServico({
         ) : (
         <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
           Prefere conversar em vez de preencher tudo de uma vez? Use o{' '}
-          <Link to="/cliente/diagnostico" className="font-semibold text-primary-700 underline">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event('abs:abrir-consultor'))}
+            className="font-semibold text-primary-700 underline"
+          >
             Consultor ABS
-          </Link>
+          </button>
           .
         </div>
         )}

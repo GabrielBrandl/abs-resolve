@@ -535,7 +535,7 @@ export function AgendarServicoPage() {
           <button
             type="button"
             className="font-semibold underline"
-            onClick={() => navigate('/cliente/diagnostico')}
+            onClick={() => window.dispatchEvent(new Event('abs:abrir-consultor'))}
           >
             Consultor ABS
           </button>

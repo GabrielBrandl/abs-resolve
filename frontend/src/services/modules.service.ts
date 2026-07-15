@@ -72,6 +72,14 @@ export const clientesApi = {
 };
 
 export const leadsApi = {
+  capturarConsultor: (body: {
+    nome: string;
+    email: string;
+    telefone: string;
+    problema: string;
+    servico?: string;
+    consentimento: boolean;
+  }) => post<{ id: string }>('/leads/captura-consultor', body),
   listar: (params?: Record<string, string>) => get<Lead[]>(`/leads?${new URLSearchParams(params)}`),
   buscar: (id: string) => get<Lead>(`/leads/${id}`),
   criar: (body: unknown) => post<Lead>('/leads', body),

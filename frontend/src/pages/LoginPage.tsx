@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { Button } from '../components/ui';
@@ -26,6 +26,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login, loginCliente, logout } = useAuthStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -55,7 +56,11 @@ export function LoginPage() {
           setError('Esta conta é da equipe. Use a aba Equipe com seu e-mail corporativo.');
           return;
         }
-        navigate('/cliente/agendar');
+        navigate(
+          searchParams.get('assistente') === '1' && sessionStorage.getItem('abs-guided-selling')
+            ? '/cliente/agendar?assistente=1'
+            : '/cliente/agendar'
+        );
       }
     } catch (err) {
       setError(mensagemErro(err));

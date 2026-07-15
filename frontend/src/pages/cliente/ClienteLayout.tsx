@@ -8,7 +8,7 @@ const navItems = [
   { label: 'Pedidos', path: '/cliente', icon: '📦', end: true },
   { label: 'Agendamentos', path: '/cliente/agendamentos', icon: '📅' },
   { label: 'Garantias', path: '/cliente/garantias', icon: '🛡️' },
-  { label: 'Consultor', path: '/cliente/diagnostico', icon: '💬' },
+  { label: 'Diagnóstico', path: '/cliente/diagnostico', icon: '📷' },
   { label: 'Financeiro', path: '/cliente/financeiro', icon: '💰' },
   { label: 'Cadastro', path: '/cliente/cadastro', icon: '👤' },
   { label: 'Documentos', path: '/cliente/documentos', icon: '📄' },

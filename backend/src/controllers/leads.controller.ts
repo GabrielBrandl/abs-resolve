@@ -4,6 +4,15 @@ import { leadsService } from '../services/leads.service.js';
 import { success, error } from '../utils/response.js';
 
 export class LeadsController {
+  async capturarConsultor(req: Request, res: Response) {
+    try {
+      const data = await leadsService.capturarConsultor(req.body);
+      return success(res, { id: data.id }, 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Dados inválidos', 400);
+    }
+  }
+
   async listar(req: Request, res: Response) {
     try {
       const data = await leadsService.listar({

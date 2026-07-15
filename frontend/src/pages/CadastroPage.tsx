@@ -74,7 +74,11 @@ export function CadastroPage() {
         return;
       }
       setAuth(user, result.accessToken);
-      navigate('/cliente/agendar');
+      navigate(
+        params.get('assistente') === '1' && sessionStorage.getItem('abs-guided-selling')
+          ? '/cliente/agendar?assistente=1'
+          : '/cliente/agendar'
+      );
     } catch (err) {
       setError(mensagemErro(err, 'Erro ao cadastrar'));
     } finally {
