@@ -340,6 +340,12 @@ export function AgendarServicoPage() {
     }));
   };
 
+  const resetRespostasAtual = () => {
+    if (!itemAtual) return;
+    setRespostasPorSlug((prev) => ({ ...prev, [itemAtual.slug]: {} }));
+    setPrecosPorSlug((prev) => ({ ...prev, [itemAtual.slug]: null }));
+  };
+
   const setPrecoAtual = (preco: PrecoCalculado | null) => {
     if (!itemAtual) return;
     setPrecosPorSlug((prev) => ({ ...prev, [itemAtual.slug]: preco }));
@@ -347,7 +353,7 @@ export function AgendarServicoPage() {
 
   const avancarQuestionario = () => {
     if (!precoAtual || precoAtual.requerValidacaoTecnica) {
-      toast('Responda todas as perguntas ou aguarde validação técnica', 'error');
+      toast('Conclua a conversa ou aguarde a validação técnica', 'error');
       return;
     }
     if (itemQuestionarioIdx < cart.items.length - 1) {
@@ -359,7 +365,7 @@ export function AgendarServicoPage() {
 
   const irFotos = async () => {
     if (!questionarioCompleto) {
-      toast('Complete o questionário de todos os serviços', 'error');
+      toast('Conclua a conversa de todos os serviços', 'error');
       return;
     }
     const cache: Record<string, string[]> = { ...fluxosFotos };
@@ -501,7 +507,7 @@ export function AgendarServicoPage() {
   const stepLabels: Record<Step, string> = {
     catalogo: 'Catálogo',
     carrinho: 'Carrinho',
-    questionario: 'Perguntas',
+    questionario: 'Conversa',
     resumo: 'Resumo',
     fotos: 'Fotos',
     pagamento: 'Pagamento',
@@ -707,12 +713,12 @@ export function AgendarServicoPage() {
             <p className="text-xl font-bold text-primary-800">
               A partir de: {formatCurrency(cart.total() + (express ? expressValor : 0))}
             </p>
-            <p className="text-xs text-slate-500">O valor final será calculado após o questionário</p>
+            <p className="text-xs text-slate-500">O valor final será calculado durante a conversa</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={() => setStep('catalogo')}>Continuar comprando</Button>
               <Button variant="cta" onClick={irQuestionario} disabled={!cart.count()}>
-                Responder perguntas
+                Conversar e calcular valor
               </Button>
             </div>
           </div>
@@ -732,6 +738,7 @@ export function AgendarServicoPage() {
             respostas={respostasAtual}
             onResposta={setRespostaAtual}
             onPrecoChange={setPrecoAtual}
+            onResetRespostas={resetRespostasAtual}
           />
           <QuestionarioNav
             onVoltar={() => {
