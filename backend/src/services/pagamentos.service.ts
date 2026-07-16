@@ -31,12 +31,17 @@ export class PagamentosService {
     metodo: 'PIX' | 'BOLETO' | 'CARTAO';
     dueDate: string;
     solicitacaoId?: string;
+    installmentCount?: number;
   }) {
     const cliente = await prisma.cliente.findUnique({ where: { id: data.clienteId } });
     if (!cliente) throw new Error('Cliente não encontrado');
 
     const billingMap = { PIX: 'PIX', BOLETO: 'BOLETO', CARTAO: 'CREDIT_CARD' } as const;
     const doc = cliente.cpf || cliente.cnpj || '';
+    const parcelas =
+      data.metodo === 'CARTAO'
+        ? Math.max(1, Math.min(12, Math.floor(data.installmentCount || 1)))
+        : 1;
 
     const asaasCustomer = await asaasService.criarCliente(cliente.nome, cliente.email, doc);
     const cobranca = await asaasService.criarCobranca({
@@ -45,6 +50,7 @@ export class PagamentosService {
       value: data.valor,
       dueDate: data.dueDate,
       description: data.pedidoId ? `Pedido ABS Resolve` : 'Cobrança ABS Resolve',
+      installmentCount: parcelas,
     });
 
     let pagamento = await prisma.pagamento.create({

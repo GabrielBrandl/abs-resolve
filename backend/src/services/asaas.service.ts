@@ -52,11 +52,27 @@ export class AsaasService {
     value: number;
     dueDate: string;
     description?: string;
+    installmentCount?: number;
   }) {
     if (this.mockMode) return mockCobranca();
 
+    const parcelas = Math.max(1, Math.min(12, Math.floor(data.installmentCount || 1)));
+    const payload: Record<string, unknown> = {
+      customer: data.customer,
+      billingType: data.billingType,
+      dueDate: data.dueDate,
+      description: data.description,
+    };
+
+    if (data.billingType === 'CREDIT_CARD' && parcelas >= 2) {
+      payload.installmentCount = parcelas;
+      payload.totalValue = data.value;
+    } else {
+      payload.value = data.value;
+    }
+
     try {
-      const { data: response } = await asaasApi.post('/payments', data);
+      const { data: response } = await asaasApi.post('/payments', payload);
       return response;
     } catch (err) {
       if (this.devFallback) {

@@ -98,6 +98,11 @@ const OPCOES_LOCAL_INTERNO = [
   opcao('cozinha', 'Cozinha'),
   opcao('banheiro', 'Banheiro'),
 ];
+const OPCOES_LOCAL_COM_EXTERNA = [
+  ...OPCOES_LOCAL_INTERNO,
+  opcao('area-externa', 'Área externa'),
+  opcao('comercial', 'Comercial'),
+];
 
 export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
   'troca-tomada': {
@@ -121,7 +126,7 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         opcao('queimada', 'Está queimada'),
         opcao('aquecendo', 'Está aquecendo'),
       ]),
-      pergunta('localInstalacao', 'Local', [...OPCOES_LOCAL_INTERNO, opcao('area-externa', 'Área externa')]),
+      pergunta('localInstalacao', 'Local', OPCOES_LOCAL_COM_EXTERNA),
       pergunta('alturaInstalacao', 'Altura', [
         opcao('ate-2-5m', 'Até 2,5m'),
         opcao('acima-2-5m', 'Acima de 2,5m'),
@@ -174,6 +179,7 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         opcao('cozinha', 'Cozinha'),
         opcao('banheiro', 'Banheiro'),
         opcao('area-externa', 'Área externa'),
+        opcao('comercial', 'Comercial'),
       ]),
       pergunta('alturaInstalacao', 'Altura', [
         opcao('ate-2-5m', 'Até 2,5m'),

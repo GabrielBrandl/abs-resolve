@@ -1153,5 +1153,30 @@
     "slug": "limpeza-pos-obra",
     "perguntaId": "nivelSujeiraPosObra",
     "opcaoId": "alto"
+  },
+  {
+    "slug": "troca-tomada",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "comercial"
+  },
+  {
+    "slug": "troca-interruptor",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "comercial"
+  },
+  {
+    "slug": "troca-torneira",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "comercial"
+  },
+  {
+    "slug": "instalacao-luminaria",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "comercial"
+  },
+  {
+    "slug": "instalacao-ventilador-teto",
+    "perguntaId": "localInstalacao",
+    "opcaoId": "comercial"
   }
 ]

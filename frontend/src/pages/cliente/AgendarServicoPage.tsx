@@ -136,6 +136,8 @@ export function AgendarServicoPage() {
   const [descontoElegivel, setDescontoElegivel] = useState(false);
   const [valorDescontoAplicado, setValorDescontoAplicado] = useState(0);
   const [pctDescontoAplicado, setPctDescontoAplicado] = useState(0);
+  const [metodoPagamento, setMetodoPagamento] = useState<'PIX' | 'CARTAO' | null>(null);
+  const [parcelas, setParcelas] = useState(1);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retomouAgendamento = useRef(false);
   const assistenteImportado = useRef(false);
@@ -426,15 +428,25 @@ export function AgendarServicoPage() {
     }
   };
 
+  const opcoesParcelas = useMemo(() => {
+    const max = preco >= 100 ? 12 : preco >= 50 ? 6 : 3;
+    return Array.from({ length: max }, (_, i) => i + 1).map((n) => ({
+      n,
+      valorParcela: Math.round((preco / n) * 100) / 100,
+    }));
+  }, [preco]);
+
   const pagar = async (metodo: string) => {
     setSubmitting(true);
     try {
+      const installmentCount = metodo === 'CARTAO' ? parcelas : undefined;
       gtmPush('agendar_pagamento_iniciado', {
         solicitacao_id: solicitacaoId,
         metodo,
         valor: preco,
+        parcelas: installmentCount || 1,
       });
-      const res = await solicitacaoApi.pagar(solicitacaoId, metodo) as {
+      const res = (await solicitacaoApi.pagar(solicitacaoId, metodo, installmentCount)) as {
         pagamento: { id?: string; invoiceUrl?: string; pixCode?: string };
       };
       setPagamento(res.pagamento);
@@ -443,6 +455,7 @@ export function AgendarServicoPage() {
         solicitacao_id: solicitacaoId,
         metodo,
         valor: preco,
+        parcelas: installmentCount || 1,
         tem_invoice: Boolean(res.pagamento?.invoiceUrl),
         tem_pix: Boolean(res.pagamento?.pixCode),
       });
@@ -851,10 +864,73 @@ export function AgendarServicoPage() {
             <input type="checkbox" checked={express} onChange={(e) => toggleExpress(e.target.checked)} />
             <span>Express (+ {formatCurrency(expressValor)})</span>
           </label>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="cta" disabled={submitting} onClick={() => pagar('PIX')}>PIX</Button>
-            <Button disabled={submitting} onClick={() => pagar('CARTAO')}>Cartão</Button>
+
+          <p className="mb-2 text-sm font-medium text-primary-800">Forma de pagamento</p>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => {
+                setMetodoPagamento('PIX');
+                setParcelas(1);
+              }}
+              className={`rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+                metodoPagamento === 'PIX'
+                  ? 'border-primary-600 bg-primary-50 text-primary-800'
+                  : 'border-abs-gray bg-white text-slate-700'
+              }`}
+            >
+              PIX
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => setMetodoPagamento('CARTAO')}
+              className={`rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+                metodoPagamento === 'CARTAO'
+                  ? 'border-primary-600 bg-primary-50 text-primary-800'
+                  : 'border-abs-gray bg-white text-slate-700'
+              }`}
+            >
+              Cartão de crédito
+            </button>
           </div>
+
+          {metodoPagamento === 'CARTAO' && (
+            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <label className="mb-2 block text-sm font-medium text-primary-800">Parcelamento</label>
+              <select
+                value={parcelas}
+                onChange={(e) => setParcelas(Number(e.target.value))}
+                className="w-full rounded-lg border border-abs-gray bg-white px-3 py-2 text-sm"
+              >
+                {opcoesParcelas.map((op) => (
+                  <option key={op.n} value={op.n}>
+                    {op.n === 1
+                      ? `1x de ${formatCurrency(op.valorParcela)} (à vista)`
+                      : `${op.n}x de ${formatCurrency(op.valorParcela)} sem juros`}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-slate-500">
+                O cartão será informado na página segura do Asaas após gerar a cobrança.
+              </p>
+            </div>
+          )}
+
+          <Button
+            variant="cta"
+            disabled={submitting || !metodoPagamento}
+            onClick={() => metodoPagamento && pagar(metodoPagamento)}
+          >
+            {submitting
+              ? 'Gerando pagamento...'
+              : metodoPagamento === 'CARTAO'
+                ? `Pagar em ${parcelas}x`
+                : metodoPagamento === 'PIX'
+                  ? 'Gerar PIX'
+                  : 'Escolha a forma de pagamento'}
+          </Button>
         </Card>
       )}
 

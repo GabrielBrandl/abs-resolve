@@ -6,15 +6,34 @@ import type { Lead } from '../../types';
 import { ETAPAS_LEAD } from '../../types';
 import { PageHeader, Loading, Modal, Input, Select, Button } from '../../components/ui';
 
+const EMPTY_LEAD = {
+  nome: '',
+  telefone: '',
+  email: '',
+  origem: 'site',
+  interesse: '',
+  responsavel: 'Comercial',
+};
+
 export function CRMPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalLead, setModalLead] = useState<Lead | null>(null);
   const [modalNovo, setModalNovo] = useState(false);
   const [interacao, setInteracao] = useState({ tipo: 'observacao', descricao: '' });
-  const [novoLead, setNovoLead] = useState({ nome: '', telefone: '', email: '', origem: 'site', interesse: '', responsavel: 'Comercial' });
+  const [novoLead, setNovoLead] = useState({ ...EMPTY_LEAD });
   const [filtroResp, setFiltroResp] = useState('');
   const { toast } = useToast();
+
+  const abrirNovoLead = () => {
+    setNovoLead({ ...EMPTY_LEAD });
+    setModalNovo(true);
+  };
+
+  const fecharNovoLead = () => {
+    setModalNovo(false);
+    setNovoLead({ ...EMPTY_LEAD });
+  };
 
   const carregar = () => {
     leadsApi.listar(filtroResp ? { responsavel: filtroResp } : undefined)
@@ -48,7 +67,7 @@ export function CRMPage() {
 
   const criarLead = async () => {
     await leadsApi.criar(novoLead);
-    setModalNovo(false);
+    fecharNovoLead();
     toast('Lead criado!', 'success');
     carregar();
   };
@@ -68,7 +87,7 @@ export function CRMPage() {
       <PageHeader
         title="CRM"
         subtitle="Pipeline de leads"
-        action={<Button onClick={() => setModalNovo(true)}>Novo Lead</Button>}
+        action={<Button onClick={abrirNovoLead}>Novo Lead</Button>}
       />
 
       <div className="mb-4">
@@ -145,7 +164,7 @@ export function CRMPage() {
         )}
       </Modal>
 
-      <Modal open={modalNovo} onClose={() => setModalNovo(false)} title="Novo Lead">
+      <Modal open={modalNovo} onClose={fecharNovoLead} title="Novo Lead">
         <Input label="Nome" value={novoLead.nome} onChange={(e) => setNovoLead({ ...novoLead, nome: e.target.value })} />
         <Input label="Telefone" value={novoLead.telefone} onChange={(e) => setNovoLead({ ...novoLead, telefone: e.target.value })} />
         <Input label="Email" value={novoLead.email} onChange={(e) => setNovoLead({ ...novoLead, email: e.target.value })} />

@@ -320,6 +320,37 @@ export function HelpConsultorWidget() {
     }
   };
 
+  const responderTextoLivre = async (texto: string) => {
+    if (!perguntaAtual || !fluxo || !servico || !texto.trim()) return;
+    adicionarMensagem('cliente', texto.trim());
+    setEntrada('');
+    setEnviando(true);
+    try {
+      const resultado = await solicitacaoApi.interpretarResposta({
+        slug: servico.slug,
+        perguntaId: perguntaAtual.id,
+        texto: texto.trim(),
+      });
+      adicionarMensagem('abs', resultado.mensagem);
+      if (!resultado.opcaoId) return;
+      const novas = { ...respostas, [perguntaAtual.id]: resultado.opcaoId };
+      setRespostas(novas);
+      const proxima = perguntasVisiveis(fluxo.perguntas, novas).find((p) => !novas[p.id]);
+      if (proxima) {
+        setTimeout(() => adicionarMensagem('abs', proxima.titulo), 250);
+      } else {
+        void calcularOrcamento(novas);
+      }
+    } catch (erro) {
+      adicionarMensagem(
+        'abs',
+        erro instanceof Error ? erro.message : 'Não consegui entender. Escolha uma opção ou reformule.'
+      );
+    } finally {
+      setEnviando(false);
+    }
+  };
+
   const continuar = (destino: 'login' | 'cadastro') => {
     if (!servico) return;
     sessionStorage.setItem(
@@ -369,12 +400,13 @@ export function HelpConsultorWidget() {
     ]);
   };
 
-  const etapaComTexto = ['nome', 'email', 'telefone', 'problema'].includes(etapa);
+  const etapaComTexto = ['nome', 'email', 'telefone', 'problema', 'perguntas'].includes(etapa);
   const placeholder: Record<string, string> = {
     nome: 'Digite seu nome',
     email: 'Digite seu e-mail',
     telefone: '(11) 99999-9999',
     problema: 'Ex.: Minha tomada está esquentando...',
+    perguntas: 'Ou escreva sua resposta...',
   };
 
   if (authLoading || (user && user.role !== 'cliente')) return null;
@@ -502,7 +534,17 @@ export function HelpConsultorWidget() {
           </div>
 
           {etapaComTexto && (
-            <form onSubmit={avancarContato} className="border-t bg-white p-3">
+            <form
+              onSubmit={(event) => {
+                if (etapa === 'perguntas') {
+                  event.preventDefault();
+                  void responderTextoLivre(entrada);
+                  return;
+                }
+                void avancarContato(event);
+              }}
+              className="border-t bg-white p-3"
+            >
               {etapa === 'problema' && (
                 <label className="mb-2 flex items-start gap-2 text-xs text-slate-600">
                   <input
@@ -514,19 +556,29 @@ export function HelpConsultorWidget() {
                   Autorizo a ABS Resolve a usar estes dados para entrar em contato sobre este atendimento.
                 </label>
               )}
+              {etapa === 'perguntas' && (
+                <p className="mb-2 text-[11px] text-slate-500">
+                  Escolha uma opção acima ou descreva em texto — o consultor interpreta e segue.
+                </p>
+              )}
               <div className="flex gap-2">
                 <input
                   value={entrada}
                   onChange={(event) => setEntrada(event.target.value)}
                   type={etapa === 'email' ? 'email' : etapa === 'telefone' ? 'tel' : 'text'}
                   placeholder={placeholder[etapa]}
-                  maxLength={etapa === 'problema' ? 500 : 120}
+                  maxLength={etapa === 'problema' || etapa === 'perguntas' ? 500 : 120}
                   className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-primary-500"
                   autoFocus
                 />
                 <button
                   type="submit"
-                  disabled={enviando || !entrada.trim() || (etapa === 'problema' && !consentimento)}
+                  disabled={
+                    enviando ||
+                    !entrada.trim() ||
+                    (etapa === 'problema' && !consentimento) ||
+                    (etapa === 'perguntas' && !perguntaAtual)
+                  }
                   className="rounded-lg bg-primary-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
                   aria-label="Enviar resposta"
                 >

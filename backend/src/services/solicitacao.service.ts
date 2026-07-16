@@ -554,7 +554,12 @@ export class SolicitacaoService {
     return agendamento;
   }
 
-  async finalizarPagamento(id: string, clienteId: string, metodo: 'PIX' | 'BOLETO' | 'CARTAO') {
+  async finalizarPagamento(
+    id: string,
+    clienteId: string,
+    metodo: 'PIX' | 'BOLETO' | 'CARTAO',
+    installmentCount?: number
+  ) {
     let sol = await prisma.solicitacaoServico.findFirst({
       where: { id, clienteId },
       include: { servico: true, cliente: true, agendamento: true },
@@ -594,6 +599,7 @@ export class SolicitacaoService {
       metodo,
       dueDate: dueDate.toISOString().split('T')[0],
       solicitacaoId: id,
+      installmentCount: metodo === 'CARTAO' ? installmentCount : undefined,
     });
 
     return { pedido, pagamento, solicitacao: { ...sol, status: 'aguardando_pagamento', pedidoId: pedido.id } };

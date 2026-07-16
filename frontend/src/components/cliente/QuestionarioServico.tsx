@@ -64,6 +64,9 @@ export function QuestionarioServico({
   const [calculando, setCalculando] = useState(false);
   const [preco, setPreco] = useState<PrecoCalculado | null>(null);
   const [erro, setErro] = useState('');
+  const [textoLivre, setTextoLivre] = useState('');
+  const [interpretando, setInterpretando] = useState(false);
+  const [feedbackBot, setFeedbackBot] = useState('');
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -127,7 +130,59 @@ export function QuestionarioServico({
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [perguntasRespondidas.length, preco, calculando, erro]);
+  }, [perguntasRespondidas.length, preco, calculando, erro, feedbackBot]);
+
+  useEffect(() => {
+    setTextoLivre('');
+    setFeedbackBot('');
+  }, [perguntaAtual?.id]);
+
+  const escolherOpcao = (opcao: { id: string; label: string }) => {
+    if (!perguntaAtual) return;
+    setErro('');
+    setFeedbackBot('');
+    setTextoLivre('');
+    onResposta(perguntaAtual.id, opcao.id);
+    gtmPush('agendar_opcao_selecionada', {
+      servico_slug: slug,
+      pergunta_id: perguntaAtual.id,
+      pergunta: perguntaAtual.titulo,
+      opcao_id: opcao.id,
+      opcao: opcao.label,
+    });
+  };
+
+  const enviarTextoLivre = async () => {
+    if (!perguntaAtual || !textoLivre.trim() || interpretando) return;
+    setInterpretando(true);
+    setErro('');
+    try {
+      const resultado = await solicitacaoApi.interpretarResposta({
+        slug,
+        perguntaId: perguntaAtual.id,
+        texto: textoLivre.trim(),
+      });
+      setFeedbackBot(resultado.mensagem);
+      if (resultado.opcaoId) {
+        const opcaoId = resultado.opcaoId;
+        const texto = textoLivre.trim();
+        setTextoLivre('');
+        window.setTimeout(() => {
+          onResposta(perguntaAtual.id, opcaoId);
+          gtmPush('agendar_opcao_texto_livre', {
+            servico_slug: slug,
+            pergunta_id: perguntaAtual.id,
+            opcao_id: opcaoId,
+            texto,
+          });
+        }, 500);
+      }
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível interpretar a mensagem.');
+    } finally {
+      setInterpretando(false);
+    }
+  };
 
   if (loading) return <Loading />;
   if (erro && !fluxo) return <p className="text-red-600">{erro}</p>;
@@ -195,6 +250,14 @@ export function QuestionarioServico({
               <div className="flex justify-start">
                 <div className="max-w-[88%] rounded-2xl rounded-tl-md border border-primary-200 bg-white px-3 py-2 text-sm font-medium text-primary-900 shadow-sm">
                   {perguntaAtual.titulo}
+                </div>
+              </div>
+            )}
+
+            {feedbackBot && (
+              <div className="flex justify-start">
+                <div className="max-w-[88%] rounded-2xl rounded-tl-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+                  {feedbackBot}
                 </div>
               </div>
             )}
@@ -269,17 +332,7 @@ export function QuestionarioServico({
                     <button
                       key={opcao.id}
                       type="button"
-                      onClick={() => {
-                        setErro('');
-                        onResposta(perguntaAtual.id, opcao.id);
-                        gtmPush('agendar_opcao_selecionada', {
-                          servico_slug: slug,
-                          pergunta_id: perguntaAtual.id,
-                          pergunta: perguntaAtual.titulo,
-                          opcao_id: opcao.id,
-                          opcao: opcao.label,
-                        });
-                      }}
+                      onClick={() => escolherOpcao(opcao)}
                       className={`flex min-h-10 items-center gap-2 rounded-xl border border-primary-200 bg-white px-3 py-2 text-left text-sm font-medium text-primary-800 transition hover:border-primary-500 hover:bg-primary-50 ${
                         possuiImagem ? 'max-w-[150px] flex-col' : ''
                       }`}
@@ -297,6 +350,31 @@ export function QuestionarioServico({
                     </button>
                   );
                 })}
+              </div>
+
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Ou escreva sua resposta
+                </p>
+                <form
+                  className="flex gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void enviarTextoLivre();
+                  }}
+                >
+                  <input
+                    value={textoLivre}
+                    onChange={(e) => setTextoLivre(e.target.value)}
+                    placeholder="Ex.: é no quarto, tomada esquentando..."
+                    maxLength={400}
+                    disabled={interpretando}
+                    className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-primary-500"
+                  />
+                  <Button type="submit" disabled={interpretando || !textoLivre.trim()}>
+                    {interpretando ? '...' : 'Enviar'}
+                  </Button>
+                </form>
               </div>
             </div>
           )}

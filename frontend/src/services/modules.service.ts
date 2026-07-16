@@ -257,6 +257,14 @@ export const solicitacaoApi = {
       requerValidacaoTecnica: boolean;
       mensagemValidacao?: string;
     }>('/solicitacao/calcular-preco', body),
+  interpretarResposta: (body: { slug: string; perguntaId: string; texto: string }) =>
+    post<{
+      opcaoId: string | null;
+      label: string | null;
+      confianca: number;
+      mensagem: string;
+      textoLivre: string;
+    }>('/solicitacao/interpretar-resposta', body),
   checkout: (id: string, express: boolean) => post(`/solicitacao/${id}/checkout`, { express }),
   upsells: (slug: string) => get<Array<{ id: string; nome: string; preco: number }>>(`/solicitacao/upsells/${slug}`),
   calcularTipoA: (body: unknown) => post<{ precoBase: number; precoFinal: number }>('/solicitacao/calcular-tipo-a', body),
@@ -266,7 +274,11 @@ export const solicitacaoApi = {
   upsellsAplicar: (id: string, body: unknown) => post(`/solicitacao/${id}/upsells`, body),
   horarios: (id: string) => get<{ slots: Array<{ data: string; horarioInicio: string; horarioFim: string; label: string; escassez: string }>; proximaDisponibilidade: string | null }>(`/solicitacao/${id}/horarios`),
   agendar: (id: string, body: unknown) => post(`/solicitacao/${id}/agendar`, body),
-  pagar: (id: string, metodo: string) => post(`/solicitacao/${id}/pagar`, { metodo }),
+  pagar: (id: string, metodo: string, installmentCount?: number) =>
+    post(`/solicitacao/${id}/pagar`, {
+      metodo,
+      ...(metodo === 'CARTAO' && installmentCount ? { installmentCount } : {}),
+    }),
   status: (id: string) => get<SolicitacaoStatus>(`/solicitacao/${id}/status`),
   config: () => get<SolicitacaoConfig>('/solicitacao/config'),
   solicitarOrcamento: (body: { slug: string; descricao: string; endereco?: EnderecoCliente }) =>

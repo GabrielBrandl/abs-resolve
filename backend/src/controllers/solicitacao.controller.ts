@@ -43,6 +43,21 @@ export class SolicitacaoController {
     }
   }
 
+  async interpretarResposta(req: Request, res: Response) {
+    try {
+      const { slug, perguntaId, texto } = req.body as {
+        slug?: string;
+        perguntaId?: string;
+        texto?: string;
+      };
+      if (!slug || !perguntaId) return error(res, 'slug e perguntaId são obrigatórios', 400);
+      const { interpretarRespostaFluxo } = await import('../services/fluxo-interpretar.service.js');
+      return success(res, await interpretarRespostaFluxo(slug, perguntaId, texto || ''));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async upsells(req: Request, res: Response) {
     try {
       const slug = typeof req.params.slug === 'string' ? req.params.slug : req.params.slug[0];
@@ -185,8 +200,16 @@ export class SolicitacaoController {
   async pagar(req: Request, res: Response) {
     try {
       const clienteId = await clienteIdFromReq(req);
-      const { metodo } = req.body;
-      const data = await solicitacaoService.finalizarPagamento(paramId(req.params.id), clienteId, (metodo || 'PIX') as 'PIX' | 'BOLETO' | 'CARTAO');
+      const { metodo, installmentCount } = req.body as {
+        metodo?: string;
+        installmentCount?: number;
+      };
+      const data = await solicitacaoService.finalizarPagamento(
+        paramId(req.params.id),
+        clienteId,
+        (metodo || 'PIX') as 'PIX' | 'BOLETO' | 'CARTAO',
+        typeof installmentCount === 'number' ? installmentCount : undefined
+      );
       return success(res, data, 201);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
