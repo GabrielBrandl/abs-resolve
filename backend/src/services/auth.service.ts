@@ -37,14 +37,17 @@ export class AuthService {
   }
 
   async login(email: string, senha: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const emailNorm = email.trim().toLowerCase();
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: emailNorm, mode: 'insensitive' } },
+    });
 
     if (!user) {
-      throw new Error('Credenciais inv?lidas');
+      throw new Error('Credenciais inválidas');
     }
 
     if (user.ativo === false) {
-      throw new Error('Usu?rio desativado. Contate o administrador.');
+      throw new Error('Usuário desativado. Contate o administrador.');
     }
 
     const senhaValida = await bcrypt.compare(senha, user.senhaHash);
@@ -54,6 +57,16 @@ export class AuthService {
 
     if (user.role === 'cliente') {
       throw new Error('Use o acesso Cliente com seu CPF na tela de login.');
+    }
+
+    if (user.role === 'parceiro') {
+      const parceiro = await prisma.parceiro.findUnique({ where: { userId: user.id } });
+      if (!parceiro) {
+        throw new Error('Conta de parceiro incompleta. Peça ao admin para recriar o acesso.');
+      }
+      if (!parceiro.ativo) {
+        throw new Error('Parceiro desativado. Contate o administrador.');
+      }
     }
 
     return this.issueSession(user);

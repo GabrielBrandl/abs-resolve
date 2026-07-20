@@ -49,12 +49,23 @@ function processQueue(error: unknown, token: string | null = null) {
   failedQueue = [];
 }
 
+function isAuthCredentialRequest(config: { url?: string; baseURL?: string } | undefined) {
+  const url = `${config?.baseURL || ''}${config?.url || ''}`;
+  return /\/auth\/(login|login-cliente|registrar|esqueci-senha|redefinir-senha)(\?|$)/.test(url);
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Não tentar refresh em falha de login/cadastro — senão a tela “trava” sem mensagem
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isAuthCredentialRequest(originalRequest)
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

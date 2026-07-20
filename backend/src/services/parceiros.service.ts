@@ -98,7 +98,10 @@ export class ParceirosService {
       throw new Error('Nome, e-mail e senha são obrigatórios');
     }
 
-    const emailUser = await prisma.user.findUnique({ where: { email: data.email } });
+    const email = data.email.trim().toLowerCase();
+    const emailUser = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    });
     if (emailUser) throw new Error('Já existe um usuário com este e-mail');
 
     const codigo = await gerarCodigoUnico(data.nome);
@@ -107,7 +110,7 @@ export class ParceirosService {
     const user = await prisma.user.create({
       data: {
         nome: data.nome,
-        email: data.email,
+        email,
         senhaHash,
         role: 'parceiro',
         ativo: true,
@@ -117,7 +120,7 @@ export class ParceirosService {
     const parceiro = await prisma.parceiro.create({
       data: {
         nome: data.nome,
-        email: data.email,
+        email,
         telefone: data.telefone || '',
         categoria: data.categoria || 'vendas',
         cnpj: data.cnpj?.replace(/\D/g, '') || null,
@@ -149,9 +152,13 @@ export class ParceirosService {
     const parceiro = await prisma.parceiro.findUnique({ where: { id } });
     if (!parceiro) throw new Error('Parceiro não encontrado');
 
-    if (data.email && data.email !== parceiro.email) {
+    const emailNovo = data.email !== undefined ? data.email.trim().toLowerCase() : undefined;
+    if (emailNovo && emailNovo !== parceiro.email.toLowerCase()) {
       const dup = await prisma.user.findFirst({
-        where: { email: data.email, NOT: parceiro.userId ? { id: parceiro.userId } : undefined },
+        where: {
+          email: { equals: emailNovo, mode: 'insensitive' },
+          NOT: parceiro.userId ? { id: parceiro.userId } : undefined,
+        },
       });
       if (dup) throw new Error('Já existe um usuário com este e-mail');
     }
@@ -178,7 +185,7 @@ export class ParceirosService {
       where: { id },
       data: {
         ...(data.nome !== undefined && { nome: data.nome }),
-        ...(data.email !== undefined && { email: data.email }),
+        ...(emailNovo !== undefined && { email: emailNovo }),
         ...(data.telefone !== undefined && { telefone: data.telefone }),
         ...(cnpjLimpo !== undefined && { cnpj: cnpjLimpo }),
         ...(data.categoria !== undefined && { categoria: data.categoria }),
@@ -191,12 +198,36 @@ export class ParceirosService {
     if (parceiro.userId) {
       const userUpdate: { nome?: string; email?: string; ativo?: boolean; senhaHash?: string } = {};
       if (data.nome !== undefined) userUpdate.nome = data.nome;
-      if (data.email !== undefined) userUpdate.email = data.email;
+      if (emailNovo !== undefined) userUpdate.email = emailNovo;
       if (data.ativo !== undefined) userUpdate.ativo = data.ativo;
       if (data.senha) userUpdate.senhaHash = await bcrypt.hash(data.senha, 10);
       if (Object.keys(userUpdate).length) {
         await prisma.user.update({ where: { id: parceiro.userId }, data: userUpdate });
       }
+    } else if (data.senha || emailNovo) {
+      // Parceiro antigo sem usuário vinculado: cria acesso para o portal
+      const emailAcesso = emailNovo || parceiro.email.trim().toLowerCase();
+      const senha = data.senha;
+      if (!senha) {
+        throw new Error('Defina uma senha para liberar o acesso do parceiro ao portal.');
+      }
+      const existe = await prisma.user.findFirst({
+        where: { email: { equals: emailAcesso, mode: 'insensitive' } },
+      });
+      if (existe) throw new Error('Já existe um usuário com este e-mail');
+      const user = await prisma.user.create({
+        data: {
+          nome: data.nome || parceiro.nome,
+          email: emailAcesso,
+          senhaHash: await bcrypt.hash(senha, 10),
+          role: 'parceiro',
+          ativo: data.ativo ?? parceiro.ativo,
+        },
+      });
+      await prisma.parceiro.update({
+        where: { id },
+        data: { userId: user.id, email: emailAcesso },
+      });
     }
 
     if (data.recalcularPendentes && data.comissaoPercent !== undefined) {

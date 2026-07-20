@@ -304,7 +304,10 @@ export function ParceirosAdminPage() {
         <Input label="Categoria" value={editForm.categoria} onChange={(e) => setEditForm({ ...editForm, categoria: e.target.value })} />
         <Input label="Código de indicação" value={editForm.codigo} onChange={(e) => setEditForm({ ...editForm, codigo: e.target.value.toUpperCase() })} />
         <Input label="Comissão (%)" type="number" min={0} max={100} value={editForm.comissaoPercent} onChange={(e) => setEditForm({ ...editForm, comissaoPercent: e.target.value })} />
-        <Input label="Nova senha (opcional)" type="password" value={editForm.senha} onChange={(e) => setEditForm({ ...editForm, senha: e.target.value })} />
+        <Input label="Nova senha (obrigatória se ainda não tem acesso)" type="password" value={editForm.senha} onChange={(e) => setEditForm({ ...editForm, senha: e.target.value })} />
+        <p className="mb-2 text-xs text-slate-500">
+          Se o parceiro não consegue entrar, defina uma nova senha aqui e peça para usar a aba <strong>Equipe / Parceiro</strong> no login.
+        </p>
         <label className="mb-2 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={editForm.ativo} onChange={(e) => setEditForm({ ...editForm, ativo: e.target.checked })} />
           Parceiro ativo
