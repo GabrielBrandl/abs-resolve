@@ -5,6 +5,7 @@ import type { OrdemServico } from '../../types';
 import { ETAPAS_OS, formatCurrency, formatDate, formatEndereco, mapsLink } from '../../types';
 import { PageHeader, Loading, Badge, Card, Button, Modal, Input } from '../../components/ui';
 import { BotaoVerFotos } from '../../components/GaleriaFotos';
+import { RespostasQuestionario } from '../../components/RespostasQuestionario';
 import { useToast } from '../../components/Toast';
 
 function fotosDoChecklist(checklist?: Record<string, string> | null): string[] {
@@ -181,14 +182,7 @@ export function OrdemServicoPage() {
               <p>Valor: {formatCurrency(detalhe.pedido?.valor || 0)}</p>
               <p>Serviço: {detalhe.pedido?.solicitacao?.servico?.nome || detalhe.pedido?.servico?.nome || detalhe.pedido?.descricao || '—'}</p>
               {detalhe.pedido?.descricao && <p className="text-slate-500">{detalhe.pedido.descricao}</p>}
-              {detalhe.pedido?.solicitacao?.opcoes && typeof detalhe.pedido.solicitacao.opcoes === 'object' ? (
-                <div className="mt-2 rounded-lg bg-slate-50 p-2 text-xs">
-                  <p className="mb-1 font-medium text-slate-600">Opções do serviço</p>
-                  {Object.entries(detalhe.pedido.solicitacao.opcoes as Record<string, unknown>).map(([k, v]) => (
-                    <p key={k}><span className="text-slate-400">{k}:</span> {String(v ?? '')}</p>
-                  ))}
-                </div>
-              ) : null}
+              <RespostasQuestionario opcoes={detalhe.pedido?.solicitacao?.opcoes} />
               <BotaoVerFotos
                 fotos={fotosSolicitacao(detalhe.pedido?.solicitacao?.fotos)}
                 label="Fotos da solicitação"

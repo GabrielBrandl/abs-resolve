@@ -127,6 +127,58 @@ export class NotificacaoService {
     return telefoneWhatsAppCliente(cliente);
   }
 
+  /** Números da equipe (WHATSAPP_EQUIPE separados por vírgula) */
+  private telefonesEquipe(): string[] {
+    const raw = process.env.WHATSAPP_EQUIPE || process.env.WHATSAPP_OPS || '5592984169936';
+    return raw
+      .split(/[,;]+/)
+      .map((t) => normalizarTelefoneWhatsApp(t.trim()))
+      .filter(Boolean);
+  }
+
+  async notificarEquipePagamentoConfirmado(data: {
+    pedidoNumero: string;
+    clienteNome: string;
+    telefone: string;
+    whatsapp?: string | null;
+    email: string;
+    endereco: string;
+    servicos: string;
+    material: string[];
+    valor: number;
+    metodo: string;
+  }) {
+    const destinos = this.telefonesEquipe();
+    if (!destinos.length) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.info('[whatsapp-equipe] WHATSAPP_EQUIPE não configurado — pulando aviso interno');
+      }
+      return;
+    }
+
+    const contato = telefoneWhatsAppCliente({ telefone: data.telefone, whatsapp: data.whatsapp }) || data.telefone;
+    const metodo = METODO_PAGAMENTO_LABEL[data.metodo] || data.metodo;
+    const materialTxt = data.material.length
+      ? data.material.map((l) => `• ${l}`).join('\n')
+      : '• (não informado no questionário)';
+
+    const msg =
+      `💰 *Pagamento confirmado — ABS Resolve*\n\n` +
+      `Pedido: *${data.pedidoNumero}*\n` +
+      `Valor: *${formatarMoeda(data.valor)}* (${metodo})\n\n` +
+      `👤 *Cliente / inquilino*\n` +
+      `Nome: ${data.clienteNome}\n` +
+      `Tel/WhatsApp: ${contato}\n` +
+      `E-mail: ${data.email}\n` +
+      `Endereço: ${data.endereco}\n\n` +
+      `🔧 *Serviço(s)*\n${data.servicos}\n\n` +
+      `📦 *Material*\n${materialTxt}`;
+
+    for (const numero of destinos) {
+      await this.enviarWhatsApp(numero, msg);
+    }
+  }
+
   /** Solicitação recebida — aguardando pagamento */
   async notificarSolicitacaoRecebida(data: {
     clienteNome: string;

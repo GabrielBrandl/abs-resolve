@@ -16,6 +16,7 @@ import { listarHorariosDisponiveis, reservarCapacidade } from '../engines/capaci
 import { analisarFotos, custosParaServico } from '../services/ia-diagnostico.service.js';
 import { notificacaoService } from './notificacao.service.js';
 import { descricaoServicosDaSolicitacao } from '../utils/solicitacao-descricao.js';
+import { formatarRespostasItem } from '../utils/fluxo-respostas.js';
 import { storageService } from './storage.service.js';
 import { pagamentosService } from './pagamentos.service.js';
 
@@ -50,9 +51,18 @@ function validarRespostasFluxo(slug: string, respostas: RespostasFluxo) {
 }
 
 function descricaoPedido(sol: { opcoes: unknown; servico: { nome: string } }) {
-  const opcoes = sol.opcoes as { itens?: Array<{ nome: string; quantidade: number }> };
+  const opcoes = sol.opcoes as {
+    itens?: Array<{ nome: string; quantidade: number; respostas?: Record<string, string>; slug?: string }>;
+  };
   if (opcoes.itens?.length) {
-    return opcoes.itens.map((i) => `${i.quantidade}x ${i.nome}`).join(', ');
+    return opcoes.itens
+      .map((i) => {
+        const base = `${i.quantidade}x ${i.nome}`;
+        const materiais = formatarRespostasItem(i.slug, i.respostas).filter((l) => l.material);
+        if (!materiais.length) return base;
+        return `${base} (${materiais.map((m) => m.label).join('; ')})`;
+      })
+      .join(', ');
   }
   return sol.servico.nome;
 }

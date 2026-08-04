@@ -8,6 +8,11 @@ import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal, Logo } from '.
 import { QuestionarioServico, FotosServicoStep, QuestionarioNav, type PrecoCalculado } from '../../components/cliente/QuestionarioServico';
 import { useToast } from '../../components/Toast';
 import { gtmEtapaAgendar, gtmPush } from '../../utils/gtm';
+import {
+  calcularParcelamento,
+  PARCELAS_SEM_JUROS,
+  TAXA_JUROS_MES_PERCENT_DEFAULT,
+} from '../../utils/parcelamento';
 
 type Step = 'catalogo' | 'carrinho' | 'questionario' | 'resumo' | 'fotos' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
 
@@ -138,6 +143,8 @@ export function AgendarServicoPage() {
   const [pctDescontoAplicado, setPctDescontoAplicado] = useState(0);
   const [metodoPagamento, setMetodoPagamento] = useState<'PIX' | 'CARTAO' | null>(null);
   const [parcelas, setParcelas] = useState(1);
+  const [parcelasSemJuros, setParcelasSemJuros] = useState(PARCELAS_SEM_JUROS);
+  const [taxaJurosMes, setTaxaJurosMes] = useState(TAXA_JUROS_MES_PERCENT_DEFAULT);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retomouAgendamento = useRef(false);
   const assistenteImportado = useRef(false);
@@ -152,6 +159,10 @@ export function AgendarServicoPage() {
         setCategorias(data.categorias || []);
         if (data.categorias?.[0]) setCatAtiva(data.categorias[0].slug);
         setExpressValor(config.expressValor);
+        if (config.parcelamento) {
+          setParcelasSemJuros(config.parcelamento.parcelasSemJuros);
+          setTaxaJurosMes(config.parcelamento.taxaJurosMesPercent);
+        }
         setDescontoElegivel(Boolean(desc.elegivel));
       })
       .finally(() => setLoading(false));
@@ -430,11 +441,22 @@ export function AgendarServicoPage() {
 
   const opcoesParcelas = useMemo(() => {
     const max = preco >= 100 ? 12 : preco >= 50 ? 6 : 3;
-    return Array.from({ length: max }, (_, i) => i + 1).map((n) => ({
-      n,
-      valorParcela: Math.round((preco / n) * 100) / 100,
-    }));
-  }, [preco]);
+    return Array.from({ length: max }, (_, i) => i + 1).map((n) =>
+      calcularParcelamento(preco, n, {
+        parcelasSemJuros,
+        taxaJurosMesPercent: taxaJurosMes,
+      })
+    );
+  }, [preco, parcelasSemJuros, taxaJurosMes]);
+
+  const parcelaSelecionada = useMemo(
+    () =>
+      calcularParcelamento(preco, parcelas, {
+        parcelasSemJuros,
+        taxaJurosMesPercent: taxaJurosMes,
+      }),
+    [preco, parcelas, parcelasSemJuros, taxaJurosMes]
+  );
 
   const pagar = async (metodo: string) => {
     setSubmitting(true);
@@ -899,19 +921,31 @@ export function AgendarServicoPage() {
           {metodoPagamento === 'CARTAO' && (
             <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
               <label className="mb-2 block text-sm font-medium text-primary-800">Parcelamento</label>
+              <p className="mb-2 text-xs text-emerald-700">
+                Até {parcelasSemJuros}x sem juros. A partir de {parcelasSemJuros + 1}x há acréscimo de{' '}
+                {taxaJurosMes.toLocaleString('pt-BR')}% a.m.
+              </p>
               <select
                 value={parcelas}
                 onChange={(e) => setParcelas(Number(e.target.value))}
                 className="w-full rounded-lg border border-abs-gray bg-white px-3 py-2 text-sm"
               >
                 {opcoesParcelas.map((op) => (
-                  <option key={op.n} value={op.n}>
-                    {op.n === 1
+                  <option key={op.parcelas} value={op.parcelas}>
+                    {op.parcelas === 1
                       ? `1x de ${formatCurrency(op.valorParcela)} (à vista)`
-                      : `${op.n}x de ${formatCurrency(op.valorParcela)} sem juros`}
+                      : op.semJuros
+                        ? `${op.parcelas}x de ${formatCurrency(op.valorParcela)} sem juros`
+                        : `${op.parcelas}x de ${formatCurrency(op.valorParcela)} (total ${formatCurrency(op.total)} c/ juros)`}
                   </option>
                 ))}
               </select>
+              {!parcelaSelecionada.semJuros && (
+                <p className="mt-2 text-xs text-amber-800">
+                  Total com juros: {formatCurrency(parcelaSelecionada.total)} (+{' '}
+                  {formatCurrency(parcelaSelecionada.valorJuros)})
+                </p>
+              )}
               <p className="mt-2 text-xs text-slate-500">
                 O cartão será informado na página segura do Asaas após gerar a cobrança.
               </p>
@@ -926,7 +960,9 @@ export function AgendarServicoPage() {
             {submitting
               ? 'Gerando pagamento...'
               : metodoPagamento === 'CARTAO'
-                ? `Pagar em ${parcelas}x`
+                ? parcelaSelecionada.semJuros
+                  ? `Pagar em ${parcelas}x`
+                  : `Pagar em ${parcelas}x (${formatCurrency(parcelaSelecionada.total)})`
                 : metodoPagamento === 'PIX'
                   ? 'Gerar PIX'
                   : 'Escolha a forma de pagamento'}

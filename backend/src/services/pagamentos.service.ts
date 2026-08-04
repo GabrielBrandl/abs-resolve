@@ -38,27 +38,43 @@ export class PagamentosService {
 
     const billingMap = { PIX: 'PIX', BOLETO: 'BOLETO', CARTAO: 'CREDIT_CARD' } as const;
     const doc = cliente.cpf || cliente.cnpj || '';
+    const { calcularParcelamento } = await import('../config/parcelamento.js');
     const parcelas =
       data.metodo === 'CARTAO'
         ? Math.max(1, Math.min(12, Math.floor(data.installmentCount || 1)))
         : 1;
+    const calc = data.metodo === 'CARTAO' ? calcularParcelamento(data.valor, parcelas) : null;
+    const valorCobranca = calc?.total ?? data.valor;
+    const descParcelas =
+      calc && calc.parcelas > 1
+        ? calc.semJuros
+          ? ` (${calc.parcelas}x s/ juros)`
+          : ` (${calc.parcelas}x c/ juros)`
+        : '';
 
     const asaasCustomer = await asaasService.criarCliente(cliente.nome, cliente.email, doc);
     const cobranca = await asaasService.criarCobranca({
       customer: asaasCustomer.id,
       billingType: billingMap[data.metodo],
-      value: data.valor,
+      value: valorCobranca,
       dueDate: data.dueDate,
-      description: data.pedidoId ? `Pedido ABS Resolve` : 'Cobrança ABS Resolve',
+      description: data.pedidoId ? `Pedido ABS Resolve${descParcelas}` : 'Cobrança ABS Resolve',
       installmentCount: parcelas,
     });
+
+    if (data.pedidoId && calc && Math.abs(calc.total - data.valor) > 0.009) {
+      await prisma.pedido.update({
+        where: { id: data.pedidoId },
+        data: { valor: calc.total },
+      });
+    }
 
     let pagamento = await prisma.pagamento.create({
       data: {
         clienteId: data.clienteId,
         pedidoId: data.pedidoId,
         asaasId: cobranca.id,
-        valor: data.valor,
+        valor: valorCobranca,
         metodo: data.metodo,
         status: 'PENDING',
         dueDate: new Date(data.dueDate),
@@ -71,7 +87,7 @@ export class PagamentosService {
     notificacaoService
       .notificarCobrancaGerada({
         clienteNome: cliente.nome,
-        valor: data.valor,
+        valor: valorCobranca,
         metodo: data.metodo,
         vencimento: data.dueDate,
         email: cliente.email,

@@ -7,6 +7,10 @@ import { notificacaoService } from './notificacao.service.js';
 import { nfseService } from './nfse.service.js';
 import { descricaoServicosDaSolicitacao } from '../utils/solicitacao-descricao.js';
 import { gerarComissaoDoPagamento } from './parceiros.service.js';
+import {
+  formatarEnderecoCliente,
+  resumoMaterialSolicitacao,
+} from '../utils/fluxo-respostas.js';
 
 function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
   return `${opcoes.tipo || 'simples'}_${opcoes.amperagem || '10a'}`.toLowerCase();
@@ -126,6 +130,8 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
   if (pagamento.cliente) {
     const servicos = descricaoServico;
     const anexo = nfse ? await anexoDocumentoNfse(nfse.documentoId) : undefined;
+    const material = sol ? resumoMaterialSolicitacao(sol.opcoes) : [];
+    const endereco = formatarEnderecoCliente(pagamento.cliente.endereco);
 
     await notificacaoService
       .notificarPagamentoComNfse({
@@ -149,6 +155,23 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
           : null,
       })
       .catch(() => {});
+
+    await notificacaoService
+      .notificarEquipePagamentoConfirmado({
+        pedidoNumero: pedido.numero,
+        clienteNome: pagamento.cliente.nome,
+        telefone: pagamento.cliente.telefone,
+        whatsapp: pagamento.cliente.whatsapp,
+        email: pagamento.cliente.email,
+        endereco,
+        servicos,
+        material,
+        valor: toNumber(pagamento.valor),
+        metodo: pagamento.metodo,
+      })
+      .catch((err) =>
+        console.warn('[whatsapp-equipe] falha:', err instanceof Error ? err.message : err)
+      );
   }
 
   return pagamento;

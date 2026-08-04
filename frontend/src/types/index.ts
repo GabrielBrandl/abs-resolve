@@ -355,6 +355,10 @@ export interface SolicitacaoConfig {
   expressValor: number;
   taxaCancelamento: number;
   taxaAusencia: number;
+  parcelamento?: {
+    parcelasSemJuros: number;
+    taxaJurosMesPercent: number;
+  };
 }
 
 export interface AvaliacaoPendente {

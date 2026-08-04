@@ -62,10 +62,12 @@ export class ClientePortalService {
 
   async configPublica() {
     const config = await getConfigPrecificacao();
+    const { configParcelamentoPublica } = await import('../config/parcelamento.js');
     return {
       expressValor: toNumber(config.expressValor),
       taxaCancelamento: toNumber(config.taxaCancelamento),
       taxaAusencia: toNumber(config.taxaAusencia),
+      parcelamento: configParcelamentoPublica(),
     };
   }
 

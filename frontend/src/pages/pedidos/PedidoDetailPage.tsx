@@ -5,6 +5,7 @@ import type { Pedido, OrdemServico } from '../../types';
 import { STATUS_PEDIDO, ETAPAS_OS, formatCurrency, formatDate, formatEndereco } from '../../types';
 import { PageHeader, Loading, Badge, Button, Card } from '../../components/ui';
 import { BotaoVerFotos } from '../../components/GaleriaFotos';
+import { RespostasQuestionario } from '../../components/RespostasQuestionario';
 import { useToast } from '../../components/Toast';
 
 type PedidoDetalhe = Pedido & {
@@ -172,6 +173,7 @@ export function PedidoDetailPage() {
               label="Fotos da solicitação"
               titulo="Fotos do cliente"
             />
+            <RespostasQuestionario opcoes={pedido.solicitacao?.opcoes} />
           </div>
         </Card>
 
