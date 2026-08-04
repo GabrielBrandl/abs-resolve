@@ -1,6 +1,12 @@
 import nodemailer from 'nodemailer';
 import { prisma } from '../utils/prisma.js';
 import { normalizarTelefoneWhatsApp, telefoneWhatsAppCliente } from '../utils/telefone.js';
+import {
+  enviarWhatsAppEvolution,
+  enviarWhatsAppMetaTemplate,
+  enviarWhatsAppMetaTexto,
+  whatsappMetaConfigured,
+} from './whatsapp.service.js';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.ethereal.email',
@@ -98,27 +104,50 @@ export class NotificacaoService {
     }
 
     try {
-      if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_API_URL) {
-        const res = await fetch(`${process.env.WHATSAPP_API_URL}/message/sendText`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: process.env.WHATSAPP_TOKEN,
-          },
-          body: JSON.stringify({ number: numero, text: mensagem }),
-        });
-        if (!res.ok) {
-          const body = await res.text().catch(() => '');
-          throw new Error(body || `HTTP ${res.status}`);
-        }
+      if (whatsappMetaConfigured()) {
+        await enviarWhatsAppMetaTexto(numero, mensagem);
+      } else if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_API_URL) {
+        await enviarWhatsAppEvolution(numero, mensagem);
       } else if (process.env.NODE_ENV !== 'production') {
         console.info(`[whatsapp] ${numero} — ${mensagem.slice(0, 120)}...`);
+      } else {
+        throw new Error('WhatsApp não configurado (WHATSAPP_PHONE_NUMBER_ID + WHATSAPP_TOKEN)');
       }
       await this.registrar('whatsapp', 'whatsapp', numero, null, mensagem, 'enviada');
       return true;
     } catch (err) {
       console.warn('[whatsapp] falha ao enviar:', err instanceof Error ? err.message : err);
       await this.registrar('whatsapp', 'whatsapp', numero, null, mensagem, 'falha');
+      return false;
+    }
+  }
+
+  async enviarWhatsAppTemplate(
+    telefone: string,
+    templateName: string,
+    bodyParams: string[],
+    languageCode?: string
+  ): Promise<boolean> {
+    const numero = normalizarTelefoneWhatsApp(telefone);
+    if (!numero) {
+      await this.registrar('whatsapp', 'whatsapp', telefone, templateName, bodyParams.join('|'), 'falha');
+      return false;
+    }
+    try {
+      if (!whatsappMetaConfigured()) {
+        throw new Error('WhatsApp Meta não configurado para template');
+      }
+      await enviarWhatsAppMetaTemplate({
+        telefone: numero,
+        templateName,
+        bodyParams,
+        languageCode,
+      });
+      await this.registrar('whatsapp', 'whatsapp', numero, templateName, bodyParams.join(' | '), 'enviada');
+      return true;
+    } catch (err) {
+      console.warn('[whatsapp-template] falha:', err instanceof Error ? err.message : err);
+      await this.registrar('whatsapp', 'whatsapp', numero, templateName, bodyParams.join(' | '), 'falha');
       return false;
     }
   }
@@ -161,6 +190,11 @@ export class NotificacaoService {
     const materialTxt = data.material.length
       ? data.material.map((l) => `• ${l}`).join('\n')
       : '• (não informado no questionário)';
+    const dataFmt = formatarData(new Date());
+
+    const templateName =
+      process.env.WHATSAPP_TEMPLATE_PAGAMENTO || 'jaspers_market_order_confirmation_v1';
+    const templateLang = process.env.WHATSAPP_TEMPLATE_LANG || 'en_US';
 
     const msg =
       `💰 *Pagamento confirmado — ABS Resolve*\n\n` +
@@ -175,6 +209,14 @@ export class NotificacaoService {
       `📦 *Material*\n${materialTxt}`;
 
     for (const numero of destinos) {
+      // Template aprovado na Cloud API (abre a conversa / notifica a equipe)
+      await this.enviarWhatsAppTemplate(
+        numero,
+        templateName,
+        [data.clienteNome, data.pedidoNumero, dataFmt],
+        templateLang
+      );
+      // Detalhes completos (funciona se já houver janela de 24h; senão o template já avisou)
       await this.enviarWhatsApp(numero, msg);
     }
   }
