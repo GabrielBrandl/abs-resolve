@@ -354,16 +354,76 @@ export const catalogoAdminApi = {
         horarioInicio: string;
         horarioFim: string;
         status: string;
+        express?: boolean;
+        pontosUsados?: number;
         servicoNome?: string;
-        cliente: { nome: string; telefone: string; endereco?: Record<string, string> | null };
+        cliente: {
+          id?: string;
+          nome: string;
+          telefone: string;
+          email?: string;
+          endereco?: Record<string, string> | null;
+        };
         tecnico?: { id?: string; nome: string } | null;
-        pedido: { numero: string; descricao?: string };
+        pedido: {
+          id?: string;
+          numero: string;
+          descricao?: string;
+          valor?: number | string;
+          status?: string;
+        };
+        detalhes?: {
+          oQueFazer?: string;
+          observacoes?: string;
+          materiais?: string;
+          acesso?: string;
+          contatoNoLocal?: string;
+          prioridade?: string;
+          categoria?: string;
+          valor?: number | null;
+        };
+        solicitacao?: {
+          id?: string;
+          opcoes?: Record<string, unknown>;
+          servico?: { id?: string; nome?: string; categoria?: string; descricao?: string | null };
+        } | null;
       }>;
       tecnicos: Array<{ id: string; nome: string }>;
       periodo: { inicio: string; fim: string };
       slotsPadrao?: Array<{ inicio: string; fim: string }>;
     }>(`/admin/catalogo/agenda${q ? `?${q}` : ''}`);
   },
+  criarAgendamento: (body: {
+    clienteId: string;
+    catalogoServicoId: string;
+    data: string;
+    horarioInicio: string;
+    horarioFim: string;
+    tecnicoId?: string | null;
+    valor?: number;
+    oQueFazer?: string;
+    observacoes?: string;
+    materiais?: string;
+    acesso?: string;
+    contatoNoLocal?: string;
+    prioridade?: 'normal' | 'urgente';
+    express?: boolean;
+    pontosUsados?: number;
+    notificarCliente?: boolean;
+  }) => post('/admin/catalogo/agenda', body),
+  atualizarDetalhesAgendamento: (
+    id: string,
+    body: {
+      oQueFazer?: string;
+      observacoes?: string;
+      materiais?: string;
+      acesso?: string;
+      contatoNoLocal?: string;
+      prioridade?: 'normal' | 'urgente';
+      tecnicoId?: string | null;
+      valor?: number;
+    }
+  ) => patch(`/admin/catalogo/agenda/${id}/detalhes`, body),
   orcamentos: () => get<Array<{
     id: string; status: string; createdAt: string; opcoes?: Record<string, unknown>;
     servico?: { nome: string }; cliente?: { nome: string; email: string; telefone: string };

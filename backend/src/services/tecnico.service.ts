@@ -255,10 +255,24 @@ export class TecnicoService {
         ...(tecnico ? { OR: [{ tecnicoId: tecnico.id }, { tecnicoId: null }] } : {}),
       },
       include: {
-        cliente: { select: { nome: true, telefone: true, endereco: true } },
+        cliente: { select: { id: true, nome: true, telefone: true, email: true, endereco: true } },
         tecnico: { select: { id: true, nome: true } },
-        pedido: { select: { numero: true, descricao: true } },
-        solicitacao: { select: { servico: { select: { nome: true } } } },
+        pedido: {
+          select: {
+            id: true,
+            numero: true,
+            descricao: true,
+            valor: true,
+            status: true,
+            ordemServico: { select: { observacoes: true } },
+          },
+        },
+        solicitacao: {
+          select: {
+            opcoes: true,
+            servico: { select: { nome: true, categoria: true, descricao: true } },
+          },
+        },
       },
       orderBy: [{ data: 'asc' }, { horarioInicio: 'asc' }],
     });
@@ -270,10 +284,23 @@ export class TecnicoService {
     });
 
     return {
-      agendamentos: agendamentos.map((ag) => ({
-        ...ag,
-        servicoNome: ag.solicitacao?.servico?.nome || ag.pedido?.descricao || 'Serviço',
-      })),
+      agendamentos: agendamentos.map((ag) => {
+        const opcoes = (ag.solicitacao?.opcoes || {}) as Record<string, unknown>;
+        return {
+          ...ag,
+          servicoNome: ag.solicitacao?.servico?.nome || ag.pedido?.descricao || 'Serviço',
+          detalhes: {
+            oQueFazer: String(opcoes.oQueFazer || ag.pedido?.descricao || ''),
+            observacoes: String(opcoes.observacoes || ag.pedido?.ordemServico?.observacoes || ''),
+            materiais: String(opcoes.materiais || ''),
+            acesso: String(opcoes.acesso || ''),
+            contatoNoLocal: String(opcoes.contatoNoLocal || ''),
+            prioridade: String(opcoes.prioridade || 'normal'),
+            categoria: ag.solicitacao?.servico?.categoria || '',
+            valor: ag.pedido?.valor != null ? Number(ag.pedido.valor) : null,
+          },
+        };
+      }),
       tecnicos,
       meuTecnicoId: tecnico?.id || null,
       periodo: { inicio, fim },

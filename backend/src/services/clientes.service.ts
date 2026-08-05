@@ -38,6 +38,7 @@ export class ClientesService {
       where.OR = [
         { nome: { contains: busca, mode: 'insensitive' } },
         { email: { contains: busca, mode: 'insensitive' } },
+        { telefone: { contains: busca.replace(/\D/g, '') } },
         { cpf: { contains: busca.replace(/\D/g, '') } },
         { cnpj: { contains: busca.replace(/\D/g, '') } },
       ];

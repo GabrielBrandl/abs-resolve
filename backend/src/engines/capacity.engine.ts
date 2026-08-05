@@ -114,10 +114,11 @@ export async function reservarCapacidade(
   data: Date,
   pontos: number,
   clienteId: string,
-  solicitacaoId: string,
+  solicitacaoId: string | null,
   horarioInicio: string,
   horarioFim: string,
-  express: boolean
+  express: boolean,
+  extra?: { pedidoId?: string | null; tecnicoId?: string | null }
 ) {
   const capacidade = await capacidadeTotalDia(data);
   const usados = await pontosUsadosDia(data);
@@ -128,7 +129,9 @@ export async function reservarCapacidade(
   return prisma.agendamento.create({
     data: {
       clienteId,
-      solicitacaoId,
+      solicitacaoId: solicitacaoId || undefined,
+      pedidoId: extra?.pedidoId || undefined,
+      tecnicoId: extra?.tecnicoId || undefined,
       data: startOfDay(data),
       horarioInicio,
       horarioFim,

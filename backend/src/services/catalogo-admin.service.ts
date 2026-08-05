@@ -5,6 +5,30 @@ import { listarHorariosDisponiveis } from '../engines/capacity.engine.js';
 import { storageService } from './storage.service.js';
 import { CATEGORIAS } from '../config/catalogo-servicos.js';
 import { fluxoConfigService } from './fluxo-config.service.js';
+import { gerarNumeroPedido } from '../utils/helpers.js';
+import { HORARIOS_PADRAO } from '../config/catalogo.js';
+import { notificacaoService } from './notificacao.service.js';
+
+export type CriarAgendamentoOperacionalInput = {
+  clienteId: string;
+  catalogoServicoId: string;
+  data: string;
+  horarioInicio: string;
+  horarioFim: string;
+  tecnicoId?: string | null;
+  valor?: number;
+  /** O que o técnico precisa fazer no local */
+  oQueFazer?: string;
+  observacoes?: string;
+  materiais?: string;
+  acesso?: string;
+  contatoNoLocal?: string;
+  prioridade?: 'normal' | 'urgente';
+  express?: boolean;
+  pontosUsados?: number;
+  notificarCliente?: boolean;
+  responsavel?: string;
+};
 
 type TipoPreco = 'fixo' | 'a_partir' | 'sob_orcamento';
 
@@ -281,10 +305,27 @@ export class CatalogoAdminService {
         status: { in: ['confirmado', 'reagendado', 'a_caminho', 'em_execucao'] },
       },
       include: {
-        cliente: { select: { nome: true, telefone: true, endereco: true } },
+        cliente: { select: { id: true, nome: true, telefone: true, email: true, endereco: true } },
         tecnico: { select: { id: true, nome: true } },
-        pedido: { select: { numero: true, descricao: true } },
-        solicitacao: { select: { servico: { select: { nome: true } } } },
+        pedido: {
+          select: {
+            id: true,
+            numero: true,
+            descricao: true,
+            valor: true,
+            status: true,
+            ordemServico: { select: { id: true, observacoes: true, etapa: true } },
+          },
+        },
+        solicitacao: {
+          select: {
+            id: true,
+            opcoes: true,
+            tipo: true,
+            express: true,
+            servico: { select: { id: true, nome: true, slug: true, categoria: true, descricao: true } },
+          },
+        },
       },
       orderBy: [{ data: 'asc' }, { horarioInicio: 'asc' }],
     });
@@ -296,19 +337,267 @@ export class CatalogoAdminService {
     });
 
     return {
-      agendamentos: agendamentos.map((ag) => ({
-        ...ag,
-        servicoNome: ag.solicitacao?.servico?.nome || ag.pedido?.descricao || 'Serviço',
-      })),
+      agendamentos: agendamentos.map((ag) => {
+        const opcoes = (ag.solicitacao?.opcoes || {}) as Record<string, unknown>;
+        return {
+          ...ag,
+          servicoNome: ag.solicitacao?.servico?.nome || ag.pedido?.descricao || 'Serviço',
+          detalhes: {
+            oQueFazer: String(opcoes.oQueFazer || ag.pedido?.descricao || ''),
+            observacoes: String(opcoes.observacoes || ag.pedido?.ordemServico?.observacoes || ''),
+            materiais: String(opcoes.materiais || ''),
+            acesso: String(opcoes.acesso || ''),
+            contatoNoLocal: String(opcoes.contatoNoLocal || ''),
+            prioridade: String(opcoes.prioridade || 'normal'),
+            categoria: ag.solicitacao?.servico?.categoria || '',
+            valor: ag.pedido?.valor != null ? Number(ag.pedido.valor) : null,
+          },
+        };
+      }),
       tecnicos,
       periodo: { inicio, fim },
-      slotsPadrao: [
-        { inicio: '08:00', fim: '10:00' },
-        { inicio: '10:00', fim: '12:00' },
-        { inicio: '14:00', fim: '16:00' },
-        { inicio: '16:00', fim: '18:00' },
-      ],
+      slotsPadrao: HORARIOS_PADRAO,
     };
+  }
+
+  async criarAgendamentoOperacional(input: CriarAgendamentoOperacionalInput) {
+    const {
+      clienteId,
+      catalogoServicoId,
+      data,
+      horarioInicio,
+      horarioFim,
+      tecnicoId,
+      valor,
+      oQueFazer,
+      observacoes,
+      materiais,
+      acesso,
+      contatoNoLocal,
+      prioridade = 'normal',
+      express = false,
+      pontosUsados,
+      notificarCliente = true,
+      responsavel = 'Operacional',
+    } = input;
+
+    if (!clienteId || !catalogoServicoId || !data || !horarioInicio || !horarioFim) {
+      throw new Error('Cliente, serviço, data e horário são obrigatórios');
+    }
+
+    const slotOk = HORARIOS_PADRAO.some((s) => s.inicio === horarioInicio && s.fim === horarioFim);
+    if (!slotOk) throw new Error('Horário inválido. Use um dos turnos padrão da operação.');
+
+    const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
+    if (!cliente) throw new Error('Cliente não encontrado');
+
+    const servico = await prisma.catalogoServico.findFirst({
+      where: { id: catalogoServicoId, ativo: true },
+    });
+    if (!servico) throw new Error('Serviço do catálogo não encontrado ou inativo');
+
+    if (tecnicoId) {
+      const tecnico = await prisma.tecnico.findFirst({ where: { id: tecnicoId, ativo: true } });
+      if (!tecnico) throw new Error('Técnico não encontrado ou inativo');
+    }
+
+    const pontos = Math.max(1, Number(pontosUsados) || servico.pontos || 2);
+    const valorPedido =
+      valor != null && !Number.isNaN(Number(valor))
+        ? Number(valor)
+        : servico.precoMinimo != null
+          ? Number(servico.precoMinimo)
+          : 0;
+
+    const descricaoPedido = [servico.nome, oQueFazer?.trim()].filter(Boolean).join(' — ').slice(0, 500);
+    const numero = await gerarNumeroPedido();
+
+    const opcoes: Record<string, unknown> = {
+      origem: 'agenda_operacional',
+      oQueFazer: oQueFazer?.trim() || '',
+      observacoes: observacoes?.trim() || '',
+      materiais: materiais?.trim() || '',
+      acesso: acesso?.trim() || '',
+      contatoNoLocal: contatoNoLocal?.trim() || '',
+      prioridade,
+      criadoEm: new Date().toISOString(),
+    };
+
+    const result = await prisma.$transaction(async (tx) => {
+      const pedido = await tx.pedido.create({
+        data: {
+          numero,
+          clienteId,
+          valor: valorPedido,
+          responsavel,
+          descricao: descricaoPedido || servico.nome,
+          status: 'em_processamento',
+        },
+      });
+
+      const solicitacao = await tx.solicitacaoServico.create({
+        data: {
+          clienteId,
+          servicoId: servico.id,
+          tipo: servico.tipo || 'padrao',
+          status: 'agendado',
+          precoBase: valorPedido || null,
+          precoFinal: valorPedido || null,
+          express,
+          pedidoId: pedido.id,
+          opcoes: opcoes as Prisma.InputJsonValue,
+        },
+      });
+
+      const dataAgenda = new Date(`${data}T12:00:00`);
+      const capacidade = await tx.tecnico.findMany({ where: { ativo: true } });
+      const capTotal = capacidade.reduce((s, t) => s + t.capacidadeDiaria, 0);
+      const inicioDia = new Date(dataAgenda);
+      inicioDia.setHours(0, 0, 0, 0);
+      const fimDia = new Date(inicioDia);
+      fimDia.setDate(fimDia.getDate() + 1);
+      const usadosAgg = await tx.agendamento.findMany({
+        where: {
+          data: { gte: inicioDia, lt: fimDia },
+          status: { notIn: ['cancelado'] },
+        },
+      });
+      const usados = usadosAgg.reduce((s, a) => s + a.pontosUsados, 0);
+      if (usados + pontos > capTotal) {
+        throw new Error('Horário indisponível. Capacidade operacional atingida.');
+      }
+
+      const agendamento = await tx.agendamento.create({
+        data: {
+          clienteId,
+          solicitacaoId: solicitacao.id,
+          pedidoId: pedido.id,
+          tecnicoId: tecnicoId || undefined,
+          data: inicioDia,
+          horarioInicio,
+          horarioFim,
+          pontosUsados: pontos,
+          express,
+          status: 'confirmado',
+        },
+      });
+
+      await tx.ordemServico.create({
+        data: {
+          pedidoId: pedido.id,
+          etapa: 'execucao',
+          tecnicoId: tecnicoId || undefined,
+          observacoes: [oQueFazer, observacoes, materiais ? `Materiais: ${materiais}` : '', acesso ? `Acesso: ${acesso}` : '']
+            .filter(Boolean)
+            .join('\n')
+            .slice(0, 2000) || null,
+        },
+      });
+
+      return { agendamento, pedido, solicitacao, servico };
+    });
+
+    if (notificarCliente) {
+      notificacaoService
+        .notificarAgendamentoConfirmado({
+          clienteNome: cliente.nome,
+          email: cliente.email,
+          telefone: cliente.telefone,
+          whatsapp: cliente.whatsapp,
+          pedidoNumero: result.pedido.numero,
+          data,
+          horarioInicio,
+          horarioFim,
+          servicoNome: servico.nome,
+        })
+        .catch(() => {});
+    }
+
+    return {
+      ...result.agendamento,
+      pedido: { numero: result.pedido.numero, id: result.pedido.id },
+      servicoNome: servico.nome,
+    };
+  }
+
+  async atualizarDetalhesAgendamento(
+    agendamentoId: string,
+    data: {
+      oQueFazer?: string;
+      observacoes?: string;
+      materiais?: string;
+      acesso?: string;
+      contatoNoLocal?: string;
+      prioridade?: 'normal' | 'urgente';
+      tecnicoId?: string | null;
+      valor?: number;
+    }
+  ) {
+    const ag = await prisma.agendamento.findUnique({
+      where: { id: agendamentoId },
+      include: {
+        solicitacao: true,
+        pedido: { include: { ordemServico: true } },
+      },
+    });
+    if (!ag) throw new Error('Agendamento não encontrado');
+
+    const opcoesAtuais = ((ag.solicitacao?.opcoes || {}) as Record<string, unknown>) || {};
+    const opcoes = {
+      ...opcoesAtuais,
+      ...(data.oQueFazer !== undefined && { oQueFazer: data.oQueFazer }),
+      ...(data.observacoes !== undefined && { observacoes: data.observacoes }),
+      ...(data.materiais !== undefined && { materiais: data.materiais }),
+      ...(data.acesso !== undefined && { acesso: data.acesso }),
+      ...(data.contatoNoLocal !== undefined && { contatoNoLocal: data.contatoNoLocal }),
+      ...(data.prioridade !== undefined && { prioridade: data.prioridade }),
+    };
+
+    if (ag.solicitacaoId) {
+      await prisma.solicitacaoServico.update({
+        where: { id: ag.solicitacaoId },
+        data: { opcoes: opcoes as Prisma.InputJsonValue },
+      });
+    }
+
+    if (ag.pedidoId) {
+      const oQue = data.oQueFazer ?? String(opcoes.oQueFazer || '');
+      await prisma.pedido.update({
+        where: { id: ag.pedidoId },
+        data: {
+          ...(oQue && { descricao: oQue.slice(0, 500) }),
+          ...(data.valor != null && !Number.isNaN(Number(data.valor)) && { valor: Number(data.valor) }),
+        },
+      });
+
+      if (ag.pedido?.ordemServico) {
+        const mat = data.materiais ?? String(opcoes.materiais || '');
+        const obs = data.observacoes ?? String(opcoes.observacoes || '');
+        const obsOs = [oQue, obs, mat ? `Materiais: ${mat}` : '']
+          .filter(Boolean)
+          .join('\n')
+          .slice(0, 2000);
+        await prisma.ordemServico.update({
+          where: { id: ag.pedido.ordemServico.id },
+          data: {
+            observacoes: obsOs || null,
+            ...(data.tecnicoId !== undefined && { tecnicoId: data.tecnicoId }),
+          },
+        });
+      }
+    }
+
+    if (data.tecnicoId !== undefined) {
+      await prisma.agendamento.update({
+        where: { id: agendamentoId },
+        data: { tecnicoId: data.tecnicoId },
+      });
+    }
+
+    return this.agendaOperacional(
+      ag.data.toISOString().slice(0, 10),
+      1
+    ).then((r) => r.agendamentos.find((a) => a.id === agendamentoId) || { id: agendamentoId });
   }
 
   async orcamentosPendentes() {

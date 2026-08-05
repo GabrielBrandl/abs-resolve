@@ -123,6 +123,33 @@ export class CatalogoAdminController {
     }
   }
 
+  async criarAgendamento(req: Request, res: Response) {
+    try {
+      const responsavel = req.user?.email || 'Operacional';
+      return success(
+        res,
+        await catalogoAdminService.criarAgendamentoOperacional({
+          ...req.body,
+          responsavel,
+        }),
+        201
+      );
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async atualizarDetalhesAgendamento(req: Request, res: Response) {
+    try {
+      return success(
+        res,
+        await catalogoAdminService.atualizarDetalhesAgendamento(paramId(req.params.id), req.body)
+      );
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async orcamentos(_req: Request, res: Response) {
     try {
       return success(res, await catalogoAdminService.orcamentosPendentes());

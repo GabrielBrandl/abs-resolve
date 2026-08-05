@@ -4,6 +4,7 @@ import { formatDate, formatEndereco, mapsLink } from '../../types';
 import { PageHeader, Loading, Button } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 import { useAuthStore } from '../../store/authStore';
+import { AgendaNovoForm, type PrefillSlot } from './AgendaNovoForm';
 
 export type AgendaItem = {
   id: string;
@@ -11,10 +12,27 @@ export type AgendaItem = {
   horarioInicio: string;
   horarioFim: string;
   status: string;
+  express?: boolean;
   servicoNome?: string;
-  cliente: { nome: string; telefone: string; endereco?: Record<string, string> | null };
+  cliente: {
+    id?: string;
+    nome: string;
+    telefone: string;
+    email?: string;
+    endereco?: Record<string, string> | null;
+  };
   tecnico?: { id?: string; nome: string } | null;
-  pedido: { numero: string; descricao?: string };
+  pedido: { id?: string; numero: string; descricao?: string; valor?: number | string; status?: string };
+  detalhes?: {
+    oQueFazer?: string;
+    observacoes?: string;
+    materiais?: string;
+    acesso?: string;
+    contatoNoLocal?: string;
+    prioridade?: string;
+    categoria?: string;
+    valor?: number | null;
+  };
 };
 
 type SlotPadrao = { inicio: string; fim: string };
@@ -88,6 +106,7 @@ function CardAgendamento({
   onOpen: () => void;
 }) {
   const meta = statusMeta(ag.status);
+  const oQue = ag.detalhes?.oQueFazer || ag.pedido?.descricao;
   return (
     <button
       type="button"
@@ -99,6 +118,7 @@ function CardAgendamento({
         <div className="flex items-start justify-between gap-2">
           <p className={`truncate font-semibold text-slate-900 ${compact ? 'text-xs' : 'text-sm'}`}>
             {ag.cliente.nome}
+            {ag.detalhes?.prioridade === 'urgente' ? ' ·!' : ''}
           </p>
           <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide opacity-70">
             {ag.horarioInicio}
@@ -107,6 +127,9 @@ function CardAgendamento({
         <p className={`truncate text-slate-600 ${compact ? 'text-[11px]' : 'text-xs'}`}>
           {ag.servicoNome || ag.pedido.descricao || ag.pedido.numero}
         </p>
+        {oQue && (
+          <p className={`truncate text-slate-500 ${compact ? 'text-[10px]' : 'text-[11px]'}`}>{oQue}</p>
+        )}
         {!compact && (
           <p className="mt-1 truncate text-[11px] text-slate-500">
             {ag.tecnico?.nome || 'Sem técnico'} · {meta.label}
@@ -147,6 +170,18 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
   const [atualizando, setAtualizando] = useState(false);
   const [selecionado, setSelecionado] = useState<AgendaItem | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
+  const [novoOpen, setNovoOpen] = useState(false);
+  const [prefill, setPrefill] = useState<PrefillSlot | null>(null);
+  const [editandoDetalhes, setEditandoDetalhes] = useState(false);
+  const [detalheForm, setDetalheForm] = useState({
+    oQueFazer: '',
+    observacoes: '',
+    materiais: '',
+    acesso: '',
+    contatoNoLocal: '',
+    prioridade: 'normal' as 'normal' | 'urgente',
+  });
+  const [salvandoDetalhe, setSalvandoDetalhe] = useState(false);
 
   const diasSemana = useMemo(() => {
     const base = parseYmd(semanaInicio);
@@ -271,6 +306,47 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
     setSemanaInicio(toYmd(inicioSemana(new Date())));
   };
 
+  const abrirNovo = (slot?: PrefillSlot) => {
+    setPrefill(slot || null);
+    setNovoOpen(true);
+  };
+
+  const abrirDetalhe = (ag: AgendaItem) => {
+    setSelecionado(ag);
+    setEditandoDetalhes(false);
+    setDetalheForm({
+      oQueFazer: ag.detalhes?.oQueFazer || ag.pedido?.descricao || '',
+      observacoes: ag.detalhes?.observacoes || '',
+      materiais: ag.detalhes?.materiais || '',
+      acesso: ag.detalhes?.acesso || '',
+      contatoNoLocal: ag.detalhes?.contatoNoLocal || '',
+      prioridade: (ag.detalhes?.prioridade as 'normal' | 'urgente') || 'normal',
+    });
+  };
+
+  const salvarDetalhes = async () => {
+    if (!selecionado || !podeAtribuir) return;
+    setSalvandoDetalhe(true);
+    try {
+      await catalogoAdminApi.atualizarDetalhesAgendamento(selecionado.id, {
+        ...detalheForm,
+        tecnicoId: selecionado.tecnico?.id || null,
+      });
+      toast('Detalhes atualizados!', 'success');
+      setEditandoDetalhes(false);
+      carregar(true);
+      setSelecionado({
+        ...selecionado,
+        detalhes: { ...selecionado.detalhes, ...detalheForm },
+        pedido: { ...selecionado.pedido, descricao: detalheForm.oQueFazer },
+      });
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
+    } finally {
+      setSalvandoDetalhe(false);
+    }
+  };
+
   const mapa = selecionado ? mapsLink(selecionado.cliente.endereco) : null;
   const tituloPeriodo =
     visao === 'dia'
@@ -298,9 +374,14 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
             : 'Central de despacho — visualize a equipe, preencha vagas e acompanhe a operação'
         }
         action={
-          <Button variant="secondary" onClick={() => carregar(true)} disabled={atualizando}>
-            {atualizando ? 'Atualizando…' : 'Atualizar'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {podeAtribuir && (
+              <Button onClick={() => abrirNovo({ data: diaFoco })}>Novo agendamento</Button>
+            )}
+            <Button variant="secondary" onClick={() => carregar(true)} disabled={atualizando}>
+              {atualizando ? 'Atualizando…' : 'Atualizar'}
+            </Button>
+          </div>
         }
       />
 
@@ -489,16 +570,32 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
                           <td key={`${toYmd(dia)}-${slot.inicio}`} className="border-b border-l bg-slate-50/40 p-1.5">
                             <div className="min-h-[88px] space-y-1.5">
                               {itens.length === 0 ? (
-                                <div className="flex h-full min-h-[88px] items-center justify-center rounded-xl border border-dashed border-slate-200 text-[11px] text-slate-300">
-                                  Livre
-                                </div>
+                                <button
+                                  type="button"
+                                  disabled={!podeAtribuir}
+                                  onClick={() =>
+                                    podeAtribuir &&
+                                    abrirNovo({
+                                      data: toYmd(dia),
+                                      horarioInicio: slot.inicio,
+                                      horarioFim: slot.fim,
+                                    })
+                                  }
+                                  className={`flex h-full min-h-[88px] w-full items-center justify-center rounded-xl border border-dashed border-slate-200 text-[11px] ${
+                                    podeAtribuir
+                                      ? 'text-slate-400 hover:border-primary-300 hover:bg-primary-50/50 hover:text-primary-700'
+                                      : 'cursor-default text-slate-300'
+                                  }`}
+                                >
+                                  {podeAtribuir ? '+ Agendar' : 'Livre'}
+                                </button>
                               ) : (
                                 itens.map((ag) => (
                                   <CardAgendamento
                                     key={ag.id}
                                     ag={ag}
                                     compact
-                                    onOpen={() => setSelecionado(ag)}
+                                    onOpen={() => abrirDetalhe(ag)}
                                   />
                                 ))
                               )}
@@ -531,13 +628,29 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
                       </span>
                     </div>
                     {itens.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-sm text-slate-400">
-                        Nenhum atendimento neste turno
-                      </p>
+                      podeAtribuir ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            abrirNovo({
+                              data: diaFoco,
+                              horarioInicio: slot.inicio,
+                              horarioFim: slot.fim,
+                            })
+                          }
+                          className="w-full rounded-xl border border-dashed border-slate-200 py-6 text-sm text-slate-400 hover:border-primary-300 hover:bg-primary-50/40 hover:text-primary-700"
+                        >
+                          + Agendar neste turno
+                        </button>
+                      ) : (
+                        <p className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-sm text-slate-400">
+                          Nenhum atendimento neste turno
+                        </p>
+                      )
                     ) : (
                       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                         {itens.map((ag) => (
-                          <CardAgendamento key={ag.id} ag={ag} onOpen={() => setSelecionado(ag)} />
+                          <CardAgendamento key={ag.id} ag={ag} onOpen={() => abrirDetalhe(ag)} />
                         ))}
                       </div>
                     )}
@@ -620,7 +733,7 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
                               key={ag.id}
                               ag={ag}
                               compact
-                              onOpen={() => setSelecionado(ag)}
+                              onOpen={() => abrirDetalhe(ag)}
                             />
                           ))}
                         </div>
@@ -646,7 +759,7 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
                                   key={ag.id}
                                   ag={ag}
                                   compact
-                                  onOpen={() => setSelecionado(ag)}
+                                  onOpen={() => abrirDetalhe(ag)}
                                 />
                               ))
                             )}
@@ -704,7 +817,7 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
                               ))}
                             </select>
                           )}
-                          <Button variant="secondary" className="text-xs" onClick={() => setSelecionado(ag)}>
+                          <Button variant="secondary" className="text-xs" onClick={() => abrirDetalhe(ag)}>
                             Abrir
                           </Button>
                         </div>
@@ -746,8 +859,20 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
             </div>
 
             <div className="flex-1 space-y-4 overflow-y-auto p-5 text-sm">
-              <div className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusMeta(selecionado.status).chip}`}>
-                {statusMeta(selecionado.status).label}
+              <div className="flex flex-wrap gap-2">
+                <div className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusMeta(selecionado.status).chip}`}>
+                  {statusMeta(selecionado.status).label}
+                </div>
+                {selecionado.detalhes?.prioridade === 'urgente' && (
+                  <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800">
+                    Urgente
+                  </span>
+                )}
+                {selecionado.express && (
+                  <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                    Express
+                  </span>
+                )}
               </div>
 
               <section className="rounded-xl border border-slate-200 p-3">
@@ -762,12 +887,136 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
                 <p className="font-medium text-slate-900">
                   {selecionado.servicoNome || selecionado.pedido.descricao || '—'}
                 </p>
+                {selecionado.detalhes?.categoria && (
+                  <p className="mt-1 text-xs capitalize text-slate-500">{selecionado.detalhes.categoria}</p>
+                )}
+                {(selecionado.detalhes?.valor != null || selecionado.pedido.valor != null) && (
+                  <p className="mt-1 text-sm font-semibold text-primary-800">
+                    R${' '}
+                    {Number(selecionado.detalhes?.valor ?? selecionado.pedido.valor).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                    })}
+                  </p>
+                )}
+              </section>
+
+              <section className="rounded-xl border border-primary-100 bg-primary-50/40 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-700">
+                    O que fazer
+                  </p>
+                  {podeAtribuir && !editandoDetalhes && (
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-primary-700 underline"
+                      onClick={() => setEditandoDetalhes(true)}
+                    >
+                      Editar
+                    </button>
+                  )}
+                </div>
+                {editandoDetalhes && podeAtribuir ? (
+                  <div className="space-y-3">
+                    <textarea
+                      value={detalheForm.oQueFazer}
+                      onChange={(e) => setDetalheForm((f) => ({ ...f, oQueFazer: e.target.value }))}
+                      rows={3}
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                      placeholder="O que o técnico precisa fazer"
+                    />
+                    <input
+                      value={detalheForm.materiais}
+                      onChange={(e) => setDetalheForm((f) => ({ ...f, materiais: e.target.value }))}
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Materiais"
+                    />
+                    <input
+                      value={detalheForm.acesso}
+                      onChange={(e) => setDetalheForm((f) => ({ ...f, acesso: e.target.value }))}
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Acesso ao imóvel"
+                    />
+                    <input
+                      value={detalheForm.contatoNoLocal}
+                      onChange={(e) => setDetalheForm((f) => ({ ...f, contatoNoLocal: e.target.value }))}
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Contato no local"
+                    />
+                    <textarea
+                      value={detalheForm.observacoes}
+                      onChange={(e) => setDetalheForm((f) => ({ ...f, observacoes: e.target.value }))}
+                      rows={2}
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Observações internas"
+                    />
+                    <select
+                      value={detalheForm.prioridade}
+                      onChange={(e) =>
+                        setDetalheForm((f) => ({
+                          ...f,
+                          prioridade: e.target.value as 'normal' | 'urgente',
+                        }))
+                      }
+                      className="w-full rounded-lg border px-3 py-2 text-sm"
+                    >
+                      <option value="normal">Prioridade normal</option>
+                      <option value="urgente">Urgente</option>
+                    </select>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        className="flex-1 text-xs"
+                        onClick={() => setEditandoDetalhes(false)}
+                        disabled={salvandoDetalhe}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        className="flex-1 text-xs"
+                        onClick={() => void salvarDetalhes()}
+                        disabled={salvandoDetalhe}
+                      >
+                        {salvandoDetalhe ? 'Salvando…' : 'Salvar'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 whitespace-pre-wrap text-slate-800">
+                    <p className="font-medium">
+                      {selecionado.detalhes?.oQueFazer || selecionado.pedido.descricao || 'Sem descrição do serviço'}
+                    </p>
+                    {selecionado.detalhes?.materiais && (
+                      <p>
+                        <span className="text-slate-500">Materiais:</span> {selecionado.detalhes.materiais}
+                      </p>
+                    )}
+                    {selecionado.detalhes?.acesso && (
+                      <p>
+                        <span className="text-slate-500">Acesso:</span> {selecionado.detalhes.acesso}
+                      </p>
+                    )}
+                    {selecionado.detalhes?.contatoNoLocal && (
+                      <p>
+                        <span className="text-slate-500">Contato no local:</span>{' '}
+                        {selecionado.detalhes.contatoNoLocal}
+                      </p>
+                    )}
+                    {selecionado.detalhes?.observacoes && (
+                      <p>
+                        <span className="text-slate-500">Obs.:</span> {selecionado.detalhes.observacoes}
+                      </p>
+                    )}
+                  </div>
+                )}
               </section>
 
               <section className="rounded-xl border border-slate-200 p-3">
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cliente</p>
                 <p className="font-medium">{selecionado.cliente.nome}</p>
                 <p className="text-slate-600">{selecionado.cliente.telefone}</p>
+                {selecionado.cliente.email && (
+                  <p className="text-slate-500">{selecionado.cliente.email}</p>
+                )}
                 <p className="mt-1 text-slate-500">{formatEndereco(selecionado.cliente.endereco)}</p>
                 {mapa && (
                   <a
@@ -814,6 +1063,17 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
             </div>
           </aside>
         </div>
+      )}
+
+      {podeAtribuir && (
+        <AgendaNovoForm
+          open={novoOpen}
+          onClose={() => setNovoOpen(false)}
+          onCreated={() => carregar(true)}
+          tecnicos={tecnicos}
+          slotsPadrao={slotsPadrao}
+          prefill={prefill}
+        />
       )}
     </div>
   );
