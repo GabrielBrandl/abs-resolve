@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useUiStore } from '../../store/uiStore';
 import { Logo } from '../../components/ui';
 
 const navItems = [
@@ -10,6 +11,7 @@ const navItems = [
 
 function TecnicoPanel({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuthStore();
+  const { theme, toggleTheme } = useUiStore();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -19,7 +21,7 @@ function TecnicoPanel({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="border-b border-primary-600/30 px-4 py-4">
+      <div className="border-b border-white/10 px-4 py-4">
         <Logo variant="sidebar" className="h-10" />
         <p className="mt-1 text-xs text-accent-400">Portal do Técnico</p>
       </div>
@@ -41,9 +43,21 @@ function TecnicoPanel({ onNavigate }: { onNavigate?: () => void }) {
           </NavLink>
         ))}
       </nav>
-      <div className="border-t border-primary-600/30 p-4">
+      <div className="border-t border-white/10 p-4">
         <p className="truncate text-sm">{user?.nome}</p>
-        <button type="button" onClick={handleLogout} className="mt-2 w-full rounded-lg bg-primary-700 py-1.5 text-sm hover:bg-primary-600">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-white/5 py-1.5 text-sm hover:bg-white/10"
+        >
+          <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+          {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+        </button>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-2 w-full rounded-lg bg-primary-700 py-1.5 text-sm hover:bg-primary-600"
+        >
           Sair
         </button>
       </div>
@@ -53,24 +67,35 @@ function TecnicoPanel({ onNavigate }: { onNavigate?: () => void }) {
 
 export function TecnicoLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { theme, toggleTheme } = useUiStore();
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen bg-surface dark:bg-surface-muted">
       <aside className="hidden w-56 shrink-0 flex-col bg-sidebar text-white md:flex">
         <TecnicoPanel />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col md:contents">
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-sidebar px-4 py-3 text-white md:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-sidebar px-4 py-3 text-white md:hidden">
           <Logo variant="sidebar" className="h-8" />
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="rounded-lg p-2 hover:bg-sidebar-hover"
-            aria-label="Menu"
-          >
-            {menuOpen ? '✕' : '☰'}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="rounded-lg p-2 hover:bg-sidebar-hover"
+              aria-label={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="rounded-lg p-2 hover:bg-sidebar-hover"
+              aria-label="Menu"
+            >
+              {menuOpen ? '✕' : '☰'}
+            </button>
+          </div>
         </header>
 
         {menuOpen && (
@@ -82,7 +107,7 @@ export function TecnicoLayout() {
           </div>
         )}
 
-        <main className="min-w-0 flex-1 overflow-x-hidden bg-slate-50 p-4 md:p-8">
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-surface-muted p-4 md:p-8">
           <Outlet />
         </main>
       </div>

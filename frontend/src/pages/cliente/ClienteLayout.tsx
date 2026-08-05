@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useUiStore } from '../../store/uiStore';
 import { Logo } from '../../components/ui';
 
 const navItems = [
@@ -24,6 +25,7 @@ const bottomNavItems = [
 
 export function ClienteLayout() {
   const { user, logout } = useAuthStore();
+  const { theme, toggleTheme } = useUiStore();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -38,10 +40,9 @@ export function ClienteLayout() {
     }`;
 
   return (
-    <div className="flex min-h-screen bg-white">
-      {/* Desktop sidebar */}
+    <div className="flex min-h-screen bg-surface dark:bg-surface-muted">
       <aside className="hidden w-56 flex-col bg-sidebar text-white md:flex">
-        <div className="border-b border-primary-600/30 px-4 py-4">
+        <div className="border-b border-white/10 px-4 py-4">
           <Logo variant="sidebar" className="h-10" />
           <p className="mt-1 text-xs text-accent-400">Portal do Cliente</p>
         </div>
@@ -53,33 +54,54 @@ export function ClienteLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-primary-600/30 p-4">
+        <div className="border-t border-white/10 p-4">
           <p className="truncate text-sm">{user?.nome}</p>
-          <button onClick={handleLogout} className="mt-2 w-full rounded-lg bg-primary-700 py-1.5 text-sm hover:bg-primary-600">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-white/5 py-1.5 text-sm hover:bg-white/10"
+          >
+            <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+            {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-2 w-full rounded-lg bg-primary-700 py-1.5 text-sm hover:bg-primary-600"
+          >
             Sair
           </button>
         </div>
       </aside>
 
-      {/* Mobile header */}
       <div className="flex min-h-screen flex-1 flex-col md:contents">
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-sidebar px-4 py-3 text-white md:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-sidebar px-4 py-3 text-white md:hidden">
           <Logo variant="sidebar" className="h-8" />
-          <button
-            type="button"
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="rounded-lg p-2 hover:bg-sidebar-hover"
-            aria-label="Menu"
-          >
-            {menuOpen ? '✕' : '☰'}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="rounded-lg p-2 hover:bg-sidebar-hover"
+              aria-label={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="rounded-lg p-2 hover:bg-sidebar-hover"
+              aria-label="Menu"
+            >
+              {menuOpen ? '✕' : '☰'}
+            </button>
+          </div>
         </header>
 
         {menuOpen && (
           <div className="fixed inset-0 z-40 md:hidden">
             <div className="absolute inset-0 bg-black/50" onClick={() => setMenuOpen(false)} />
             <aside className="absolute left-0 top-0 flex h-full w-64 flex-col bg-sidebar text-white shadow-xl">
-              <div className="border-b border-primary-600/30 px-4 py-4">
+              <div className="border-b border-white/10 px-4 py-4">
                 <Logo variant="sidebar" className="h-10" />
                 <p className="mt-1 text-xs text-accent-400">{user?.nome}</p>
               </div>
@@ -97,8 +119,20 @@ export function ClienteLayout() {
                   </NavLink>
                 ))}
               </nav>
-              <div className="border-t border-primary-600/30 p-4">
-                <button onClick={handleLogout} className="w-full rounded-lg bg-primary-700 py-2 text-sm hover:bg-primary-600">
+              <div className="border-t border-white/10 p-4">
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-white/5 py-2 text-sm"
+                >
+                  <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+                  {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full rounded-lg bg-primary-700 py-2 text-sm hover:bg-primary-600"
+                >
                   Sair
                 </button>
               </div>
@@ -106,12 +140,11 @@ export function ClienteLayout() {
           </div>
         )}
 
-        <main className="min-w-0 flex-1 overflow-x-hidden bg-slate-50 p-4 pb-20 md:p-8 md:pb-8">
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-surface-muted p-4 pb-20 md:p-8 md:pb-8">
           <Outlet />
         </main>
 
-        {/* Mobile bottom nav */}
-        <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t bg-white md:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-line bg-panel md:hidden dark:border-slate-800 dark:bg-slate-950">
           {bottomNavItems.map((item) => (
             <NavLink
               key={item.path}
@@ -119,7 +152,7 @@ export function ClienteLayout() {
               end={item.end}
               className={({ isActive }) =>
                 `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${
-                  isActive ? 'text-primary-600' : 'text-slate-500'
+                  isActive ? 'text-primary-600 dark:text-primary-300' : 'text-slate-500'
                 }`
               }
             >

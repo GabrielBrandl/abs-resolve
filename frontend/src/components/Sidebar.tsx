@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useUiStore } from '../store/uiStore';
 import { Logo } from './ui';
 import type { Role } from '../types';
 
@@ -29,8 +30,15 @@ const navItems: NavItem[] = [
   { label: 'Admin', path: '/admin', roles: ['admin'], icon: '⚙️' },
 ];
 
-function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarPanel({
+  onNavigate,
+  collapsed = false,
+}: {
+  onNavigate?: () => void;
+  collapsed?: boolean;
+}) {
   const { user, logout, hasRole } = useAuthStore();
+  const { theme, toggleTheme, toggleSidebar } = useUiStore();
   const navigate = useNavigate();
 
   const visibleItems = navItems.filter(
@@ -44,46 +52,96 @@ function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="border-b border-primary-600/30 px-4 py-4">
-        <Logo variant="sidebar" className="h-14" />
-        <p className="mt-1 text-xs text-accent-400">Plataforma de Gestão</p>
+      <div className={`border-b border-white/10 ${collapsed ? 'px-2 py-3' : 'px-4 py-4'}`}>
+        <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between gap-2'}`}>
+          {!collapsed && <Logo variant="sidebar" className="h-12" />}
+          {collapsed && (
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500 text-sm font-bold text-primary-900">
+              A
+            </span>
+          )}
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="hidden rounded-lg p-1.5 text-slate-300 transition hover:bg-white/10 hover:text-white md:inline-flex"
+              title="Minimizar menu"
+              aria-label="Minimizar menu"
+            >
+              «
+            </button>
+          )}
+        </div>
+        {!collapsed && <p className="mt-1 text-xs text-accent-400">Plataforma de Gestão</p>}
+        {collapsed && (
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="mt-2 hidden w-full rounded-lg py-1.5 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white md:block"
+            title="Expandir menu"
+            aria-label="Expandir menu"
+          >
+            »
+          </button>
+        )}
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className={`flex-1 space-y-1 overflow-y-auto py-4 ${collapsed ? 'px-1.5' : 'px-3'}`}>
         {visibleItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             end={item.path === '/'}
             onClick={onNavigate}
+            title={item.label}
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              `flex items-center rounded-lg text-sm font-medium transition-colors ${
+                collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+              } ${
                 isActive
                   ? 'bg-accent-500 text-primary-900'
                   : 'text-slate-200 hover:bg-sidebar-hover hover:text-white'
               }`
             }
           >
-            <span>{item.icon}</span>
-            {item.label}
+            <span className="text-base leading-none">{item.icon}</span>
+            {!collapsed && <span className="truncate">{item.label}</span>}
           </NavLink>
         ))}
       </nav>
 
-      <div className="border-t border-primary-600/30 px-4 py-4">
-        <div className="mb-3 px-2">
-          <p className="truncate text-sm font-medium">{user?.nome}</p>
-          <p className="truncate text-xs text-slate-400">{user?.email}</p>
-          <span className="mt-1 inline-block rounded-full bg-accent-500/20 px-2 py-0.5 text-xs capitalize text-accent-400">
-            {user?.role}
-          </span>
-        </div>
+      <div className={`border-t border-white/10 ${collapsed ? 'px-1.5 py-3' : 'px-4 py-4'}`}>
+        {!collapsed && (
+          <div className="mb-3 px-2">
+            <p className="truncate text-sm font-medium">{user?.nome}</p>
+            <p className="truncate text-xs text-slate-400">{user?.email}</p>
+            <span className="mt-1 inline-block rounded-full bg-accent-500/20 px-2 py-0.5 text-xs capitalize text-accent-400">
+              {user?.role}
+            </span>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+          className={`mb-2 flex w-full items-center rounded-lg bg-white/5 text-sm font-medium text-slate-200 transition hover:bg-white/10 ${
+            collapsed ? 'justify-center px-2 py-2' : 'gap-2 px-3 py-2'
+          }`}
+        >
+          <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+          {!collapsed && <span>{theme === 'dark' ? 'Tema claro' : 'Tema escuro'}</span>}
+        </button>
+
         <button
           type="button"
           onClick={handleLogout}
-          className="w-full rounded-lg bg-primary-700 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-primary-600"
+          title="Sair"
+          className={`w-full rounded-lg bg-primary-700 text-sm font-medium text-slate-200 transition-colors hover:bg-primary-600 ${
+            collapsed ? 'px-2 py-2' : 'px-3 py-2'
+          }`}
         >
-          Sair
+          {collapsed ? '⎋' : 'Sair'}
         </button>
       </div>
     </>
@@ -91,9 +149,15 @@ function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function Sidebar() {
+  const collapsed = useUiStore((s) => s.sidebarCollapsed);
+
   return (
-    <aside className="hidden w-64 shrink-0 flex-col bg-sidebar text-white md:flex">
-      <SidebarPanel />
+    <aside
+      className={`hidden shrink-0 flex-col bg-sidebar text-white transition-[width] duration-200 md:flex ${
+        collapsed ? 'w-[4.5rem]' : 'w-64'
+      }`}
+    >
+      <SidebarPanel collapsed={collapsed} />
     </aside>
   );
 }

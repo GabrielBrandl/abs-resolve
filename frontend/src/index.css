@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary-50: #e6eeff;
   --color-primary-100: #ccdaff;
@@ -17,6 +19,12 @@
   --color-sidebar: #00288F;
   --color-sidebar-hover: #0033B5;
   --color-abs-gray: #E8E8E8;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-panel: #ffffff;
+  --color-ink: #0f172a;
+  --color-ink-muted: #64748b;
+  --color-line: #e2e8f0;
 }
 
 :root {
@@ -26,10 +34,26 @@
   --abs-yellow-light: #FFD633;
   --abs-white: #FFFFFF;
   --abs-gray: #E8E8E8;
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+  --color-surface: #0b1220;
+  --color-surface-muted: #0f172a;
+  --color-panel: #111827;
+  --color-ink: #e2e8f0;
+  --color-ink-muted: #94a3b8;
+  --color-line: #1e293b;
+  --color-abs-gray: #1e293b;
+  --color-sidebar: #020617;
+  --color-sidebar-hover: #0f172a;
 }
 
 body {
-  @apply bg-white text-slate-900 antialiased overflow-x-hidden;
+  @apply antialiased overflow-x-hidden;
+  background-color: var(--color-surface);
+  color: var(--color-ink);
 }
 
 html {
@@ -57,4 +81,88 @@ html {
     background-image: url('/login-bg.webp');
     background-position: center;
   }
+}
+
+/* Dark mode: surfaces inside app content (main) */
+html.dark main {
+  background-color: var(--color-surface-muted);
+  color: var(--color-ink);
+}
+
+html.dark main .bg-white,
+html.dark main .bg-slate-50,
+html.dark main .bg-slate-100\/40,
+html.dark main .bg-slate-50\/40 {
+  background-color: var(--color-panel) !important;
+}
+
+html.dark main .bg-slate-100 {
+  background-color: #1e293b !important;
+}
+
+html.dark main .bg-slate-50\/60,
+html.dark main .bg-primary-50,
+html.dark main .bg-primary-50\/40,
+html.dark main .bg-primary-50\/60 {
+  background-color: rgba(0, 51, 181, 0.15) !important;
+}
+
+html.dark main .text-slate-900,
+html.dark main .text-slate-800 {
+  color: #f1f5f9 !important;
+}
+
+html.dark main .text-slate-700,
+html.dark main .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html.dark main .text-slate-500,
+html.dark main .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html.dark main .text-slate-300 {
+  color: #64748b !important;
+}
+
+html.dark main .text-primary-700,
+html.dark main .text-primary-800,
+html.dark main .text-primary-900 {
+  color: #93b4ff !important;
+}
+
+html.dark main .border-slate-200,
+html.dark main .border-slate-100,
+html.dark main .border-abs-gray,
+html.dark main .border-primary-100,
+html.dark main .border-primary-200 {
+  border-color: #334155 !important;
+}
+
+html.dark main .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b !important;
+}
+
+html.dark main input:not([type='checkbox']):not([type='radio']),
+html.dark main select,
+html.dark main textarea {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html.dark main input::placeholder,
+html.dark main textarea::placeholder {
+  color: #64748b;
+}
+
+html.dark main table thead,
+html.dark main .bg-slate-50 {
+  background-color: #0f172a !important;
+}
+
+html.dark main .shadow-sm,
+html.dark main .shadow {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }

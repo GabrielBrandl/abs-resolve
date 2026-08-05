@@ -11,7 +11,10 @@ export function Badge({ children, color = 'bg-abs-gray text-primary-700' }: { ch
 
 export function Card({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) {
   return (
-    <div onClick={onClick} className={`rounded-xl border border-abs-gray bg-white p-4 shadow-sm sm:p-6 ${className}`}>
+    <div
+      onClick={onClick}
+      className={`rounded-xl border border-abs-gray bg-white p-4 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900 ${className}`}
+    >
       {children}
     </div>
   );
@@ -21,8 +24,8 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-xl font-bold text-primary-700 sm:text-2xl">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500 sm:text-base">{subtitle}</p>}
+        <h1 className="text-xl font-bold text-primary-700 sm:text-2xl dark:text-primary-300">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-slate-500 sm:text-base dark:text-slate-400">{subtitle}</p>}
       </div>
       {action && <div className="flex shrink-0 flex-wrap gap-2">{action}</div>}
     </div>
@@ -31,7 +34,7 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
 
 export function TableWrapper({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`-mx-4 overflow-x-auto sm:mx-0 rounded-xl border bg-white ${className}`}>
+    <div className={`-mx-4 overflow-x-auto rounded-xl border bg-white sm:mx-0 dark:border-slate-700 dark:bg-slate-900 ${className}`}>
       {children}
     </div>
   );
@@ -71,7 +74,7 @@ export function Modal({
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900 dark:text-slate-100"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -91,7 +94,7 @@ export function Input({ label, ...props }: { label: string } & React.InputHTMLAt
       <label className="mb-1 block text-sm font-medium text-primary-700">{label}</label>
       <input
         {...props}
-        className="w-full rounded-lg border border-abs-gray px-3 py-2 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+        className="w-full rounded-lg border border-abs-gray bg-white px-3 py-2 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
       />
     </div>
   );
@@ -103,7 +106,7 @@ export function Select({ label, children, ...props }: { label: string; children:
       <label className="mb-1 block text-sm font-medium text-primary-700">{label}</label>
       <select
         {...props}
-        className="w-full rounded-lg border border-abs-gray px-3 py-2 text-sm outline-none focus:border-primary-500"
+        className="w-full rounded-lg border border-abs-gray bg-white px-3 py-2 text-sm outline-none focus:border-primary-500 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
       >
         {children}
       </select>
@@ -115,7 +118,7 @@ export function Button({ children, variant = 'primary', ...props }: { children: 
   const styles = {
     primary: 'bg-primary-600 text-white hover:bg-primary-700',
     cta: 'bg-accent-500 text-primary-900 font-semibold hover:bg-accent-400',
-    secondary: 'bg-abs-gray text-primary-700 hover:bg-slate-200',
+    secondary: 'bg-abs-gray text-primary-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
     danger: 'bg-red-600 text-white hover:bg-red-700',
   };
   return (
