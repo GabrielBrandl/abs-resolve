@@ -232,6 +232,59 @@ export class TecnicoService {
       orderBy: { horarioInicio: 'asc' },
     });
   }
+
+  /** Agenda virtual (semana/período) para o funcionário visualizar */
+  async agendaVirtual(userId: string, dataInicio?: string, dias = 7) {
+    const tecnico = await this.tecnicoDoUsuario(userId);
+    const inicio = dataInicio ? new Date(`${dataInicio}T00:00:00`) : new Date();
+    inicio.setHours(0, 0, 0, 0);
+    // começa na segunda da semana selecionada
+    const diaSemana = inicio.getDay();
+    const diffSegunda = diaSemana === 0 ? -6 : 1 - diaSemana;
+    inicio.setDate(inicio.getDate() + diffSegunda);
+
+    const janela = Math.max(1, Math.min(31, Number(dias) || 7));
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + janela - 1);
+    fim.setHours(23, 59, 59, 999);
+
+    const agendamentos = await prisma.agendamento.findMany({
+      where: {
+        data: { gte: inicio, lte: fim },
+        status: { in: ['confirmado', 'reagendado', 'a_caminho', 'em_execucao'] },
+        ...(tecnico ? { OR: [{ tecnicoId: tecnico.id }, { tecnicoId: null }] } : {}),
+      },
+      include: {
+        cliente: { select: { nome: true, telefone: true, endereco: true } },
+        tecnico: { select: { id: true, nome: true } },
+        pedido: { select: { numero: true, descricao: true } },
+        solicitacao: { select: { servico: { select: { nome: true } } } },
+      },
+      orderBy: [{ data: 'asc' }, { horarioInicio: 'asc' }],
+    });
+
+    const tecnicos = await prisma.tecnico.findMany({
+      where: { ativo: true },
+      select: { id: true, nome: true },
+      orderBy: { nome: 'asc' },
+    });
+
+    return {
+      agendamentos: agendamentos.map((ag) => ({
+        ...ag,
+        servicoNome: ag.solicitacao?.servico?.nome || ag.pedido?.descricao || 'Serviço',
+      })),
+      tecnicos,
+      meuTecnicoId: tecnico?.id || null,
+      periodo: { inicio, fim },
+      slotsPadrao: [
+        { inicio: '08:00', fim: '10:00' },
+        { inicio: '10:00', fim: '12:00' },
+        { inicio: '14:00', fim: '16:00' },
+        { inicio: '16:00', fim: '18:00' },
+      ],
+    };
+  }
 }
 
 export const tecnicoService = new TecnicoService();

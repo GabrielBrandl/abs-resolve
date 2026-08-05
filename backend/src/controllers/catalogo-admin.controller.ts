@@ -113,7 +113,11 @@ export class CatalogoAdminController {
 
   async agenda(req: Request, res: Response) {
     try {
-      return success(res, await catalogoAdminService.agendaOperacional(req.query.dataInicio as string));
+      const dias = req.query.dias ? Number(req.query.dias) : 14;
+      return success(
+        res,
+        await catalogoAdminService.agendaOperacional(req.query.dataInicio as string | undefined, dias)
+      );
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 500);
     }

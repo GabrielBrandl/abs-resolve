@@ -5,6 +5,7 @@ import { Logo } from '../../components/ui';
 
 const navItems = [
   { label: 'Minhas OS', path: '/tecnico', icon: '🔧', end: true },
+  { label: 'Agenda', path: '/tecnico/agenda', icon: '📅', end: false },
 ];
 
 function TecnicoPanel({ onNavigate }: { onNavigate?: () => void }) {

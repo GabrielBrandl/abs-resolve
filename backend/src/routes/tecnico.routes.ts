@@ -16,6 +16,7 @@ router.patch('/os/:id/checklist', (req, res) => tecnicoController.checklist(req,
 router.post('/os/:id/concluir', (req, res) => tecnicoController.concluir(req, res));
 router.post('/os/:id/foto', upload.single('foto'), (req, res) => tecnicoController.uploadFoto(req, res));
 router.get('/agenda', (req, res) => tecnicoController.agendaHoje(req, res));
+router.get('/agenda-virtual', (req, res) => tecnicoController.agendaVirtual(req, res));
 router.post('/agendamentos/:id/a-caminho', (req, res) => tecnicoController.aCaminho(req, res));
 router.post('/agendamentos/:id/chegada', (req, res) => tecnicoController.chegada(req, res));
 router.post('/agendamentos/:id/voltar', (req, res) => tecnicoController.voltarAgendamento(req, res));

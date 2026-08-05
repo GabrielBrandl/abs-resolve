@@ -28,6 +28,7 @@ const AdminPage = lazy(() => import('./pages/admin/AdminPage').then((m) => ({ de
 const CatalogoAdminPage = lazy(() => import('./pages/admin/CatalogoAdminPage').then((m) => ({ default: m.CatalogoAdminPage })));
 const EstoqueAdminPage = lazy(() => import('./pages/admin/EstoqueAdminPage').then((m) => ({ default: m.EstoqueAdminPage })));
 const AgendaAdminPage = lazy(() => import('./pages/admin/AgendaAdminPage').then((m) => ({ default: m.AgendaAdminPage })));
+const AgendaTecnicoPage = lazy(() => import('./pages/admin/AgendaAdminPage').then((m) => ({ default: m.AgendaTecnicoPage })));
 const OrcamentosAdminPage = lazy(() => import('./pages/admin/OrcamentosAdminPage').then((m) => ({ default: m.OrcamentosAdminPage })));
 const QuestionariosAdminPage = lazy(() => import('./pages/admin/QuestionariosAdminPage').then((m) => ({ default: m.QuestionariosAdminPage })));
 const ParceirosAdminPage = lazy(() => import('./pages/admin/ParceirosAdminPage').then((m) => ({ default: m.ParceirosAdminPage })));
@@ -92,8 +93,16 @@ function AppRoutes() {
             <Route element={<AppLayout />}>
               <Route path="/admin/catalogo" element={<CatalogoAdminPage />} />
               <Route path="/admin/estoque" element={<EstoqueAdminPage />} />
-              <Route path="/admin/agenda" element={<AgendaAdminPage />} />
+              <Route path="/admin/agenda" element={<Navigate to="/agenda" replace />} />
               <Route path="/admin/orcamentos" element={<OrcamentosAdminPage />} />
+            </Route>
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['admin', 'comercial', 'operacional']} />}>
+          <Route element={<StaffOnlyRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/agenda" element={<AgendaAdminPage />} />
             </Route>
           </Route>
         </Route>
@@ -116,6 +125,7 @@ function AppRoutes() {
         <Route element={<ProtectedRoute allowedRoles={['operacional', 'admin']} />}>
           <Route element={<TecnicoLayout />}>
             <Route path="/tecnico" element={<TecnicoHomePage />} />
+            <Route path="/tecnico/agenda" element={<AgendaTecnicoPage />} />
           </Route>
         </Route>
 

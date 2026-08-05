@@ -91,6 +91,23 @@ export class TecnicoController {
     }
   }
 
+  async agendaVirtual(req: Request, res: Response) {
+    try {
+      if (!req.user) return error(res, 'Não autenticado', 401);
+      const dias = req.query.dias ? Number(req.query.dias) : 7;
+      return success(
+        res,
+        await tecnicoService.agendaVirtual(
+          req.user.userId,
+          typeof req.query.dataInicio === 'string' ? req.query.dataInicio : undefined,
+          dias
+        )
+      );
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
+
   async aCaminho(req: Request, res: Response) {
     try {
       if (!req.user) return error(res, 'Não autenticado', 401);

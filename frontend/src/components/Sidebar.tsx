@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
   { label: 'Marketplace', path: '/marketplace', roles: ['admin', 'comercial'], icon: '🛒' },
   { label: 'Catálogo', path: '/admin/catalogo', roles: ['admin', 'comercial'], icon: '📚' },
   { label: 'Estoque', path: '/admin/estoque', roles: ['admin', 'comercial'], icon: '📦' },
-  { label: 'Agenda', path: '/admin/agenda', roles: ['admin', 'comercial'], icon: '📅' },
+  { label: 'Agenda', path: '/agenda', roles: ['admin', 'comercial', 'operacional'], icon: '📅' },
   { label: 'Orçamentos', path: '/admin/orcamentos', roles: ['admin', 'comercial'], icon: '📝' },
   { label: 'Questionários', path: '/admin/questionarios', roles: ['admin'], icon: '❓' },
   { label: 'Treinamento IA', path: '/admin/ia', roles: ['admin'], icon: '🤖' },

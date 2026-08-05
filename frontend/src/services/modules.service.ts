@@ -342,16 +342,28 @@ export const catalogoAdminApi = {
     put(`/admin/catalogo/estoque/${id}`, body),
   tecnicos: () => get<Array<{ id: string; nome: string; capacidadeDiaria: number; ativo: boolean }>>('/admin/catalogo/tecnicos'),
   criarTecnico: (body: { nome: string; capacidadeDiaria?: number }) => post('/admin/catalogo/tecnicos', body),
-  agenda: (dataInicio?: string) =>
-    get<{
+  agenda: (dataInicio?: string, dias = 14) => {
+    const qs = new URLSearchParams();
+    if (dataInicio) qs.set('dataInicio', dataInicio);
+    if (dias) qs.set('dias', String(dias));
+    const q = qs.toString();
+    return get<{
       agendamentos: Array<{
-        id: string; data: string; horarioInicio: string; horarioFim: string; status: string;
-        cliente: { nome: string; telefone: string }; tecnico?: { nome: string };
+        id: string;
+        data: string;
+        horarioInicio: string;
+        horarioFim: string;
+        status: string;
+        servicoNome?: string;
+        cliente: { nome: string; telefone: string; endereco?: Record<string, string> | null };
+        tecnico?: { id?: string; nome: string } | null;
         pedido: { numero: string; descricao?: string };
       }>;
       tecnicos: Array<{ id: string; nome: string }>;
       periodo: { inicio: string; fim: string };
-    }>(`/admin/catalogo/agenda${dataInicio ? `?dataInicio=${dataInicio}` : ''}`),
+      slotsPadrao?: Array<{ inicio: string; fim: string }>;
+    }>(`/admin/catalogo/agenda${q ? `?${q}` : ''}`);
+  },
   orcamentos: () => get<Array<{
     id: string; status: string; createdAt: string; opcoes?: Record<string, unknown>;
     servico?: { nome: string }; cliente?: { nome: string; email: string; telefone: string };
@@ -397,6 +409,28 @@ export const tecnicoApi = {
     return data.data;
   },
   agenda: () => get<AgendamentoTecnico[]>('/tecnico/agenda'),
+  agendaVirtual: (dataInicio?: string, dias = 7) => {
+    const qs = new URLSearchParams();
+    if (dataInicio) qs.set('dataInicio', dataInicio);
+    qs.set('dias', String(dias));
+    return get<{
+      agendamentos: Array<{
+        id: string;
+        data: string;
+        horarioInicio: string;
+        horarioFim: string;
+        status: string;
+        servicoNome?: string;
+        cliente: { nome: string; telefone: string; endereco?: Record<string, string> | null };
+        tecnico?: { id?: string; nome: string } | null;
+        pedido: { numero: string; descricao?: string };
+      }>;
+      tecnicos: Array<{ id: string; nome: string }>;
+      meuTecnicoId?: string | null;
+      periodo: { inicio: string; fim: string };
+      slotsPadrao?: Array<{ inicio: string; fim: string }>;
+    }>(`/tecnico/agenda-virtual?${qs.toString()}`);
+  },
   aCaminho: (agendamentoId: string) => post(`/tecnico/agendamentos/${agendamentoId}/a-caminho`),
   chegada: (agendamentoId: string) => post(`/tecnico/agendamentos/${agendamentoId}/chegada`),
   voltarAgendamento: (agendamentoId: string) => post(`/tecnico/agendamentos/${agendamentoId}/voltar`),

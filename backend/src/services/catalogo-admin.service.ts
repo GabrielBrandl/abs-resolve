@@ -267,24 +267,48 @@ export class CatalogoAdminService {
     return prisma.tecnico.create({ data: { nome, capacidadeDiaria } });
   }
 
-  async agendaOperacional(dataInicio?: string) {
-    const inicio = dataInicio ? new Date(dataInicio) : new Date();
+  async agendaOperacional(dataInicio?: string, dias = 14) {
+    const inicio = dataInicio ? new Date(`${dataInicio}T00:00:00`) : new Date();
     inicio.setHours(0, 0, 0, 0);
+    const janela = Math.max(1, Math.min(31, Number(dias) || 14));
     const fim = new Date(inicio);
-    fim.setDate(fim.getDate() + 14);
+    fim.setDate(fim.getDate() + janela - 1);
+    fim.setHours(23, 59, 59, 999);
 
     const agendamentos = await prisma.agendamento.findMany({
-      where: { data: { gte: inicio, lte: fim }, status: { in: ['confirmado', 'reagendado'] } },
+      where: {
+        data: { gte: inicio, lte: fim },
+        status: { in: ['confirmado', 'reagendado', 'a_caminho', 'em_execucao'] },
+      },
       include: {
-        cliente: { select: { nome: true, telefone: true } },
-        tecnico: true,
+        cliente: { select: { nome: true, telefone: true, endereco: true } },
+        tecnico: { select: { id: true, nome: true } },
         pedido: { select: { numero: true, descricao: true } },
+        solicitacao: { select: { servico: { select: { nome: true } } } },
       },
       orderBy: [{ data: 'asc' }, { horarioInicio: 'asc' }],
     });
 
-    const tecnicos = await prisma.tecnico.findMany({ where: { ativo: true } });
-    return { agendamentos, tecnicos, periodo: { inicio, fim } };
+    const tecnicos = await prisma.tecnico.findMany({
+      where: { ativo: true },
+      select: { id: true, nome: true, capacidadeDiaria: true },
+      orderBy: { nome: 'asc' },
+    });
+
+    return {
+      agendamentos: agendamentos.map((ag) => ({
+        ...ag,
+        servicoNome: ag.solicitacao?.servico?.nome || ag.pedido?.descricao || 'Serviço',
+      })),
+      tecnicos,
+      periodo: { inicio, fim },
+      slotsPadrao: [
+        { inicio: '08:00', fim: '10:00' },
+        { inicio: '10:00', fim: '12:00' },
+        { inicio: '14:00', fim: '16:00' },
+        { inicio: '16:00', fim: '18:00' },
+      ],
+    };
   }
 
   async orcamentosPendentes() {
