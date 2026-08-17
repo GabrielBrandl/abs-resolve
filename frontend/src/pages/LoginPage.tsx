@@ -137,6 +137,14 @@ export function LoginPage() {
             </>
           )}
         </form>
+        <details className="relative z-10 mt-4 rounded-xl bg-black/35 p-3 text-xs text-white/80 backdrop-blur-md">
+          <summary className="cursor-pointer font-medium text-accent-400">Acessos de demonstração</summary>
+          <div className="mt-2 space-y-1">
+            <p>Admin: admin@absresolve.com.br / admin123</p>
+            <p>Comercial: comercial@absresolve.com.br / comercial123</p>
+            <p>Cliente: CPF 529.982.247-25 / cliente123</p>
+          </div>
+        </details>
       </div>
     </div>
   );

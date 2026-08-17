@@ -7,7 +7,7 @@ const router = Router();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 20 : 200,
+  max: process.env.NODE_ENV === 'production' ? 12 : 200,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,

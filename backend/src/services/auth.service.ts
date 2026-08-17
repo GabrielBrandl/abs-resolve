@@ -13,6 +13,10 @@ import { sanitizeUser } from '../utils/user.js';
 import { limparClienteOrfaoPorDocumento } from '../utils/cliente-cascade.js';
 import { notificacaoService } from './notificacao.service.js';
 
+async function dummyPasswordCheck() {
+  await bcrypt.hash('timing-safe-dummy', 4);
+}
+
 export class AuthService {
   private async issueSession(user: User) {
     const payload = { userId: user.id, email: user.email, role: user.role };
@@ -43,6 +47,7 @@ export class AuthService {
     });
 
     if (!user) {
+      await dummyPasswordCheck();
       throw new Error('Credenciais inválidas');
     }
 
@@ -130,6 +135,7 @@ export class AuthService {
     });
 
     if (!cliente?.user) {
+      await dummyPasswordCheck();
       throw new Error('Credenciais inválidas');
     }
 
@@ -191,7 +197,7 @@ export class AuthService {
       if (parceiro) parceiroId = parceiro.id;
     }
 
-    const senhaHash = await bcrypt.hash(data.senha, 10);
+    const senhaHash = await bcrypt.hash(data.senha, 12);
 
     const cliente = await prisma.cliente.create({
       data: {
@@ -264,7 +270,7 @@ export class AuthService {
 
   async redefinirSenha(token: string, novaSenha: string) {
     if (!token) throw new Error('Token inválido');
-    if (!novaSenha || novaSenha.length < 6) throw new Error('A senha deve ter no mínimo 6 caracteres');
+    if (!novaSenha || novaSenha.length < 8) throw new Error('A senha deve ter no mínimo 8 caracteres');
 
     const registro = await prisma.passwordResetToken.findUnique({
       where: { token },
@@ -275,7 +281,7 @@ export class AuthService {
       throw new Error('Link de redefinição inválido ou expirado. Solicite um novo.');
     }
 
-    const senhaHash = await bcrypt.hash(novaSenha, 10);
+    const senhaHash = await bcrypt.hash(novaSenha, 12);
 
     await prisma.$transaction([
       prisma.user.update({ where: { id: registro.userId }, data: { senhaHash } }),

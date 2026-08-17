@@ -31,7 +31,7 @@ export class AdminEquipeService {
     if (existing) throw new Error('Email já cadastrado');
 
     const role = data.role as Role;
-    const senhaHash = await bcrypt.hash(data.senha, 10);
+    const senhaHash = await bcrypt.hash(data.senha, 12);
 
     const user = await prisma.user.create({
       data: { nome: data.nome, email: data.email, senhaHash, role, ativo: true },
@@ -67,7 +67,7 @@ export class AdminEquipeService {
     const existingCpf = await prisma.cliente.findUnique({ where: { cpf: doc } });
     if (existingCpf) throw new Error('CPF já cadastrado');
 
-    const senhaHash = await bcrypt.hash(data.senha, 10);
+    const senhaHash = await bcrypt.hash(data.senha, 12);
 
     const cliente = await prisma.cliente.create({
       data: {
@@ -113,7 +113,7 @@ export class AdminEquipeService {
     if (data.nome) update.nome = data.nome;
     if (data.email) update.email = data.email;
     if (data.role) update.role = data.role as Role;
-    if (data.senha) update.senhaHash = await bcrypt.hash(data.senha, 10);
+    if (data.senha) update.senhaHash = await bcrypt.hash(data.senha, 12);
 
     if (Object.keys(update).length) {
       await prisma.user.update({ where: { id }, data: update });

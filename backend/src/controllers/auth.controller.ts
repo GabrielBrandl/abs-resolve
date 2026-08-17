@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { authService } from '../services/auth.service.js';
 import { success, error } from '../utils/response.js';
+import { assertPassword } from '../utils/security.js';
 
 const REFRESH_COOKIE = 'refresh_token';
 const REFRESH_VALUE_COOKIE = 'refresh_token_value';
@@ -27,8 +28,10 @@ function clearRefreshCookies(res: Response) {
 export class AuthController {
   async login(req: Request, res: Response) {
     try {
-      const { email, senha } = req.body;
+      const email = String(req.body?.email || '');
+      const senha = String(req.body?.senha || '');
       if (!email || !senha) return error(res, 'Email e senha são obrigatórios', 400);
+      if (email.length > 180 || senha.length > 128) return error(res, 'Credenciais inválidas', 401);
 
       const result = await authService.login(email, senha);
       setRefreshCookies(res, result.refreshToken, result.refreshTokenValue);
@@ -65,8 +68,10 @@ export class AuthController {
 
   async loginCliente(req: Request, res: Response) {
     try {
-      const { cpfCnpj, senha } = req.body;
+      const cpfCnpj = String(req.body?.cpfCnpj || '');
+      const senha = String(req.body?.senha || '');
       if (!cpfCnpj || !senha) return error(res, 'CPF/CNPJ e senha são obrigatórios', 400);
+      if (cpfCnpj.length > 32 || senha.length > 128) return error(res, 'Credenciais inválidas', 401);
 
       const result = await authService.loginCliente(cpfCnpj, senha);
       setRefreshCookies(res, result.refreshToken, result.refreshTokenValue);
@@ -78,6 +83,11 @@ export class AuthController {
 
   async registrarCliente(req: Request, res: Response) {
     try {
+      try {
+        assertPassword(String(req.body?.senha || ''));
+      } catch (e) {
+        return error(res, e instanceof Error ? e.message : 'Senha fraca', 400);
+      }
       const result = await authService.registrarCliente(req.body);
       setRefreshCookies(res, result.refreshToken, result.refreshTokenValue);
       return success(res, { user: result.user, accessToken: result.accessToken }, 201);
@@ -105,6 +115,11 @@ export class AuthController {
   async redefinirSenha(req: Request, res: Response) {
     try {
       const { token, senha } = req.body;
+      try {
+        assertPassword(String(senha || ''));
+      } catch (e) {
+        return error(res, e instanceof Error ? e.message : 'Senha fraca', 400);
+      }
       const result = await authService.redefinirSenha(token, senha);
       return success(res, { message: 'Senha redefinida com sucesso. Faça login com a nova senha.', ...result });
     } catch (err) {

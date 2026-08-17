@@ -117,7 +117,7 @@ export class ClientesService {
     });
 
     if (data.criarAcesso && data.senha) {
-      const senhaHash = await bcrypt.hash(data.senha, 10);
+      const senhaHash = await bcrypt.hash(data.senha, 12);
       await prisma.user.create({
         data: {
           nome: data.nome,
@@ -190,7 +190,7 @@ export class ClientesService {
     const userUpdate: { nome?: string; email?: string; senhaHash?: string } = {};
     if (data.nome) userUpdate.nome = data.nome;
     if (data.email) userUpdate.email = data.email;
-    if (data.senha) userUpdate.senhaHash = await bcrypt.hash(data.senha, 10);
+    if (data.senha) userUpdate.senhaHash = await bcrypt.hash(data.senha, 12);
 
     if (Object.keys(userUpdate).length) {
       await prisma.user.update({ where: { id: cliente.user.id }, data: userUpdate });

@@ -23,12 +23,12 @@ export function DashboardPage() {
   if (loading) return <Loading />;
 
   const modulos = [
-    { title: 'Clientes', path: '/clientes', icon: '👥' },
-    { title: 'CRM', path: '/crm', icon: '🎯' },
-    { title: 'Pedidos', path: '/pedidos', icon: '📦' },
-    { title: 'Financeiro', path: '/financeiro', icon: '💰' },
-    { title: 'Ordens de Serviço', path: '/ordens-servico', icon: '🔧' },
-    { title: 'Admin', path: '/admin', icon: '⚙️' },
+    { title: 'Clientes', desc: 'Cadastro e histórico', path: '/clientes', icon: '☺' },
+    { title: 'CRM', desc: 'Funil de oportunidades', path: '/crm', icon: '★' },
+    { title: 'Pedidos', desc: 'Vendas e status', path: '/pedidos', icon: '▤' },
+    { title: 'Ordens de serviço', desc: 'Checklist em campo', path: '/ordens-servico', icon: '⚙' },
+    { title: 'Agenda', desc: 'Horários e técnicos', path: '/agenda', icon: '○' },
+    { title: 'Financeiro', desc: 'Recebimentos', path: '/financeiro', icon: '$' },
   ];
 
   return (
@@ -36,8 +36,8 @@ export function DashboardPage() {
       <div className="mb-6 flex flex-col gap-4 rounded-xl abs-gradient p-6 text-white sm:flex-row sm:items-center">
         <Logo variant="default" className="h-20 shrink-0" />
         <div>
-          <h1 className="text-2xl font-bold">Dashboard Executivo</h1>
-          <p className="text-sm text-white/80">Operação em tempo real</p>
+          <h1 className="text-2xl font-bold">Visão geral</h1>
+          <p className="text-sm text-white/80">Faturamento, operação e atalhos do dia a dia</p>
         </div>
       </div>
 
@@ -130,6 +130,7 @@ export function DashboardPage() {
           <Link key={m.path} to={m.path} className="rounded-xl border border-abs-gray bg-white p-5 shadow-sm transition hover:border-primary-500 hover:shadow-md">
             <span className="text-2xl">{m.icon}</span>
             <h3 className="mt-2 font-semibold text-primary-700">{m.title}</h3>
+            <p className="mt-1 text-xs text-slate-500">{m.desc}</p>
           </Link>
         ))}
       </div>

@@ -9,13 +9,16 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     return error(res, 'Token de acesso não fornecido', 401);
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.slice(7).trim();
+  if (!token || token.length > 2048) {
+    return error(res, 'Token inválido ou expirado', 401);
+  }
 
   try {
     req.user = verifyAccessToken(token);
     next();
   } catch {
-    return error(res, 'Token inválido ou expirado', 401);
+    return error(res, 'Sessão expirada. Entre novamente.', 401);
   }
 }
 

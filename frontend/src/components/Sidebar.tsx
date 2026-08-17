@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useUiStore } from '../store/uiStore';
 import { Logo } from './ui';
+import { ROLE_LABEL } from '../utils/labels';
 import type { Role } from '../types';
 
 interface NavItem {
@@ -11,23 +12,46 @@ interface NavItem {
   icon: string;
 }
 
-const navItems: NavItem[] = [
-  { label: 'Dashboard', path: '/', icon: '📊', roles: ['admin', 'comercial', 'operacional'] },
-  { label: 'Clientes', path: '/clientes', roles: ['admin', 'comercial', 'operacional'], icon: '👥' },
-  { label: 'CRM', path: '/crm', roles: ['admin', 'comercial'], icon: '🎯' },
-  { label: 'Pedidos', path: '/pedidos', roles: ['admin', 'comercial', 'operacional'], icon: '📦' },
-  { label: 'Ordens de Serviço', path: '/ordens-servico', roles: ['admin', 'operacional'], icon: '🔧' },
-  { label: 'Financeiro', path: '/financeiro', roles: ['admin', 'comercial'], icon: '💰' },
-  { label: 'Movimentação', path: '/movimentacao', roles: ['admin', 'operacional'], icon: '📋' },
-  { label: 'Marketplace', path: '/marketplace', roles: ['admin', 'comercial'], icon: '🛒' },
-  { label: 'Catálogo', path: '/admin/catalogo', roles: ['admin', 'comercial'], icon: '📚' },
-  { label: 'Estoque', path: '/admin/estoque', roles: ['admin', 'comercial'], icon: '📦' },
-  { label: 'Agenda', path: '/agenda', roles: ['admin', 'comercial', 'operacional'], icon: '📅' },
-  { label: 'Orçamentos', path: '/admin/orcamentos', roles: ['admin', 'comercial'], icon: '📝' },
-  { label: 'Questionários', path: '/admin/questionarios', roles: ['admin'], icon: '❓' },
-  { label: 'Treinamento IA', path: '/admin/ia', roles: ['admin'], icon: '🤖' },
-  { label: 'Parceiros', path: '/admin/parceiros', roles: ['admin'], icon: '🤝' },
-  { label: 'Admin', path: '/admin', roles: ['admin'], icon: '⚙️' },
+type NavGroup = { title: string; items: NavItem[] };
+
+const navGroups: NavGroup[] = [
+  {
+    title: 'Início',
+    items: [{ label: 'Visão geral', path: '/', icon: '⌂', roles: ['admin', 'comercial', 'operacional'] }],
+  },
+  {
+    title: 'Comercial',
+    items: [
+      { label: 'Clientes', path: '/clientes', roles: ['admin', 'comercial', 'operacional'], icon: '☺' },
+      { label: 'CRM', path: '/crm', roles: ['admin', 'comercial'], icon: '★' },
+      { label: 'Pedidos', path: '/pedidos', roles: ['admin', 'comercial', 'operacional'], icon: '▤' },
+      { label: 'Marketplace', path: '/marketplace', roles: ['admin', 'comercial'], icon: '▣' },
+      { label: 'Orçamentos', path: '/admin/orcamentos', roles: ['admin', 'comercial'], icon: '✎' },
+    ],
+  },
+  {
+    title: 'Operação',
+    items: [
+      { label: 'Ordens de serviço', path: '/ordens-servico', roles: ['admin', 'operacional'], icon: '⚙' },
+      { label: 'Agenda', path: '/agenda', roles: ['admin', 'comercial', 'operacional'], icon: '○' },
+      { label: 'Movimentação', path: '/movimentacao', roles: ['admin', 'operacional'], icon: '↔' },
+      { label: 'Estoque', path: '/admin/estoque', roles: ['admin', 'comercial'], icon: '▦' },
+    ],
+  },
+  {
+    title: 'Financeiro',
+    items: [{ label: 'Financeiro', path: '/financeiro', roles: ['admin', 'comercial'], icon: '$' }],
+  },
+  {
+    title: 'Configuração',
+    items: [
+      { label: 'Catálogo', path: '/admin/catalogo', roles: ['admin', 'comercial'], icon: '☰' },
+      { label: 'Questionários', path: '/admin/questionarios', roles: ['admin'], icon: '?' },
+      { label: 'Treinamento IA', path: '/admin/ia', roles: ['admin'], icon: '✦' },
+      { label: 'Parceiros', path: '/admin/parceiros', roles: ['admin'], icon: '◆' },
+      { label: 'Equipe', path: '/admin', roles: ['admin'], icon: '⚙' },
+    ],
+  },
 ];
 
 function SidebarPanel({
@@ -41,9 +65,12 @@ function SidebarPanel({
   const { theme, toggleTheme, toggleSidebar } = useUiStore();
   const navigate = useNavigate();
 
-  const visibleItems = navItems.filter(
-    (item) => !item.roles || item.roles.some((role) => hasRole(role))
-  );
+  const groups = navGroups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) => !item.roles || item.roles.some((role) => hasRole(role))),
+    }))
+    .filter((g) => g.items.length > 0);
 
   const handleLogout = async () => {
     await logout();
@@ -72,7 +99,7 @@ function SidebarPanel({
             </button>
           )}
         </div>
-        {!collapsed && <p className="mt-1 text-xs text-accent-400">Plataforma de Gestão</p>}
+        {!collapsed && <p className="mt-1 text-xs text-accent-400">Gestão da operação</p>}
         {collapsed && (
           <button
             type="button"
@@ -86,27 +113,36 @@ function SidebarPanel({
         )}
       </div>
 
-      <nav className={`flex-1 space-y-1 overflow-y-auto py-4 ${collapsed ? 'px-1.5' : 'px-3'}`}>
-        {visibleItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === '/'}
-            onClick={onNavigate}
-            title={item.label}
-            className={({ isActive }) =>
-              `flex items-center rounded-lg text-sm font-medium transition-colors ${
-                collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
-              } ${
-                isActive
-                  ? 'bg-accent-500 text-primary-900'
-                  : 'text-slate-200 hover:bg-sidebar-hover hover:text-white'
-              }`
-            }
-          >
-            <span className="text-base leading-none">{item.icon}</span>
-            {!collapsed && <span className="truncate">{item.label}</span>}
-          </NavLink>
+      <nav className={`flex-1 space-y-3 overflow-y-auto py-4 ${collapsed ? 'px-1.5' : 'px-3'}`}>
+        {groups.map((group) => (
+          <div key={group.title}>
+            {!collapsed && (
+              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                {group.title}
+              </p>
+            )}
+            {group.items.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === '/'}
+                onClick={onNavigate}
+                title={item.label}
+                className={({ isActive }) =>
+                  `mb-0.5 flex items-center rounded-lg text-sm font-medium transition-colors ${
+                    collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2'
+                  } ${
+                    isActive
+                      ? 'bg-accent-500 text-primary-900'
+                      : 'text-slate-200 hover:bg-sidebar-hover hover:text-white'
+                  }`
+                }
+              >
+                <span className="w-4 text-center text-base leading-none">{item.icon}</span>
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 
@@ -115,8 +151,8 @@ function SidebarPanel({
           <div className="mb-3 px-2">
             <p className="truncate text-sm font-medium">{user?.nome}</p>
             <p className="truncate text-xs text-slate-400">{user?.email}</p>
-            <span className="mt-1 inline-block rounded-full bg-accent-500/20 px-2 py-0.5 text-xs capitalize text-accent-400">
-              {user?.role}
+            <span className="mt-1 inline-block rounded-full bg-accent-500/20 px-2 py-0.5 text-xs text-accent-400">
+              {ROLE_LABEL[user?.role || ''] || user?.role}
             </span>
           </div>
         )}

@@ -62,7 +62,7 @@ export function EstoqueAdminPage() {
                       : p.status === 'baixo' ? 'bg-amber-100 text-amber-700'
                       : 'bg-green-100 text-green-700'
                   }>
-                    {p.status || 'ok'}
+                    {p.status === 'critico' ? 'Crítico' : p.status === 'baixo' ? 'Baixo' : 'Normal'}
                   </Badge>
                 </td>
                 <td className="px-4 py-3">

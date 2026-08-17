@@ -105,7 +105,7 @@ export class ParceirosService {
     if (emailUser) throw new Error('Já existe um usuário com este e-mail');
 
     const codigo = await gerarCodigoUnico(data.nome);
-    const senhaHash = await bcrypt.hash(data.senha, 10);
+    const senhaHash = await bcrypt.hash(data.senha, 12);
 
     const user = await prisma.user.create({
       data: {
@@ -200,7 +200,7 @@ export class ParceirosService {
       if (data.nome !== undefined) userUpdate.nome = data.nome;
       if (emailNovo !== undefined) userUpdate.email = emailNovo;
       if (data.ativo !== undefined) userUpdate.ativo = data.ativo;
-      if (data.senha) userUpdate.senhaHash = await bcrypt.hash(data.senha, 10);
+      if (data.senha) userUpdate.senhaHash = await bcrypt.hash(data.senha, 12);
       if (Object.keys(userUpdate).length) {
         await prisma.user.update({ where: { id: parceiro.userId }, data: userUpdate });
       }
@@ -219,7 +219,7 @@ export class ParceirosService {
         data: {
           nome: data.nome || parceiro.nome,
           email: emailAcesso,
-          senhaHash: await bcrypt.hash(senha, 10),
+          senhaHash: await bcrypt.hash(senha, 12),
           role: 'parceiro',
           ativo: data.ativo ?? parceiro.ativo,
         },

@@ -4,15 +4,30 @@ import { useAuthStore } from '../../store/authStore';
 import { useUiStore } from '../../store/uiStore';
 import { Logo } from '../../components/ui';
 
-const navItems = [
-  { label: 'Solicitar', path: '/cliente/agendar', icon: '🛒' },
-  { label: 'Pedidos', path: '/cliente', icon: '📦', end: true },
-  { label: 'Agendamentos', path: '/cliente/agendamentos', icon: '📅' },
-  { label: 'Garantias', path: '/cliente/garantias', icon: '🛡️' },
-  { label: 'Diagnóstico', path: '/cliente/diagnostico', icon: '📷' },
-  { label: 'Financeiro', path: '/cliente/financeiro', icon: '💰' },
-  { label: 'Cadastro', path: '/cliente/cadastro', icon: '👤' },
-  { label: 'Documentos', path: '/cliente/documentos', icon: '📄' },
+const navGroups = [
+  {
+    title: 'Pedir serviço',
+    items: [
+      { label: 'Solicitar', path: '/cliente/agendar', icon: '🛒' },
+      { label: 'Diagnóstico', path: '/cliente/diagnostico', icon: '📷' },
+    ],
+  },
+  {
+    title: 'Meus serviços',
+    items: [
+      { label: 'Pedidos', path: '/cliente', icon: '📦', end: true },
+      { label: 'Agendamentos', path: '/cliente/agendamentos', icon: '📅' },
+      { label: 'Garantias', path: '/cliente/garantias', icon: '🛡️' },
+      { label: 'Financeiro', path: '/cliente/financeiro', icon: '💰' },
+    ],
+  },
+  {
+    title: 'Minha conta',
+    items: [
+      { label: 'Cadastro', path: '/cliente/cadastro', icon: '👤' },
+      { label: 'Documentos', path: '/cliente/documentos', icon: '📄' },
+    ],
+  },
 ];
 
 const bottomNavItems = [
@@ -46,12 +61,19 @@ export function ClienteLayout() {
           <Logo variant="sidebar" className="h-10" />
           <p className="mt-1 text-xs text-accent-400">Portal do Cliente</p>
         </div>
-        <nav className="flex-1 space-y-1 px-2 py-4">
-          {navItems.map((item) => (
-            <NavLink key={item.path} to={item.path} end={item.end} className={navLinkClass}>
-              <span>{item.icon}</span>
-              {item.label}
-            </NavLink>
+        <nav className="flex-1 space-y-3 px-2 py-4">
+          {navGroups.map((group) => (
+            <div key={group.title}>
+              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                {group.title}
+              </p>
+              {group.items.map((item) => (
+                <NavLink key={item.path} to={item.path} end={item.end} className={navLinkClass}>
+                  <span>{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="border-t border-white/10 p-4">
@@ -105,18 +127,25 @@ export function ClienteLayout() {
                 <Logo variant="sidebar" className="h-10" />
                 <p className="mt-1 text-xs text-accent-400">{user?.nome}</p>
               </div>
-              <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4">
-                {navItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    end={item.end}
-                    className={navLinkClass}
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <span>{item.icon}</span>
-                    {item.label}
-                  </NavLink>
+              <nav className="flex-1 space-y-3 overflow-y-auto px-2 py-4">
+                {navGroups.map((group) => (
+                  <div key={group.title}>
+                    <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      {group.title}
+                    </p>
+                    {group.items.map((item) => (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        end={item.end}
+                        className={navLinkClass}
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <span>{item.icon}</span>
+                        {item.label}
+                      </NavLink>
+                    ))}
+                  </div>
                 ))}
               </nav>
               <div className="border-t border-white/10 p-4">

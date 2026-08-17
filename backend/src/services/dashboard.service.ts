@@ -220,7 +220,7 @@ export class AdminService {
 
   async criarUsuario(data: { nome: string; email: string; senha: string; role: string }) {
     const bcrypt = await import('bcrypt');
-    const senhaHash = await bcrypt.hash(data.senha, 10);
+    const senhaHash = await bcrypt.hash(data.senha, 12);
     return prisma.user.create({
       data: {
         nome: data.nome,

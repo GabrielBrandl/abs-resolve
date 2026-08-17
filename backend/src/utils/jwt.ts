@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import type { Role } from '@prisma/client';
+import { assertJwtSecret } from './security.js';
 
 export interface TokenPayload {
   userId: string;
@@ -8,8 +9,8 @@ export interface TokenPayload {
   role: Role;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET!;
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
+const JWT_SECRET = assertJwtSecret(process.env.JWT_SECRET);
+const JWT_REFRESH_SECRET = assertJwtSecret(process.env.JWT_REFRESH_SECRET || `${JWT_SECRET}-refresh`);
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
