@@ -137,14 +137,22 @@ export function LoginPage() {
             </>
           )}
         </form>
-        <details className="relative z-10 mt-4 rounded-xl bg-black/35 p-3 text-xs text-white/80 backdrop-blur-md">
-          <summary className="cursor-pointer font-medium text-accent-400">Acessos de demonstração</summary>
-          <div className="mt-2 space-y-1">
-            <p>Admin: admin@absresolve.com.br / admin123</p>
-            <p>Comercial: comercial@absresolve.com.br / comercial123</p>
-            <p>Cliente: CPF 529.982.247-25 / cliente123</p>
-          </div>
-        </details>
+        <div className="relative z-10 mt-4 rounded-xl bg-black/35 p-4 text-center backdrop-blur-md">
+          <p className="text-sm font-semibold text-accent-400">Chamou. ConfioU. Resolveu.</p>
+          <p className="mt-1.5 text-xs leading-relaxed text-white/80">
+            {modo === 'cliente'
+              ? 'Primeira vez aqui? Cadastre-se e solicite o serviço pelo portal — sem fila e sem espera.'
+              : 'Acesso interno da equipe e parceiros. Sem login? Peça liberação ao administrador.'}
+          </p>
+          {modo === 'cliente' && (
+            <Link
+              to="/cadastro"
+              className="mt-3 inline-block text-xs font-semibold text-accent-400 underline decoration-accent-400/40 underline-offset-2 hover:text-accent-300"
+            >
+              Criar minha conta
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );
