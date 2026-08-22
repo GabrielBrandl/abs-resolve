@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { clientePortalApi } from '../../services/modules.service';
 import { Loading } from '../../components/ui';
 import { ServiceCard } from '../../components/loja/ServiceCard';
+import { CashbackTag } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { cashbackOf, flattenServices, money, priceAfterCashback } from '../../storefront/catalog';
 import type { PedidoTimeline } from '../../types';
@@ -25,41 +26,48 @@ export function CashbackPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl bg-accent-500/25 p-6">
-        <p className="text-sm">Seu saldo ABS</p>
-        <p className="text-3xl font-bold text-primary-900">{money(saldo)}</p>
-        <p className="text-sm text-emerald-700">Disponível para usar no próximo serviço</p>
-        <Link to="/" className="mt-4 inline-block rounded-lg bg-primary-800 px-4 py-2 text-sm font-bold text-white">
+      <div className="rounded-3xl bg-accent-500 p-6 text-primary-950">
+        <p className="text-sm font-bold">Seu saldo ABS</p>
+        <p className="mt-1 text-4xl font-black">{money(saldo)}</p>
+        <p className="text-sm">disponível para usar no próximo serviço</p>
+        <div className="mt-4 flex flex-wrap gap-6 text-sm font-semibold">
+          <span>Já ganhou {money(saldo)}</span>
+          <span>Expira com o uso no agendamento</span>
+        </div>
+        <Link to="/" className="mt-5 inline-block rounded-xl bg-primary-900 px-4 py-2 text-sm font-black text-white">
           Usar meu cashback
         </Link>
       </div>
+
       <section>
-        <h2 className="mb-3 text-lg font-bold">Use seu cashback agora</h2>
+        <h2 className="mb-3 text-lg font-black">Use seu cashback agora</h2>
         <div className="grid gap-4 md:grid-cols-3">
           {servicos.map((s) => (
-            <div key={s.slug}>
+            <div key={s.slug} className="rounded-3xl bg-white p-2 shadow-sm">
               <ServiceCard servico={s} cta="Usar cashback e agendar" />
               {s.precoMinimo ? (
-                <p className="mt-1 text-center text-xs text-emerald-700">
-                  Você paga {money(priceAfterCashback(Math.max(0, s.precoMinimo - saldo)))}
+                <p className="px-3 pb-3 text-center text-xs font-bold text-emerald-700">
+                  Você paga {money(Math.max(0, priceAfterCashback(s.precoMinimo) - (saldo > 0 ? Math.min(saldo, cashbackOf(s.precoMinimo)) : 0)))}
                 </p>
               ) : null}
             </div>
           ))}
         </div>
       </section>
-      <section className="rounded-2xl bg-white p-4">
-        <h2 className="mb-3 font-bold">Extrato do cashback</h2>
+
+      <section className="rounded-3xl bg-white p-5 shadow-sm">
+        <h2 className="mb-3 font-black">Extrato do cashback</h2>
         {pedidos.length === 0 ? (
           <p className="text-sm text-slate-500">Quando um serviço for concluído, o cashback aparece aqui.</p>
         ) : (
           <ul className="divide-y text-sm">
             {pedidos.map((p) => (
-              <li key={p.id} className="flex justify-between py-2">
+              <li key={p.id} className="flex justify-between gap-3 py-3">
                 <span>
-                  {p.solicitacao?.servico?.nome || p.numero} · {formatDate(p.createdAt)}
+                  {p.solicitacao?.servico?.nome || p.numero}
+                  <span className="block text-xs text-slate-400">{formatDate(p.createdAt)}</span>
                 </span>
-                <span className="font-semibold text-emerald-700">+ {money(cashbackOf(p.valor))}</span>
+                <CashbackTag>+ {money(cashbackOf(p.valor))}</CashbackTag>
               </li>
             ))}
           </ul>

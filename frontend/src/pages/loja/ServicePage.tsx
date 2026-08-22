@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { ServiceCard } from '../../components/loja/ServiceCard';
+import { Breadcrumb, CashbackTag, Stars, TrustRow, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useCartStore } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
@@ -27,10 +28,7 @@ export function ServicePage() {
 
   useEffect(() => {
     if (!slug) return;
-    solicitacaoApi
-      .fluxo(slug)
-      .then((d) => setFluxo(d as Fluxo))
-      .catch(() => setFluxo(null));
+    solicitacaoApi.fluxo(slug).then((d) => setFluxo(d as Fluxo)).catch(() => setFluxo(null));
   }, [slug]);
 
   const price = servico?.precoMinimo || 0;
@@ -42,23 +40,23 @@ export function ServicePage() {
     return (
       <div>
         <h1 className="text-xl font-bold">Serviço não encontrado</h1>
-        <Link to="/" className="mt-3 inline-block text-primary-700">
-          Voltar à loja
-        </Link>
+        <Link to="/" className="mt-3 inline-block text-primary-700">Voltar à loja</Link>
       </div>
     );
   }
 
+  const payload = {
+    slug: servico.slug,
+    nome: servico.nome,
+    categoria: servico.categoria,
+    precoMinimo: servico.precoMinimo,
+    precoTexto: servico.precoTexto || '',
+    tipoPreco: servico.tipoPreco,
+    imagemUrl: servico.imagemUrl,
+  };
+
   const goCheckout = () => {
-    cart.add({
-      slug: servico.slug,
-      nome: servico.nome,
-      categoria: servico.categoria,
-      precoMinimo: servico.precoMinimo,
-      precoTexto: servico.precoTexto || '',
-      tipoPreco: servico.tipoPreco,
-      imagemUrl: servico.imagemUrl,
-    }, qty);
+    cart.add(payload, qty);
     const next = `/agendar?slug=${encodeURIComponent(servico.slug)}`;
     if (!user || !isClienteRole(user.role)) {
       navigate(`/login?next=${encodeURIComponent(next)}`);
@@ -68,50 +66,54 @@ export function ServicePage() {
   };
 
   return (
-    <div>
-      <p className="text-sm text-slate-500">
-        <Link to="/">Início</Link> / <Link to={`/c/${servico.categoria}`}>{servico.categoriaNome}</Link> / {servico.nome}
-      </p>
-      <div className="mt-4 grid gap-6 lg:grid-cols-[1.1fr_1fr_18rem]">
-        <div className="overflow-hidden rounded-2xl bg-white">
+    <div className="pb-24 lg:pb-0">
+      <Breadcrumb
+        items={[
+          { label: 'Início', to: '/' },
+          { label: servico.categoriaNome || 'Serviços', to: `/c/${servico.categoria}` },
+          { label: servico.nome },
+        ]}
+      />
+
+      <div className="mt-4 grid gap-6 lg:grid-cols-[1.05fr_1fr_19rem]">
+        <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
           {servico.imagemUrl ? (
-            <img src={servico.imagemUrl} alt={servico.nome} className="h-80 w-full object-cover" />
+            <img src={servico.imagemUrl} alt={servico.nome} className="h-[360px] w-full object-cover" />
           ) : (
-            <div className="flex h-80 items-center justify-center text-6xl">🔧</div>
+            <div className="flex h-[360px] items-center justify-center text-7xl">🔧</div>
           )}
-          <div className="grid grid-cols-4 gap-2 p-3 text-center text-xs text-slate-600">
+          <div className="grid grid-cols-2 gap-2 p-4 text-center text-[11px] font-semibold text-slate-600 sm:grid-cols-4">
             <span>Profissionais verificados</span>
-            <span>Garantia de {servico.garantiaDias || 90} dias</span>
+            <span>Garantia {servico.garantiaDias || 90} dias</span>
             <span>Pagamento seguro</span>
             <span>Nota fiscal</span>
           </div>
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold text-primary-900">{servico.nome}</h1>
-          <p className="mt-1 text-sm text-amber-600">★ 4,9 · 180+ avaliações · 300+ serviços feitos</p>
-          <p className="mt-3 text-3xl font-bold text-primary-800">
-            {price ? `A partir de ${money(price)}` : servico.precoTexto}
-          </p>
-          {cashback > 0 && (
-            <p className="text-sm font-semibold text-emerald-700">10% cashback · você ganha {money(cashback)}</p>
-          )}
-          <p className="mt-3 text-sm text-slate-600">{servico.descricao}</p>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-600">{servico.categoriaNome}</p>
+          <h1 className="mt-1 text-3xl font-black text-primary-950">{servico.nome}</h1>
+          <Stars value={4.9} count={186} />
+          <p className="mt-4 text-3xl font-black text-primary-800">{price ? money(price) : servico.precoTexto}</p>
+          {cashback > 0 && <div className="mt-1"><CashbackTag>10% cashback · você ganha {money(cashback)}</CashbackTag></div>}
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">{servico.descricao}</p>
 
-          <div className="mt-5 space-y-3">
-            {(fluxo?.perguntas || []).slice(0, 5).map((p) => (
+          <div className="mt-6 space-y-4">
+            {(fluxo?.perguntas || []).slice(0, 5).map((p, idx) => (
               <div key={p.id}>
-                <p className="mb-1 text-sm font-semibold text-primary-800">{p.titulo}</p>
+                <p className="mb-2 text-sm font-bold text-primary-900">
+                  {idx + 1}. {p.titulo}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {p.opcoes.map((o) => (
                     <button
                       key={o.id}
                       type="button"
                       onClick={() => setRespostas((r) => ({ ...r, [p.id]: o.id }))}
-                      className={`rounded-full border px-3 py-1.5 text-sm ${
+                      className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${
                         respostas[p.id] === o.id
-                          ? 'border-primary-700 bg-primary-700 text-white'
-                          : 'border-slate-200 bg-white'
+                          ? 'border-primary-800 bg-primary-800 text-white'
+                          : 'border-slate-200 bg-white hover:border-primary-400'
                       }`}
                     >
                       {o.label}
@@ -121,62 +123,48 @@ export function ServicePage() {
               </div>
             ))}
             <div>
-              <p className="mb-1 text-sm font-semibold">Quantidade</p>
+              <p className="mb-2 text-sm font-bold">Quantidade</p>
               <div className="flex items-center gap-2">
-                <button type="button" className="h-8 w-8 rounded border" onClick={() => setQty((n) => Math.max(1, n - 1))}>
-                  −
-                </button>
-                <span className="w-8 text-center font-semibold">{qty}</span>
-                <button type="button" className="h-8 w-8 rounded border" onClick={() => setQty((n) => n + 1)}>
-                  +
-                </button>
+                <button type="button" className="h-9 w-9 rounded-full border" onClick={() => setQty((n) => Math.max(1, n - 1))}>−</button>
+                <span className="w-8 text-center font-black">{qty}</span>
+                <button type="button" className="h-9 w-9 rounded-full border" onClick={() => setQty((n) => n + 1)}>+</button>
               </div>
             </div>
           </div>
         </div>
 
-        <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">Resumo do serviço</p>
-          <p className="mt-1 font-semibold text-primary-900">{servico.nome}</p>
-          <p className="mt-3 text-2xl font-bold text-primary-800">{price ? money(price * qty) : servico.precoTexto}</p>
+        <aside className="h-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-md">
+          <p className="text-xs font-bold uppercase text-slate-400">Resumo do serviço</p>
+          <p className="mt-1 font-bold text-primary-950">{servico.nome}</p>
+          <p className="mt-3 text-3xl font-black text-primary-800">{price ? money(price * qty) : servico.precoTexto}</p>
           {cashback > 0 && (
-            <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800">
-              Com cashback, o próximo serviço pode sair por {money(priceAfterCashback(price))}
+            <p className="mt-2 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+              Com cashback, o próximo pode sair por {money(priceAfterCashback(price))}
             </p>
           )}
-          <button
-            type="button"
-            onClick={goCheckout}
-            className="mt-4 w-full rounded-lg bg-accent-500 py-3 text-sm font-bold text-primary-900"
-          >
+          <YellowButton className="mt-4 w-full" onClick={goCheckout}>
             Comprar e agendar
-          </button>
+          </YellowButton>
           <button
             type="button"
-            onClick={() =>
-              cart.add({
-                slug: servico.slug,
-                nome: servico.nome,
-                categoria: servico.categoria,
-                precoMinimo: servico.precoMinimo,
-                precoTexto: servico.precoTexto || '',
-                tipoPreco: servico.tipoPreco,
-                imagemUrl: servico.imagemUrl,
-              }, qty)
-            }
-            className="mt-2 w-full rounded-lg border border-primary-700 py-3 text-sm font-bold text-primary-800"
+            onClick={() => cart.add(payload, qty)}
+            className="mt-2 w-full rounded-xl border-2 border-primary-800 py-3 text-sm font-black uppercase text-primary-800"
           >
             Adicionar ao carrinho
           </button>
-          <a href={WHATSAPP_LINK} target="_blank" rel="noreferrer" className="mt-3 block text-center text-xs text-primary-700">
+          <a href={WHATSAPP_LINK} target="_blank" rel="noreferrer" className="mt-3 block text-center text-xs font-semibold text-primary-700">
             Precisa de algo diferente? Fale no WhatsApp
           </a>
         </aside>
       </div>
 
+      <div className="mt-8 rounded-3xl bg-white p-5">
+        <TrustRow />
+      </div>
+
       {related.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-4 text-lg font-bold text-primary-900">Aproveite a visita do profissional</h2>
+          <h2 className="mb-4 text-lg font-black text-primary-950">Aproveite a visita do profissional</h2>
           <div className="grid gap-4 sm:grid-cols-3">
             {related.map((s) => (
               <ServiceCard key={s.slug} servico={s} cta="Adicionar +" />
@@ -184,6 +172,12 @@ export function ServicePage() {
           </div>
         </section>
       )}
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white p-3 shadow-2xl lg:hidden">
+        <YellowButton className="w-full" onClick={goCheckout}>
+          Comprar e agendar {price ? money(price * qty) : ''}
+        </YellowButton>
+      </div>
     </div>
   );
 }

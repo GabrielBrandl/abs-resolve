@@ -5,6 +5,7 @@ import { useCartStore } from '../../store/cartStore';
 import { formatCurrency } from '../../types';
 import { imagemServicoComRespostas } from '../../config/imagens-opcoes';
 import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal, Logo } from '../../components/ui';
+import { CheckoutStepper } from '../../components/loja/store-ui';
 import { QuestionarioServico, FotosServicoStep, QuestionarioNav, type PrecoCalculado } from '../../components/cliente/QuestionarioServico';
 import { useToast } from '../../components/Toast';
 import { gtmEtapaAgendar, gtmPush } from '../../utils/gtm';
@@ -581,12 +582,22 @@ export function AgendarServicoPage() {
     'concluido',
   ];
 
+  const checkoutStep: 1 | 2 | 3 | 4 =
+    step === 'catalogo' || step === 'carrinho'
+      ? 1
+      : step === 'questionario' || step === 'resumo' || step === 'fotos'
+        ? 2
+        : step === 'pagamento' || step === 'aguardando'
+          ? 3
+          : 4;
+
   return (
     <div>
       <PageHeader
-        title="Solicitar Serviço"
-        subtitle="Escolha os serviços, finalize o pagamento e agende o atendimento"
+        title="Finalize seu serviço"
+        subtitle="Preço visível, pagamento seguro e horário na hora"
       />
+      <CheckoutStepper current={checkoutStep} />
 
       {descontoElegivel && (
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">

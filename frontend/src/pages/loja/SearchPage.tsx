@@ -14,7 +14,7 @@ export function SearchPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-primary-900">{q ? `Resultados para “${q}”` : 'Todos os serviços'}</h1>
+      <h1 className="text-3xl font-black text-primary-950">{q ? `Resultados para “${q}”` : 'Todos os serviços'}</h1>
       <p className="mt-1 text-sm text-slate-500">{resultados.length} serviços encontrados</p>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {resultados.map((s) => (
