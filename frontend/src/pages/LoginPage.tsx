@@ -52,10 +52,13 @@ export function LoginPage() {
           setError('Esta conta é da equipe ou parceiro. Use a aba Equipe / Parceiro com o e-mail.');
           return;
         }
+        const next = searchParams.get('next');
         navigate(
-          searchParams.get('assistente') === '1' && sessionStorage.getItem('abs-guided-selling')
-            ? '/cliente/agendar?assistente=1'
-            : '/cliente/agendar'
+          next
+            ? next
+            : searchParams.get('assistente') === '1' && sessionStorage.getItem('abs-guided-selling')
+              ? '/agendar?assistente=1'
+              : '/'
         );
       }
     } catch (err) {
@@ -129,7 +132,7 @@ export function LoginPage() {
               </p>
               <p className="mt-2 text-center text-sm text-slate-500">
                 Não tem conta?{' '}
-                <Link to="/cadastro" className="font-semibold text-primary-600">Cadastre-se — obrigatório</Link>
+                <Link to={searchParams.get('next') ? `/cadastro?next=${encodeURIComponent(searchParams.get('next') || '')}` : '/cadastro'} className="font-semibold text-primary-600">Cadastre-se — obrigatório</Link>
               </p>
               <p className="mt-2 text-center text-xs text-emerald-700">
                 Novos clientes: 10% de desconto no primeiro serviço (PIX, crédito ou débito).
@@ -146,7 +149,7 @@ export function LoginPage() {
           </p>
           {modo === 'cliente' && (
             <Link
-              to="/cadastro"
+              to={searchParams.get('next') ? `/cadastro?next=${encodeURIComponent(searchParams.get('next') || '')}` : '/cadastro'}
               className="mt-3 inline-block text-xs font-semibold text-accent-400 underline decoration-accent-400/40 underline-offset-2 hover:text-accent-300"
             >
               Criar minha conta

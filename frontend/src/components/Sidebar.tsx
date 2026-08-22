@@ -17,7 +17,7 @@ type NavGroup = { title: string; items: NavItem[] };
 const navGroups: NavGroup[] = [
   {
     title: 'Início',
-    items: [{ label: 'Visão geral', path: '/', icon: '⌂', roles: ['admin', 'comercial', 'operacional'] }],
+    items: [{ label: 'Visão geral', path: '/gestao', icon: '⌂', roles: ['admin', 'comercial', 'operacional'] }],
   },
   {
     title: 'Comercial',

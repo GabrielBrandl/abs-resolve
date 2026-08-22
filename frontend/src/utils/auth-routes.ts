@@ -18,11 +18,11 @@ export function isClienteRole(role: string | undefined): boolean {
 
 /** Rota inicial após login conforme perfil */
 export function getHomeForRole(role: string | undefined): string {
-  if (role === 'cliente') return '/cliente/agendar';
+  if (role === 'cliente') return '/';
   if (role === 'operacional') return '/tecnico';
   if (role === 'parceiro') return '/parceiro';
-  if (role === 'admin' || role === 'comercial') return '/';
-  return '/login';
+  if (role === 'admin' || role === 'comercial') return '/gestao';
+  return '/';
 }
 
 export function roleLabel(role: string | undefined): string {

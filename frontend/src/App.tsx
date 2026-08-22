@@ -34,15 +34,23 @@ const QuestionariosAdminPage = lazy(() => import('./pages/admin/QuestionariosAdm
 const ParceirosAdminPage = lazy(() => import('./pages/admin/ParceirosAdminPage').then((m) => ({ default: m.ParceirosAdminPage })));
 const IaTreinamentoAdminPage = lazy(() => import('./pages/admin/IaTreinamentoAdminPage').then((m) => ({ default: m.IaTreinamentoAdminPage })));
 const ParceiroDashboardPage = lazy(() => import('./pages/parceiro/ParceiroDashboardPage').then((m) => ({ default: m.ParceiroDashboardPage })));
-const ClienteLayout = lazy(() => import('./pages/cliente/ClienteLayout').then((m) => ({ default: m.ClienteLayout })));
 const ClientePedidosPage = lazy(() => import('./pages/cliente/ClientePedidosPage').then((m) => ({ default: m.ClientePedidosPage })));
 const ClienteFinanceiroPage = lazy(() => import('./pages/cliente/ClienteFinanceiroPage').then((m) => ({ default: m.ClienteFinanceiroPage })));
 const ClienteCadastroPage = lazy(() => import('./pages/cliente/ClientePortalPages').then((m) => ({ default: m.ClienteCadastroPage })));
 const ClienteDocumentosPage = lazy(() => import('./pages/cliente/ClienteDocumentosPage').then((m) => ({ default: m.ClienteDocumentosPage })));
 const ClienteGarantiasPage = lazy(() => import('./pages/cliente/ClienteGarantiasPage').then((m) => ({ default: m.ClienteGarantiasPage })));
-const ClienteAgendamentosPage = lazy(() => import('./pages/cliente/ClienteAgendamentosPage').then((m) => ({ default: m.ClienteAgendamentosPage })));
 const TecnicoLayout = lazy(() => import('./pages/tecnico/TecnicoLayout').then((m) => ({ default: m.TecnicoLayout })));
 const TecnicoHomePage = lazy(() => import('./pages/tecnico/TecnicoHomePage').then((m) => ({ default: m.TecnicoHomePage })));
+const StoreLayout = lazy(() => import('./components/loja/StoreLayout').then((m) => ({ default: m.StoreLayout })));
+const AccountLayout = lazy(() => import('./components/loja/AccountLayout').then((m) => ({ default: m.AccountLayout })));
+const HomePage = lazy(() => import('./pages/loja/HomePage').then((m) => ({ default: m.HomePage })));
+const CategoryPage = lazy(() => import('./pages/loja/CategoryPage').then((m) => ({ default: m.CategoryPage })));
+const ServicePage = lazy(() => import('./pages/loja/ServicePage').then((m) => ({ default: m.ServicePage })));
+const SearchPage = lazy(() => import('./pages/loja/SearchPage').then((m) => ({ default: m.SearchPage })));
+const CartPage = lazy(() => import('./pages/loja/CartPage').then((m) => ({ default: m.CartPage })));
+const AccountHomePage = lazy(() => import('./pages/loja/AccountHomePage').then((m) => ({ default: m.AccountHomePage })));
+const CashbackPage = lazy(() => import('./pages/loja/CashbackPage').then((m) => ({ default: m.CashbackPage })));
+const ReferralPage = lazy(() => import('./pages/loja/ReferralPage').then((m) => ({ default: m.ReferralPage })));
 
 function HomeRedirect() {
   const user = useAuthStore((s) => s.user);
@@ -62,6 +70,14 @@ function AppRoutes() {
   return (
     <Suspense fallback={<Loading />}>
       <Routes>
+        <Route element={<StoreLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/c/:slug" element={<CategoryPage />} />
+          <Route path="/s/:slug" element={<ServicePage />} />
+          <Route path="/busca" element={<SearchPage />} />
+          <Route path="/carrinho" element={<CartPage />} />
+        </Route>
+
         <Route element={<PublicRoute />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cadastro" element={<CadastroPage />} />
@@ -72,7 +88,7 @@ function AppRoutes() {
         <Route element={<ProtectedRoute allowedRoles={['admin', 'comercial', 'operacional']} />}>
           <Route element={<StaffOnlyRoute />}>
             <Route element={<AppLayout />}>
-              <Route path="/" element={<HomeRedirect />} />
+              <Route path="/gestao" element={<HomeRedirect />} />
               <Route path="/clientes" element={<ClientesPage />} />
               <Route path="/clientes/novo" element={<ClienteFormPage />} />
               <Route path="/clientes/:id/editar" element={<ClienteFormPage />} />
@@ -131,21 +147,32 @@ function AppRoutes() {
 
         <Route element={<ProtectedRoute allowedRoles={['cliente']} />}>
           <Route element={<ClienteOnlyRoute />}>
-            <Route element={<ClienteLayout />}>
-              <Route path="/cliente" element={<ClientePedidosPage />} />
-              <Route path="/cliente/agendar" element={<AgendarServicoPage />} />
-              <Route path="/cliente/diagnostico" element={<DiagnosticoIAPage />} />
-              <Route path="/cliente/financeiro" element={<ClienteFinanceiroPage />} />
-              <Route path="/cliente/solicitar" element={<Navigate to="/cliente/agendar" replace />} />
-              <Route path="/cliente/cadastro" element={<ClienteCadastroPage />} />
-              <Route path="/cliente/documentos" element={<ClienteDocumentosPage />} />
-              <Route path="/cliente/garantias" element={<ClienteGarantiasPage />} />
-              <Route path="/cliente/agendamentos" element={<ClienteAgendamentosPage />} />
+            <Route element={<StoreLayout />}>
+              <Route path="/agendar" element={<AgendarServicoPage />} />
             </Route>
+            <Route element={<AccountLayout />}>
+              <Route path="/conta" element={<AccountHomePage />} />
+              <Route path="/conta/servicos" element={<ClientePedidosPage />} />
+              <Route path="/conta/cashback" element={<CashbackPage />} />
+              <Route path="/conta/indique" element={<ReferralPage />} />
+              <Route path="/conta/garantias" element={<ClienteGarantiasPage />} />
+              <Route path="/conta/enderecos" element={<ClienteCadastroPage />} />
+              <Route path="/conta/pagamentos" element={<ClienteFinanceiroPage />} />
+              <Route path="/conta/notas" element={<ClienteDocumentosPage />} />
+              <Route path="/conta/dados" element={<ClienteCadastroPage />} />
+              <Route path="/cliente/diagnostico" element={<DiagnosticoIAPage />} />
+            </Route>
+            <Route path="/cliente" element={<Navigate to="/conta/servicos" replace />} />
+            <Route path="/cliente/agendar" element={<Navigate to="/agendar" replace />} />
+            <Route path="/cliente/financeiro" element={<Navigate to="/conta/pagamentos" replace />} />
+            <Route path="/cliente/cadastro" element={<Navigate to="/conta/dados" replace />} />
+            <Route path="/cliente/documentos" element={<Navigate to="/conta/notas" replace />} />
+            <Route path="/cliente/garantias" element={<Navigate to="/conta/garantias" replace />} />
+            <Route path="/cliente/agendamentos" element={<Navigate to="/conta/servicos" replace />} />
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );

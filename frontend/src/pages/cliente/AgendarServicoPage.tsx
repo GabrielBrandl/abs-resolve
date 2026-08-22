@@ -168,6 +168,25 @@ export function AgendarServicoPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const slug = searchParams.get('slug');
+    if (!slug || loading || categorias.length === 0) return;
+    const servico = categorias.flatMap((c) => c.servicos).find((s) => s.slug === slug);
+    if (!servico) return;
+    if (!cart.items.some((i) => i.slug === slug)) {
+      cart.add({
+        slug: servico.slug,
+        nome: servico.nome,
+        categoria: servico.categoria,
+        precoMinimo: servico.precoMinimo,
+        precoTexto: servico.precoTexto || '',
+        tipoPreco: servico.tipoPreco,
+        imagemUrl: servico.imagemUrl,
+      });
+    }
+    setStep('questionario');
+  }, [loading, categorias, searchParams, cart]);
+
   // Retomar agendamento de pedido já pago (ex.: veio de Meus Pedidos)
   useEffect(() => {
     const solId = searchParams.get('agendar');

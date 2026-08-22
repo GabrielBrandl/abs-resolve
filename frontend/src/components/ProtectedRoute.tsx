@@ -19,7 +19,8 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   }
 
   if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
+    const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+    return <Navigate to={`/login?next=${next}`} replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
