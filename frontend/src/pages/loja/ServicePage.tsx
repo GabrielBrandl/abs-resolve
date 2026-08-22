@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
-import { ServiceCard } from '../../components/loja/ServiceCard';
+import { RelatedRail } from '../../components/loja/RelatedRail';
 import { Breadcrumb, CashbackTag, Stars, TrustRow, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useCartStore } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
 import { solicitacaoApi } from '../../services/modules.service';
-import { cashbackOf, findService, money, priceAfterCashback, relatedServices } from '../../storefront/catalog';
+import {
+  cashbackOf,
+  findService,
+  frequentlyTogether,
+  money,
+  priceAfterCashback,
+  relatedSameCategory,
+} from '../../storefront/catalog';
 import { WHATSAPP_LINK } from '../../storefront/constants';
 import { isClienteRole } from '../../utils/auth-routes';
 
@@ -33,7 +40,8 @@ export function ServicePage() {
 
   const price = servico?.precoMinimo || 0;
   const cashback = cashbackOf(price);
-  const related = useMemo(() => relatedServices(categorias, slug, 3), [categorias, slug]);
+  const together = useMemo(() => frequentlyTogether(categorias, slug, 4), [categorias, slug]);
+  const sameCategory = useMemo(() => relatedSameCategory(categorias, slug, 4), [categorias, slug]);
 
   if (loading) return <Loading />;
   if (!servico) {
@@ -162,16 +170,17 @@ export function ServicePage() {
         <TrustRow />
       </div>
 
-      {related.length > 0 && (
-        <section className="mt-10">
-          <h2 className="mb-4 text-lg font-black text-primary-950">Aproveite a visita do profissional</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {related.map((s) => (
-              <ServiceCard key={s.slug} servico={s} cta="Adicionar +" />
-            ))}
-          </div>
-        </section>
-      )}
+      <RelatedRail
+        title="Aproveite a visita do profissional"
+        subtitle="Quem contrata este serviço quase sempre leva estes também — mesmo deslocamento, mais resultado."
+        servicos={together}
+      />
+      <RelatedRail
+        title={`Mais da categoria ${servico.categoriaNome || ''}`}
+        subtitle="Fica na mesma prateleira. Um clique e entra no pedido."
+        servicos={sameCategory}
+        cta="Levar da categoria"
+      />
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white p-3 shadow-2xl lg:hidden">
         <YellowButton className="w-full" onClick={goCheckout}>

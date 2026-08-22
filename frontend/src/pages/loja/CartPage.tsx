@@ -1,15 +1,19 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useCartStore } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
-import { cashbackOf, money } from '../../storefront/catalog';
+import { cashbackOf, money, relatedForCart } from '../../storefront/catalog';
 import { YellowButton } from '../../components/loja/store-ui';
+import { RelatedRail } from '../../components/loja/RelatedRail';
+import { useCatalog } from '../../hooks/useCatalog';
 import { isClienteRole } from '../../utils/auth-routes';
 
 export function CartPage() {
   const cart = useCartStore();
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
+  const { categorias } = useCatalog();
   const total = cart.total();
+  const related = relatedForCart(categorias, cart.items.map((i) => i.slug), 4);
 
   const checkout = () => {
     const next = '/agendar';
@@ -61,6 +65,13 @@ export function CartPage() {
           Continuar para agendamento
         </YellowButton>
       </aside>
+      <div className="lg:col-span-2">
+        <RelatedRail
+          title="Complete o pedido"
+          subtitle="Leve junto e o mesmo profissional resolve na mesma visita."
+          servicos={related}
+        />
+      </div>
     </div>
   );
 }

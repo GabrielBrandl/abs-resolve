@@ -6,6 +6,8 @@ import { formatCurrency } from '../../types';
 import { imagemServicoComRespostas } from '../../config/imagens-opcoes';
 import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal, Logo } from '../../components/ui';
 import { CheckoutStepper } from '../../components/loja/store-ui';
+import { RelatedRail } from '../../components/loja/RelatedRail';
+import { relatedForCart, type CategoriaLoja } from '../../storefront/catalog';
 import { QuestionarioServico, FotosServicoStep, QuestionarioNav, type PrecoCalculado } from '../../components/cliente/QuestionarioServico';
 import { useToast } from '../../components/Toast';
 import { gtmEtapaAgendar, gtmPush } from '../../utils/gtm';
@@ -119,6 +121,11 @@ export function AgendarServicoPage() {
   const cart = useCartStore();
   const [step, setStep] = useState<Step>('catalogo');
   const [categorias, setCategorias] = useState<CategoriaCatalogo[]>([]);
+  const relatedCheckout = relatedForCart(
+    categorias as unknown as CategoriaLoja[],
+    cart.items.map((i) => i.slug),
+    4
+  );
   const [catAtiva, setCatAtiva] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
@@ -735,6 +742,7 @@ export function AgendarServicoPage() {
       )}
 
       {step === 'carrinho' && (
+        <>
         <Card>
           <h3 className="mb-4 text-lg font-bold text-primary-800">Seu carrinho</h3>
           {cart.items.length === 0 ? (
@@ -788,6 +796,12 @@ export function AgendarServicoPage() {
             </div>
           </div>
         </Card>
+          <RelatedRail
+            title="Aproveite a mesma visita"
+            subtitle="Quem leva este serviço também adiciona estes. Um clique e entra no pedido."
+            servicos={relatedCheckout}
+          />
+        </>
       )}
 
       {step === 'questionario' && itemAtual && (
@@ -818,6 +832,7 @@ export function AgendarServicoPage() {
       )}
 
       {step === 'resumo' && (
+        <>
         <Card>
           <h3 className="mb-4 text-lg font-bold text-primary-800">Resumo do pedido</h3>
           {temValidacaoTecnica && (
@@ -876,6 +891,12 @@ export function AgendarServicoPage() {
             avancarLabel="Enviar fotos"
           />
         </Card>
+          <RelatedRail
+            title="Leve mais nesta visita"
+            subtitle="O profissional já vai até você. Vale incluir agora."
+            servicos={relatedCheckout}
+          />
+        </>
       )}
 
       {step === 'fotos' && (
@@ -1056,7 +1077,13 @@ export function AgendarServicoPage() {
           <p className="text-4xl">✅</p>
           <h3 className="mt-3 text-xl font-bold text-primary-800">Pedido confirmado!</h3>
           <p className="mt-2 text-slate-600">Pagamento registrado e técnico agendado. Acompanhe em Meus Pedidos.</p>
-          <Button className="mt-4" onClick={() => navigate('/cliente')}>Ver meus pedidos</Button>
+          <Button className="mt-4" onClick={() => navigate('/conta/servicos')}>Ver meus pedidos</Button>
+          <RelatedRail
+            title="Quer resolver mais alguma coisa?"
+            subtitle="Agende outro serviço da mesma categoria para a próxima visita."
+            servicos={relatedCheckout}
+            cta="Quero este também"
+          />
         </Card>
       )}
 

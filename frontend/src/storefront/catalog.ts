@@ -47,11 +47,75 @@ export function findService(cats: CategoriaLoja[], slug: string) {
   return null;
 }
 
-export function relatedServices(cats: CategoriaLoja[], slug: string, limit = 3) {
+/** Quem contratou X também levou Y — combina na mesma visita. */
+export const FREQUENTLY_TOGETHER: Record<string, string[]> = {
+  'troca-tomada': ['troca-interruptor', 'instalacao-luminaria', 'troca-disjuntor'],
+  'troca-interruptor': ['troca-tomada', 'instalacao-luminaria', 'instalacao-ventilador-teto'],
+  'instalacao-chuveiro': ['troca-disjuntor', 'troca-torneira', 'troca-registro'],
+  'troca-disjuntor': ['troca-tomada', 'instalacao-chuveiro', 'instalacao-luminaria'],
+  'instalacao-luminaria': ['troca-interruptor', 'troca-tomada', 'instalacao-ventilador-teto'],
+  'instalacao-ventilador-teto': ['instalacao-luminaria', 'troca-interruptor', 'troca-tomada'],
+  'troca-torneira': ['troca-registro', 'reparo-vazamento', 'desentupimento-pia'],
+  'troca-registro': ['troca-torneira', 'reparo-vazamento', 'instalacao-chuveiro'],
+  'reparo-vazamento': ['troca-registro', 'troca-torneira', 'desentupimento-pia'],
+  'desentupimento-pia': ['desentupimento-vaso', 'troca-torneira', 'reparo-vazamento'],
+  'desentupimento-vaso': ['desentupimento-pia', 'troca-registro', 'limpeza-pos-obra'],
+  'instalacao-suporte-tv': ['instalacao-prateleira', 'instalacao-luminaria', 'troca-tomada'],
+  'instalacao-prateleira': ['instalacao-suporte-tv', 'montagem-moveis-simples', 'instalacao-persiana'],
+  'montagem-moveis-simples': ['montagem-guarda-roupa', 'instalacao-prateleira', 'instalacao-persiana'],
+  'montagem-guarda-roupa': ['montagem-moveis-simples', 'instalacao-prateleira', 'instalacao-persiana'],
+  'instalacao-persiana': ['instalacao-prateleira', 'instalacao-luminaria', 'montagem-moveis-simples'],
+  'limpeza-ar-split': ['instalacao-ar-split', 'limpeza-pos-obra', 'instalacao-luminaria'],
+  'instalacao-ar-split': ['limpeza-ar-split', 'troca-disjuntor', 'instalacao-suporte-tv'],
+  'poda-jardim': ['limpeza-pos-obra', 'instalacao-prateleira', 'instalacao-luminaria'],
+  'limpeza-pos-obra': ['poda-jardim', 'limpeza-ar-split', 'instalacao-persiana'],
+};
+
+function bySlug(cats: CategoriaLoja[]) {
+  return new Map(flattenServices(cats).map((s) => [s.slug, s]));
+}
+
+function pickSlugs(cats: CategoriaLoja[], slugs: string[], exclude: Set<string>, limit: number) {
+  const map = bySlug(cats);
+  const out: ReturnType<typeof flattenServices> = [];
+  for (const slug of slugs) {
+    const s = map.get(slug);
+    if (s && !exclude.has(slug) && !out.some((x) => x.slug === slug)) out.push(s);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+export function frequentlyTogether(cats: CategoriaLoja[], slug: string, limit = 4) {
+  return pickSlugs(cats, FREQUENTLY_TOGETHER[slug] || [], new Set([slug]), limit);
+}
+
+export function relatedSameCategory(cats: CategoriaLoja[], slug: string, limit = 4) {
   const current = findService(cats, slug);
-  const all = flattenServices(cats).filter((s) => s.slug !== slug);
-  const same = all.filter((s) => s.categoria === current?.categoria);
-  return [...same, ...all.filter((s) => s.categoria !== current?.categoria)].slice(0, limit);
+  return flattenServices(cats)
+    .filter((s) => s.slug !== slug && s.categoria === current?.categoria)
+    .slice(0, limit);
+}
+
+export function relatedServices(cats: CategoriaLoja[], slug: string, limit = 4) {
+  const together = frequentlyTogether(cats, slug, limit);
+  if (together.length >= limit) return together;
+  const extra = relatedSameCategory(cats, slug, limit).filter((s) => !together.some((t) => t.slug === s.slug));
+  return [...together, ...extra].slice(0, limit);
+}
+
+export function relatedForCart(cats: CategoriaLoja[], slugs: string[], limit = 4) {
+  const exclude = new Set(slugs);
+  const wanted = slugs.flatMap((s) => FREQUENTLY_TOGETHER[s] || []);
+  const together = pickSlugs(cats, wanted, exclude, limit);
+  if (together.length >= limit) return together;
+  const catsOfCart = new Set(
+    flattenServices(cats)
+      .filter((s) => slugs.includes(s.slug))
+      .map((s) => s.categoria)
+  );
+  const extra = flattenServices(cats).filter((s) => !exclude.has(s.slug) && catsOfCart.has(s.categoria) && !together.some((t) => t.slug === s.slug));
+  return [...together, ...extra].slice(0, limit);
 }
 
 export function searchServices(cats: CategoriaLoja[], q: string) {
