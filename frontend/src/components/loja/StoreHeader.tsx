@@ -4,7 +4,7 @@ import { Logo } from '../ui';
 import { useAuthStore } from '../../store/authStore';
 import { useCartStore } from '../../store/cartStore';
 import { CATEGORY_NAV, WHATSAPP_LINK } from '../../storefront/constants';
-import { isClienteRole } from '../../utils/auth-routes';
+import { isClienteRole, getHomeForRole } from '../../utils/auth-routes';
 
 export function StoreHeader({ showCategories = true }: { showCategories?: boolean }) {
   const navigate = useNavigate();
@@ -58,7 +58,7 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
               <span className="block text-[11px] text-white/70">Minha ABS</span>
             </Link>
           ) : user ? (
-            <Link to="/gestao" className="text-sm font-semibold">
+            <Link to={getHomeForRole(user.role)} className="text-sm font-semibold">
               Painel interno
             </Link>
           ) : (

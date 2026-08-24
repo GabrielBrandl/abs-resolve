@@ -7,7 +7,7 @@ import {
   PONTUACAO_SERVICO,
   UPSELLS,
 } from '../config/catalogo.js';
-import { CATEGORIAS, PONTUACAO_POR_SLUG } from '../config/catalogo-servicos.js';
+import { CATEGORIAS, PONTUACAO_POR_SLUG, SERVICOS_CATALOGO } from '../config/catalogo-servicos.js';
 import { type FluxoServico, type RespostasFluxo } from '../config/fluxo-servicos.js';
 import { fluxoConfigService } from './fluxo-config.service.js';
 import { calcularPrecoFluxo } from '../config/tabela-precos-fluxo.js';
@@ -102,18 +102,27 @@ function buildTimeline(
 
 export class SolicitacaoService {
   async listarCatalogo() {
-    const servicos = await prisma.catalogoServico.findMany({
-      where: { ativo: true },
-      include: { precosFixos: true },
-      orderBy: [{ categoria: 'asc' }, { ordem: 'asc' }, { nome: 'asc' }],
-    });
+    try {
+      const servicos = await prisma.catalogoServico.findMany({
+        where: { ativo: true },
+        include: { precosFixos: true },
+        orderBy: [{ categoria: 'asc' }, { ordem: 'asc' }, { nome: 'asc' }],
+      });
 
-    const categorias = CATEGORIAS.map((cat) => ({
-      ...cat,
-      servicos: servicos.filter((s) => s.categoria === cat.slug),
-    })).filter((c) => c.servicos.length > 0);
+      const categorias = CATEGORIAS.map((cat) => ({
+        ...cat,
+        servicos: servicos.filter((s) => s.categoria === cat.slug),
+      })).filter((c) => c.servicos.length > 0);
 
-    return { categorias, total: servicos.length, servicos };
+      return { categorias, total: servicos.length, servicos };
+    } catch (err) {
+      console.warn('[catalogo] banco indisponível, usando catálogo estático', err instanceof Error ? err.message : err);
+      const categorias = CATEGORIAS.map((cat) => ({
+        ...cat,
+        servicos: SERVICOS_CATALOGO.filter((s) => s.categoria === cat.slug),
+      })).filter((c) => c.servicos.length > 0);
+      return { categorias, total: SERVICOS_CATALOGO.length, servicos: SERVICOS_CATALOGO };
+    }
   }
 
   obterFluxoServico(slug: string) {

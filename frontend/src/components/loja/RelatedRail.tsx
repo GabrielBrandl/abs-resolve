@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { addToCart } from '../../store/cartStore';
 import { cashbackOf, money, type ServicoLoja } from '../../storefront/catalog';
 
@@ -13,6 +13,7 @@ export function RelatedRail({
   servicos: ServicoLoja[];
   cta?: string;
 }) {
+  const navigate = useNavigate();
   if (!servicos.length) return null;
 
   return (
@@ -41,8 +42,11 @@ export function RelatedRail({
                 {price ? <p className="text-[11px] font-semibold text-emerald-700">+ {money(cashbackOf(price))} cashback</p> : null}
                 <button
                   type="button"
-                  disabled={s.tipoPreco === 'sob_orcamento'}
-                  onClick={() =>
+                  onClick={() => {
+                    if (s.tipoPreco === 'sob_orcamento') {
+                      navigate(`/s/${s.slug}`);
+                      return;
+                    }
                     addToCart({
                       slug: s.slug,
                       nome: s.nome,
@@ -51,9 +55,9 @@ export function RelatedRail({
                       precoTexto: s.precoTexto || '',
                       tipoPreco: s.tipoPreco || 'fixo',
                       imagemUrl: s.imagemUrl,
-                    })
-                  }
-                  className="mt-2 rounded-lg bg-accent-500 px-2.5 py-1.5 text-[11px] font-black uppercase text-primary-950 disabled:opacity-40"
+                    });
+                  }}
+                  className="mt-2 rounded-lg bg-accent-500 px-2.5 py-1.5 text-[11px] font-black uppercase text-primary-950"
                 >
                   {s.tipoPreco === 'sob_orcamento' ? 'Ver serviço' : cta}
                 </button>

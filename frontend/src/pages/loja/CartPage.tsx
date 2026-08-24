@@ -48,10 +48,15 @@ export function CartPage() {
                 <p className="font-bold">{item.nome}</p>
                 <p className="text-sm font-black text-primary-800">{money((item.precoMinimo || 0) * item.quantidade)}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <button type="button" className="h-8 w-8 rounded-full border" onClick={() => cart.setQty(item.slug, item.quantidade - 1)}>−</button>
-                {item.quantidade}
-                <button type="button" className="h-8 w-8 rounded-full border" onClick={() => cart.setQty(item.slug, item.quantidade + 1)}>+</button>
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-2">
+                  <button type="button" className="h-8 w-8 rounded-full border" onClick={() => cart.setQty(item.slug, item.quantidade - 1)}>−</button>
+                  {item.quantidade}
+                  <button type="button" className="h-8 w-8 rounded-full border" onClick={() => cart.setQty(item.slug, item.quantidade + 1)}>+</button>
+                </div>
+                <button type="button" className="text-xs font-bold text-slate-400 hover:text-red-600" onClick={() => cart.remove(item.slug)}>
+                  Remover
+                </button>
               </div>
             </li>
           ))}
