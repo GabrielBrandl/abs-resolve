@@ -142,7 +142,13 @@ export function CadastroPage() {
           </form>
 
           <p className="mt-4 text-center text-sm text-slate-500">
-            Já tem conta? <Link to="/login" className="font-medium text-primary-600">Entrar</Link>
+            Já tem conta?{' '}
+            <Link
+              to={params.get('next') ? `/login?next=${encodeURIComponent(params.get('next') || '')}` : '/login'}
+              className="font-medium text-primary-600"
+            >
+              Entrar
+            </Link>
           </p>
         </Card>
       </div>

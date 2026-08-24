@@ -93,6 +93,11 @@ export function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-2xl bg-white p-8 shadow-2xl">
+          {searchParams.get('next')?.includes('/agendar') && (
+            <p className="mb-4 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Seu carrinho está salvo. Entre só para pagar e agendar.
+            </p>
+          )}
           {error && <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
 
           {modo === 'equipe' ? (

@@ -5,7 +5,6 @@ import { RelatedRail } from '../../components/loja/RelatedRail';
 import { Breadcrumb, CashbackTag, Stars, TrustRow, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useCartStore } from '../../store/cartStore';
-import { useAuthStore } from '../../store/authStore';
 import { solicitacaoApi } from '../../services/modules.service';
 import {
   cashbackOf,
@@ -16,7 +15,6 @@ import {
   relatedSameCategory,
 } from '../../storefront/catalog';
 import { WHATSAPP_LINK } from '../../storefront/constants';
-import { isClienteRole } from '../../utils/auth-routes';
 
 type Fluxo = {
   perguntas?: Array<{ id: string; titulo: string; opcoes: Array<{ id: string; label: string }> }>;
@@ -27,7 +25,6 @@ export function ServicePage() {
   const navigate = useNavigate();
   const { categorias, loading } = useCatalog();
   const cart = useCartStore();
-  const user = useAuthStore((s) => s.user);
   const servico = findService(categorias, slug);
   const [fluxo, setFluxo] = useState<Fluxo | null>(null);
   const [respostas, setRespostas] = useState<Record<string, string>>({});
@@ -63,14 +60,11 @@ export function ServicePage() {
     imagemUrl: servico.imagemUrl,
   };
 
-  const goCheckout = () => {
-    cart.add(payload, qty);
-    const next = `/agendar?slug=${encodeURIComponent(servico.slug)}`;
-    if (!user || !isClienteRole(user.role)) {
-      navigate(`/login?next=${encodeURIComponent(next)}`);
-      return;
-    }
-    navigate(next);
+  const addToCart = () => cart.add(payload, qty);
+
+  const goCart = () => {
+    addToCart();
+    navigate('/carrinho');
   };
 
   return (
@@ -150,16 +144,17 @@ export function ServicePage() {
               Com cashback, o próximo pode sair por {money(priceAfterCashback(price))}
             </p>
           )}
-          <YellowButton className="mt-4 w-full" onClick={goCheckout}>
-            Comprar e agendar
+          <YellowButton className="mt-4 w-full" onClick={goCart}>
+            Adicionar e ir ao carrinho
           </YellowButton>
           <button
             type="button"
-            onClick={() => cart.add(payload, qty)}
+            onClick={addToCart}
             className="mt-2 w-full rounded-xl border-2 border-primary-800 py-3 text-sm font-black uppercase text-primary-800"
           >
-            Adicionar ao carrinho
+            Só adicionar ao carrinho
           </button>
+          <p className="mt-2 text-center text-[11px] text-slate-500">Sem cadastro para olhar e montar o pedido. Login só na hora de pagar.</p>
           <a href={WHATSAPP_LINK} target="_blank" rel="noreferrer" className="mt-3 block text-center text-xs font-semibold text-primary-700">
             Precisa de algo diferente? Fale no WhatsApp
           </a>
@@ -183,8 +178,8 @@ export function ServicePage() {
       />
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white p-3 shadow-2xl lg:hidden">
-        <YellowButton className="w-full" onClick={goCheckout}>
-          Comprar e agendar {price ? money(price * qty) : ''}
+        <YellowButton className="w-full" onClick={goCart}>
+          Adicionar ao carrinho {price ? money(price * qty) : ''}
         </YellowButton>
       </div>
     </div>

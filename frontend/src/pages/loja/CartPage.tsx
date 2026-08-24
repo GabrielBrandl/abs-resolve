@@ -16,12 +16,11 @@ export function CartPage() {
   const related = relatedForCart(categorias, cart.items.map((i) => i.slug), 4);
 
   const checkout = () => {
-    const next = '/agendar';
     if (!user || !isClienteRole(user.role)) {
-      navigate(`/login?next=${encodeURIComponent(next)}`);
+      navigate(`/login?next=${encodeURIComponent('/agendar')}`);
       return;
     }
-    navigate(next);
+    navigate('/agendar');
   };
 
   if (cart.items.length === 0) {
@@ -62,8 +61,13 @@ export function CartPage() {
         <p className="text-3xl font-black text-primary-800">{money(total)}</p>
         <p className="mt-1 text-xs font-bold text-emerald-700">Cashback estimado {money(cashbackOf(total))}</p>
         <YellowButton className="mt-4 w-full" onClick={checkout}>
-          Continuar para agendamento
+          {user && isClienteRole(user.role) ? 'Finalizar compra' : 'Entrar para finalizar a compra'}
         </YellowButton>
+        {!(user && isClienteRole(user.role)) && (
+          <p className="mt-2 text-center text-[11px] text-slate-500">
+            Você pode montar o carrinho sem cadastro. O login entra só agora, para pagar e agendar.
+          </p>
+        )}
       </aside>
       <div className="lg:col-span-2">
         <RelatedRail
