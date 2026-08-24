@@ -4,20 +4,20 @@ import { CATEGORY_NAV, UNIQUE_CATEGORIES } from '../../storefront/constants';
 export function ShopSidebar() {
   return (
     <aside className="hidden h-fit lg:block">
-      <div className="rounded-3xl bg-white p-4 shadow-sm">
-        <p className="px-1 pb-3 text-[11px] font-black uppercase tracking-wider text-slate-400">Comprar por categoria</p>
-        <nav className="space-y-1">
+      <div className="rounded-2xl bg-white p-3 shadow-sm">
+        <p className="px-1 pb-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Comprar por categoria</p>
+        <nav className="space-y-0.5">
           {UNIQUE_CATEGORIES.map((c) => (
             <NavLink
               key={c.slug}
               to={`/c/${c.slug}`}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-2xl px-2 py-2 text-sm transition ${
+                `flex items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-sm transition ${
                   isActive ? 'bg-primary-50 font-bold text-primary-800' : 'text-slate-700 hover:bg-slate-50'
                 }`
               }
             >
-              <img src={c.image} alt="" className="h-11 w-11 rounded-2xl object-cover" />
+              <img src={c.image} alt="" className="h-8 w-8 rounded-lg object-cover" />
               <span>{c.label === 'Instalações' ? 'Instalações e montagens' : c.label}</span>
             </NavLink>
           ))}

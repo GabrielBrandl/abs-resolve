@@ -80,7 +80,7 @@ export function ServicePage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-[1.05fr_1fr_20rem]">
         <div className="overflow-hidden rounded-[12px] bg-white shadow-sm">
           {servico.imagemUrl ? (
-            <img src={servico.imagemUrl} alt={servico.nome} className="h-[360px] w-full object-cover" />
+            <img src={`${servico.imagemUrl}${servico.imagemUrl.includes('?') ? '&' : '?'}v=3`} alt={servico.nome} className="h-[280px] w-full object-cover object-center" />
           ) : (
             <div className="flex h-[360px] items-center justify-center text-7xl">🔧</div>
           )}

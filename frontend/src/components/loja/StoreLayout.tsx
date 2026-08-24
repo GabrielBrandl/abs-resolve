@@ -22,7 +22,7 @@ export function StoreLayout({ showCategories = true }: { showCategories?: boolea
       <CartToasts />
       <StoreHeader showCategories={showCategories} />
       {withSidebar ? (
-        <div className="mx-auto grid min-h-[60vh] w-full max-w-[1180px] gap-6 px-4 py-4 lg:grid-cols-[16.5rem_1fr]">
+        <div className="mx-auto grid min-h-[60vh] w-full max-w-[1180px] gap-5 px-4 py-4 lg:grid-cols-[13.5rem_1fr]">
           <ShopSidebar />
           <main className="min-w-0">
             <Outlet />

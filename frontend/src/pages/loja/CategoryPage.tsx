@@ -41,7 +41,7 @@ export function CategoryPage() {
         <TrustRow compact />
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {servicos.map((s, i) => (
           <ServiceCard key={s.slug} servico={s} highlight={i === 0 ? 'Mais pedido' : undefined} />
         ))}
@@ -58,8 +58,8 @@ export function CategoryPage() {
       {outras.map((c) => (
         <section key={c.slug} className="mt-10">
           <SectionTitle title={`Quem olha ${categoria?.nome || 'isso'} também leva ${c.nome}`} to={`/c/${c.slug}`} />
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {c.servicos.slice(0, 3).map((s) => (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {c.servicos.slice(0, 4).map((s) => (
               <ServiceCard key={s.slug} servico={s} />
             ))}
           </div>
