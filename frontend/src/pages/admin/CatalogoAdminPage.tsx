@@ -33,6 +33,20 @@ export function CatalogoAdminPage() {
   const [form, setForm] = useState<Partial<CatalogoServicoAdmin>>({});
   const [enviandoImg, setEnviandoImg] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [regras, setRegras] = useState({
+    cashbackPercent: 10,
+    descontoNovoClientePercent: 10,
+    bonusIndicacao: 20,
+    garantiaPadraoDias: 90,
+    expressValor: 29,
+    taxaCancelamento: 49,
+    taxaAusencia: 49,
+    impostos: 14,
+    taxaCartao: 4,
+    lucro: 25,
+    overhead: 15,
+  });
+  const [salvandoRegras, setSalvandoRegras] = useState(false);
 
   const carregar = () => {
     setLoading(true);
@@ -42,7 +56,49 @@ export function CatalogoAdminPage() {
   useEffect(() => {
     carregar();
     catalogoAdminApi.categorias().then(setCategorias).catch(() => {});
+    catalogoAdminApi
+      .config()
+      .then((c) => {
+        setRegras({
+          cashbackPercent: Math.round(Number(c.cashbackPercent ?? 0.1) * 1000) / 10,
+          descontoNovoClientePercent: Math.round(Number(c.descontoNovoClientePercent ?? 0.1) * 1000) / 10,
+          bonusIndicacao: Number(c.bonusIndicacao ?? 20),
+          garantiaPadraoDias: Number(c.garantiaPadraoDias ?? 90),
+          expressValor: Number(c.expressValor ?? 29),
+          taxaCancelamento: Number(c.taxaCancelamento ?? 49),
+          taxaAusencia: Number(c.taxaAusencia ?? 49),
+          impostos: Math.round(Number(c.impostos ?? 0.14) * 1000) / 10,
+          taxaCartao: Math.round(Number(c.taxaCartao ?? 0.04) * 1000) / 10,
+          lucro: Math.round(Number(c.lucro ?? 0.25) * 1000) / 10,
+          overhead: Math.round(Number(c.overhead ?? 0.15) * 1000) / 10,
+        });
+      })
+      .catch(() => undefined);
   }, []);
+
+  const salvarRegras = async () => {
+    setSalvandoRegras(true);
+    try {
+      await catalogoAdminApi.atualizarConfig({
+        cashbackPercent: regras.cashbackPercent / 100,
+        descontoNovoClientePercent: regras.descontoNovoClientePercent / 100,
+        bonusIndicacao: regras.bonusIndicacao,
+        garantiaPadraoDias: regras.garantiaPadraoDias,
+        expressValor: regras.expressValor,
+        taxaCancelamento: regras.taxaCancelamento,
+        taxaAusencia: regras.taxaAusencia,
+        impostos: regras.impostos / 100,
+        taxaCartao: regras.taxaCartao / 100,
+        lucro: regras.lucro / 100,
+        overhead: regras.overhead / 100,
+      });
+      toast('Regras da loja atualizadas!', 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao salvar regras', 'error');
+    } finally {
+      setSalvandoRegras(false);
+    }
+  };
 
   const criarServico = async () => {
     if (!novoForm.nome.trim()) {
@@ -87,6 +143,7 @@ export function CatalogoAdminPage() {
       garantiaDias: s.garantiaDias,
       ativo: s.ativo,
       imagemUrl: s.imagemUrl,
+      relacionados: Array.isArray(s.relacionados) ? s.relacionados : [],
     });
   };
 
@@ -155,6 +212,33 @@ export function CatalogoAdminPage() {
         subtitle="Gerencie preços e disponibilidade"
         action={isAdmin ? <Button onClick={() => setModalNovo(true)}>Novo serviço</Button> : undefined}
       />
+
+      {isAdmin && (
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-1 text-base font-black text-primary-900">Regras e valores da loja</h2>
+          <p className="mb-4 text-xs text-slate-500">
+            Cashback, indicação, garantia e taxas. A vitrine e o checkout usam estes números.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Input label="Cashback (%)" type="number" min={0} step={0.1} value={regras.cashbackPercent} onChange={(e) => setRegras({ ...regras, cashbackPercent: Number(e.target.value) })} />
+            <Input label="Desconto novo cliente (%)" type="number" min={0} step={0.1} value={regras.descontoNovoClientePercent} onChange={(e) => setRegras({ ...regras, descontoNovoClientePercent: Number(e.target.value) })} />
+            <Input label="Bônus indicação (R$)" type="number" min={0} value={regras.bonusIndicacao} onChange={(e) => setRegras({ ...regras, bonusIndicacao: Number(e.target.value) })} />
+            <Input label="Garantia padrão (dias)" type="number" min={0} value={regras.garantiaPadraoDias} onChange={(e) => setRegras({ ...regras, garantiaPadraoDias: Number(e.target.value) })} />
+            <Input label="Atendimento express (R$)" type="number" min={0} value={regras.expressValor} onChange={(e) => setRegras({ ...regras, expressValor: Number(e.target.value) })} />
+            <Input label="Taxa cancelamento (R$)" type="number" min={0} value={regras.taxaCancelamento} onChange={(e) => setRegras({ ...regras, taxaCancelamento: Number(e.target.value) })} />
+            <Input label="Taxa ausência (R$)" type="number" min={0} value={regras.taxaAusencia} onChange={(e) => setRegras({ ...regras, taxaAusencia: Number(e.target.value) })} />
+            <Input label="Impostos (%)" type="number" min={0} step={0.1} value={regras.impostos} onChange={(e) => setRegras({ ...regras, impostos: Number(e.target.value) })} />
+            <Input label="Taxa cartão (%)" type="number" min={0} step={0.1} value={regras.taxaCartao} onChange={(e) => setRegras({ ...regras, taxaCartao: Number(e.target.value) })} />
+            <Input label="Lucro (%)" type="number" min={0} step={0.1} value={regras.lucro} onChange={(e) => setRegras({ ...regras, lucro: Number(e.target.value) })} />
+            <Input label="Overhead (%)" type="number" min={0} step={0.1} value={regras.overhead} onChange={(e) => setRegras({ ...regras, overhead: Number(e.target.value) })} />
+          </div>
+          <div className="mt-4">
+            <Button variant="cta" onClick={() => void salvarRegras()} disabled={salvandoRegras}>
+              {salvandoRegras ? 'Salvando...' : 'Salvar regras'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <TableWrapper>
         <table className="w-full min-w-[720px] text-sm">
@@ -370,6 +454,32 @@ export function CatalogoAdminPage() {
             <input type="checkbox" checked={form.ativo ?? true} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} />
             Ativo
           </label>
+          <div>
+            <p className="mb-1 text-sm font-medium">Serviços relacionados (quem leva este também vê)</p>
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border px-3 py-2">
+              {servicos
+                .filter((s) => s.id !== editId && s.ativo)
+                .map((s) => {
+                  const checked = (form.relacionados || []).includes(s.slug);
+                  return (
+                    <label key={s.slug} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const atual = form.relacionados || [];
+                          setForm((f) => ({
+                            ...f,
+                            relacionados: checked ? atual.filter((x) => x !== s.slug) : [...atual, s.slug],
+                          }));
+                        }}
+                      />
+                      {s.nome}
+                    </label>
+                  );
+                })}
+            </div>
+          </div>
         </div>
         <div className="mt-4 flex gap-2">
           <Button variant="cta" onClick={salvar}>Salvar</Button>

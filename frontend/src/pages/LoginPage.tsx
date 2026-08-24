@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { Button } from '../components/ui';
 import { getHomeForRole, isClienteRole, canLoginEquipe } from '../utils/auth-routes';
+import { percentLabel, useStoreConfig } from '../hooks/useStoreConfig';
 
 function mensagemErro(err: unknown) {
   if (axios.isAxiosError(err)) {
@@ -18,6 +19,7 @@ function mensagemErro(err: unknown) {
 }
 
 export function LoginPage() {
+  const { descontoNovoClientePercent } = useStoreConfig();
   const [modo, setModo] = useState<'equipe' | 'cliente'>('cliente');
   const [email, setEmail] = useState('');
   const [cpfCnpj, setCpfCnpj] = useState('');
@@ -140,7 +142,7 @@ export function LoginPage() {
                 <Link to={searchParams.get('next') ? `/cadastro?next=${encodeURIComponent(searchParams.get('next') || '')}` : '/cadastro'} className="font-semibold text-primary-600">Cadastre-se — obrigatório</Link>
               </p>
               <p className="mt-2 text-center text-xs text-emerald-700">
-                Novos clientes: 10% de desconto no primeiro serviço (PIX, crédito ou débito).
+                Novos clientes: {percentLabel(descontoNovoClientePercent)}% de desconto no primeiro serviço (PIX, crédito ou débito).
               </p>
             </>
           )}

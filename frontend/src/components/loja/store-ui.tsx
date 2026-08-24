@@ -9,6 +9,21 @@ const TRUST_ICONS = {
   invoice: IconDoc,
 } as const;
 
+export function AbsBrand() {
+  return (
+    <Link to="/" className="flex min-w-0 items-center gap-3">
+      <span className="relative leading-none">
+        <span className="absolute left-[3px] top-[-6px] h-[7px] w-[46px] rounded-full bg-[#ffb800]" />
+        <span className="block text-[26px] font-black tracking-tight text-[#002d62] sm:text-[28px]">ABS</span>
+        <span className="mt-[-1px] block text-[9px] font-extrabold tracking-[0.22em] text-[#002d62]">RESOLVE</span>
+      </span>
+      <span className="hidden max-w-[8.2rem] text-[11px] font-semibold leading-tight text-[#002d62] sm:block">
+        Chamou. Confiou. Resolveu.
+      </span>
+    </Link>
+  );
+}
+
 export function YellowButton({
   children,
   className = '',
@@ -17,7 +32,7 @@ export function YellowButton({
   return (
     <button
       {...props}
-      className={`rounded-xl bg-accent-500 px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-primary-950 shadow-sm transition hover:bg-accent-400 disabled:opacity-50 ${className}`}
+      className={`rounded-lg bg-accent-500 px-5 py-3 text-sm font-extrabold uppercase tracking-wide text-primary-950 shadow-sm transition hover:bg-accent-400 disabled:opacity-50 ${className}`}
     >
       {children}
     </button>
@@ -32,7 +47,7 @@ export function NavyButton({
   return (
     <button
       {...props}
-      className={`rounded-xl bg-primary-800 px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-white transition hover:bg-primary-700 disabled:opacity-50 ${className}`}
+      className={`rounded-lg bg-primary-800 px-5 py-3 text-sm font-extrabold uppercase tracking-wide text-white transition hover:bg-primary-700 disabled:opacity-50 ${className}`}
     >
       {children}
     </button>
@@ -54,7 +69,7 @@ export function Stars({ value = 4.9, count }: { value?: number; count?: number }
 
 export function CashbackTag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+    <span className="inline-flex rounded-md bg-[#ffb800] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#002d62]">
       {children}
     </span>
   );
@@ -106,9 +121,10 @@ export function WhatsAppFab() {
       href={WHATSAPP_LINK}
       target="_blank"
       rel="noreferrer"
-      className="fixed bottom-5 right-4 z-50 flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-900/20"
+      className="fixed bottom-[5.5rem] right-3 z-50 flex h-12 items-center gap-2 rounded-full bg-[#25D366] px-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-900/20 md:bottom-5 md:right-4 md:h-auto md:px-4 md:py-3"
     >
-      WhatsApp
+      <span className="hidden md:inline">WhatsApp</span>
+      <span className="md:hidden">WA</span>
     </a>
   );
 }

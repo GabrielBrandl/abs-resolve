@@ -27,10 +27,14 @@ export type SlugFluxoServico = (typeof SLUGS_FLUXO_SERVICO)[number];
 export type RespostaFluxoValor = string | string[] | number | boolean | null | undefined;
 export type RespostasFluxo = Record<string, RespostaFluxoValor>;
 
+export type ModoCobrancaOpcao = 'fixo' | 'por_unidade';
+
 export interface FluxoPerguntaOpcao {
   id: string;
   label: string;
   precoAdicional?: number;
+  /** fixo = soma o valor uma vez; por_unidade = valor × quantidade */
+  modoCobranca?: ModoCobrancaOpcao;
 }
 
 export interface FluxoPerguntaShowIf {
@@ -43,6 +47,7 @@ export interface FluxoPergunta {
   titulo: string;
   opcoes: FluxoPerguntaOpcao[];
   showIf?: FluxoPerguntaShowIf;
+  papel?: 'quantidade' | 'normal';
 }
 
 export interface RegraValidacaoFluxo {

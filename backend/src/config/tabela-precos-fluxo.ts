@@ -1,6 +1,12 @@
 import { SERVICOS_CATALOGO } from './catalogo-servicos.js';
 import { type FluxoServico, type RespostasFluxo, type SlugFluxoServico } from './fluxo-servicos.js';
 import { fluxoConfigService, type ItemPrecoConfig } from '../services/fluxo-config.service.js';
+import {
+  aplicarModoCobranca,
+  quantidadeDasRespostas,
+  resolverPerguntaQuantidadeId,
+  type ModoCobranca,
+} from '../utils/preco-quantidade.js';
 
 export interface PrecoFluxoBreakdownItem {
   label: string;
@@ -132,33 +138,45 @@ function avaliarRegrasFluxo(slug: SlugFluxoServico, respostas: RespostasFluxo): 
 function calcularPrecoPersonalizado(
   slug: string,
   fluxo: FluxoServico,
-  precoConfig: { precoBase: number | null; itensPreco: ItemPrecoConfig[] },
+  precoConfig: {
+    precoBase: number | null;
+    itensPreco: ItemPrecoConfig[];
+    perguntaQuantidadeId?: string | null;
+    multiplicarBasePorQuantidade?: boolean;
+  },
   respostas: RespostasFluxo,
   quantidade?: number
 ): ResultadoPrecoFluxo {
   const breakdown: PrecoFluxoBreakdownItem[] = [];
   const mensagens = new Set<string>(avaliarRegrasFluxoComFluxo(fluxo, respostas));
-  const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
+  const qtdPerguntaId = resolverPerguntaQuantidadeId(fluxo.perguntas, precoConfig.perguntaQuantidadeId);
+  const qtd = quantidadeDasRespostas(respostas, qtdPerguntaId, quantidade);
   const base = precoConfig.precoBase ?? PRECO_MINIMO_POR_SLUG[slug] ?? 0;
+  const multiplicarBase = precoConfig.multiplicarBasePorQuantidade !== false;
+  const valorBase = multiplicarBase ? base * qtd : base;
 
-  adicionarItem(breakdown, `Preço base (${qtd} un.)`, base * qtd);
+  adicionarItem(breakdown, multiplicarBase ? `Preço base (${qtd} un.)` : 'Preço base', valorBase);
 
   for (const pergunta of fluxo.perguntas) {
+    if (pergunta.id === qtdPerguntaId) continue;
     const resp = resposta(respostas, pergunta.id);
     if (!resp) continue;
-    const op = pergunta.opcoes.find((o) => o.id === resp) as { label: string; precoAdicional?: number } | undefined;
-    if (op?.precoAdicional) {
-      adicionarItem(breakdown, op.label, op.precoAdicional * qtd);
-    }
+    const op = pergunta.opcoes.find((o) => o.id === resp) as
+      | { label: string; precoAdicional?: number; modoCobranca?: ModoCobranca }
+      | undefined;
+    const extra = Number(op?.precoAdicional) || 0;
+    if (!op || !extra) continue;
+    const modo: ModoCobranca = op.modoCobranca === 'fixo' ? 'fixo' : 'por_unidade';
+    adicionarItem(breakdown, op.label, aplicarModoCobranca(extra, modo, qtd));
   }
 
   for (const item of precoConfig.itensPreco) {
     if (item.when) {
       const match = Object.entries(item.when).every(([k, v]) => tem(respostas, k, v));
-      if (match) adicionarItem(breakdown, item.label, item.valor * qtd);
-    } else {
-      adicionarItem(breakdown, item.label, item.valor * qtd);
+      if (!match) continue;
     }
+    const modo: ModoCobranca = item.modoCobranca === 'fixo' ? 'fixo' : 'por_unidade';
+    adicionarItem(breakdown, item.label, aplicarModoCobranca(item.valor, modo, qtd));
   }
 
   return finalizarResultado(breakdown, mensagens);
@@ -209,19 +227,16 @@ export function calcularPrecoFluxo(
     case 'troca-tomada': {
       const tipo = resposta(respostas, 'tipoTomada') ?? 'simples';
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
-      let base = tipo === 'dupla' ? 169 : tipo === 'tomada-20a' ? 189 : 149;
-      const deltaQtd = deltaPorQuantidade(qtd, { 2: 70, 3: 140, 4: 210 }, { threshold: 4, perUnit: 60 });
-
-      adicionarItem(breakdown, `Base ${qtd} tomada(s)`, base + deltaQtd);
-      adicionarItem(
-        breakdown,
-        'Tomada fornecida pela ABS',
+      const unitario = tipo === 'dupla' ? 169 : tipo === 'tomada-20a' ? 189 : 149;
+      const materialAbs =
         resposta(respostas, 'fornecimentoTomada') === 'abs-padrao'
           ? 25
           : resposta(respostas, 'fornecimentoTomada') === 'abs-premium'
             ? 45
-            : 0
-      );
+            : 0;
+
+      adicionarItem(breakdown, `Mão de obra (${qtd} tomada(s))`, unitario * qtd);
+      adicionarItem(breakdown, 'Tomada fornecida pela ABS', materialAbs * qtd);
       adicionarItem(breakdown, 'Tomada não funciona', tem(respostas, 'estadoAtual', ['nao-funciona']) ? 40 : 0);
       adicionarItem(
         breakdown,
@@ -285,19 +300,16 @@ export function calcularPrecoFluxo(
         paralelo: 199,
         intermediario: 219,
       };
-      const base = baseTipo[tipo] ?? 149;
-      const deltaQtd = deltaPorQuantidade(qtd, { 2: 70, 3: 140, 4: 210 }, { threshold: 4, perUnit: 60 });
-
-      adicionarItem(breakdown, `Base ${qtd} interruptor(es)`, base + deltaQtd);
-      adicionarItem(
-        breakdown,
-        'Interruptor fornecido pela ABS',
+      const unitario = baseTipo[tipo] ?? 149;
+      const materialAbs =
         resposta(respostas, 'fornecimentoInterruptor') === 'abs-padrao'
           ? 25
           : resposta(respostas, 'fornecimentoInterruptor') === 'abs-premium'
             ? 45
-            : 0
-      );
+            : 0;
+
+      adicionarItem(breakdown, `Mão de obra (${qtd} interruptor(es))`, unitario * qtd);
+      adicionarItem(breakdown, 'Interruptor fornecido pela ABS', materialAbs * qtd);
       adicionarItem(
         breakdown,
         'Funciona parcialmente',

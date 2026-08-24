@@ -412,7 +412,7 @@ export function HelpConsultorWidget() {
   if (authLoading || (user && user.role !== 'cliente')) return null;
 
   return (
-    <div className="fixed bottom-24 right-4 z-[70]">
+    <div className="fixed bottom-[9.25rem] right-3 z-[70] md:bottom-24 md:right-4">
       {aberto && (
         <section
           className="mb-3 flex h-[min(620px,75vh)] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"

@@ -3,37 +3,39 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary-50: #e6eeff;
-  --color-primary-100: #ccdaff;
-  --color-primary-200: #99b5ff;
-  --color-primary-300: #6690ff;
-  --color-primary-400: #336bff;
-  --color-primary-500: #0033B5;
-  --color-primary-600: #0033B5;
-  --color-primary-700: #00288F;
-  --color-primary-800: #002070;
-  --color-primary-900: #001850;
-  --color-accent-400: #FFD633;
-  --color-accent-500: #F7C400;
-  --color-accent-600: #e0b000;
-  --color-sidebar: #00288F;
-  --color-sidebar-hover: #0033B5;
-  --color-abs-gray: #E8E8E8;
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --color-primary-50: #e8eef8;
+  --color-primary-100: #c5d3ea;
+  --color-primary-200: #8ba7d4;
+  --color-primary-300: #5278b8;
+  --color-primary-400: #2a5294;
+  --color-primary-500: #002d62;
+  --color-primary-600: #002d62;
+  --color-primary-700: #003a7a;
+  --color-primary-800: #002d62;
+  --color-primary-900: #001e44;
+  --color-primary-950: #000c1f;
+  --color-accent-400: #ffd54a;
+  --color-accent-500: #ffb800;
+  --color-accent-600: #e0a000;
+  --color-sidebar: #002d62;
+  --color-sidebar-hover: #003a7a;
+  --color-abs-gray: #e8e8e8;
   --color-surface: #ffffff;
-  --color-surface-muted: #f8fafc;
+  --color-surface-muted: #f8f9fb;
   --color-panel: #ffffff;
   --color-ink: #0f172a;
-  --color-ink-muted: #64748b;
-  --color-line: #e2e8f0;
+  --color-ink-muted: #6c757d;
+  --color-line: #e9ecef;
 }
 
 :root {
-  --abs-blue: #0033B5;
-  --abs-blue-dark: #00288F;
-  --abs-yellow: #F7C400;
-  --abs-yellow-light: #FFD633;
-  --abs-white: #FFFFFF;
-  --abs-gray: #E8E8E8;
+  --abs-blue: #002d62;
+  --abs-blue-dark: #001a3d;
+  --abs-yellow: #ffb800;
+  --abs-yellow-light: #ffd54a;
+  --abs-white: #ffffff;
+  --abs-gray: #e8e8e8;
   color-scheme: light;
 }
 
@@ -51,8 +53,9 @@ html.dark {
 }
 
 body {
-  @apply antialiased overflow-x-hidden;
-  background-color: var(--color-surface);
+  @apply overflow-x-hidden antialiased;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background-color: #f8f9fb;
   color: var(--color-ink);
 }
 

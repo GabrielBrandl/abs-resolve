@@ -6,6 +6,8 @@ import { TrustRow, YellowButton } from '../../components/loja/store-ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { useCatalog } from '../../hooks/useCatalog';
 import { isClienteRole } from '../../utils/auth-routes';
+import { useStoreConfig } from '../../hooks/useStoreConfig';
+import { IconLock, IconShield, IconVerified } from '../../components/loja/icons';
 
 export function CartPage() {
   const cart = useCartStore();
@@ -13,8 +15,10 @@ export function CartPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const { categorias } = useCatalog();
+  const { cashbackPercent } = useStoreConfig();
   const total = items.reduce((sum, i) => sum + (Number(i.precoMinimo) || 0) * i.quantidade, 0);
   const related = relatedForCart(categorias, items.map((i) => i.slug), 4);
+  const cashback = cashbackOf(total, cashbackPercent);
 
   const checkout = () => {
     if (!user || !isClienteRole(user.role)) {
@@ -26,10 +30,10 @@ export function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-3xl bg-white p-12 text-center shadow-sm">
-        <h1 className="text-2xl font-black text-primary-950">Seu carrinho está vazio</h1>
+      <div className="rounded-[12px] border border-[#e6e8ee] bg-white px-6 py-16 text-center">
+        <h1 className="text-2xl font-black text-[#002d62]">Seu carrinho está vazio</h1>
         <p className="mt-2 text-sm text-slate-500">Escolha um serviço, veja o preço e agende em minutos.</p>
-        <Link to="/" className="mt-5 inline-block">
+        <Link to="/" className="mt-6 inline-block">
           <YellowButton>Ver serviços</YellowButton>
         </Link>
       </div>
@@ -37,49 +41,66 @@ export function CartPage() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-      <div className="rounded-3xl bg-white p-5 shadow-sm">
-        <h1 className="mb-4 text-2xl font-black text-primary-950">Meus serviços</h1>
-        <ul className="divide-y">
+    <div className="grid gap-5 lg:grid-cols-[1fr_20.5rem]">
+      <div className="rounded-[12px] border border-[#e6e8ee] bg-white p-5">
+        <h1 className="mb-1 text-[26px] font-black text-[#002d62]">Meus serviços</h1>
+        <p className="mb-4 text-sm text-slate-500">{items.length} {items.length === 1 ? 'item' : 'itens'} no pedido</p>
+        <ul className="divide-y divide-[#eef0f4]">
           {items.map((item) => (
-            <li key={item.slug} className="flex items-center gap-3 py-4">
-              <img src={item.imagemUrl || '/logo.png'} alt="" className="h-20 w-20 rounded-xl object-cover" />
-              <div className="flex-1">
-                <p className="font-bold">{item.nome}</p>
-                <p className="text-sm font-black text-primary-800">{money((item.precoMinimo || 0) * item.quantidade)}</p>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <div className="flex items-center gap-2">
-                  <button type="button" className="h-8 w-8 rounded-full border" onClick={() => cart.setQty(item.slug, item.quantidade - 1)}>−</button>
-                  {item.quantidade}
-                  <button type="button" className="h-8 w-8 rounded-full border" onClick={() => cart.setQty(item.slug, item.quantidade + 1)}>+</button>
+            <li key={item.slug} className="flex gap-4 py-4">
+              <img src={item.imagemUrl || '/logo.png'} alt="" className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover" />
+              <div className="min-w-0 flex-1">
+                <p className="font-bold leading-tight text-[#111827]">{item.nome}</p>
+                <p className="mt-1 text-lg font-black text-[#002d62]">{money((item.precoMinimo || 0) * item.quantidade)}</p>
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="flex items-center overflow-hidden rounded-md border border-[#d5d9e2]">
+                    <button type="button" className="h-8 w-8 text-lg" onClick={() => cart.setQty(item.slug, item.quantidade - 1)}>−</button>
+                    <span className="w-8 text-center text-sm font-bold">{item.quantidade}</span>
+                    <button type="button" className="h-8 w-8 text-lg" onClick={() => cart.setQty(item.slug, item.quantidade + 1)}>+</button>
+                  </div>
+                  <button type="button" className="text-xs font-semibold text-[#1d4ed8] hover:underline" onClick={() => cart.remove(item.slug)}>
+                    Remover
+                  </button>
                 </div>
-                <button type="button" className="text-xs font-bold text-slate-400 hover:text-red-600" onClick={() => cart.remove(item.slug)}>
-                  Remover
-                </button>
               </div>
             </li>
           ))}
         </ul>
       </div>
-      <aside className="h-fit rounded-3xl bg-white p-5 shadow-sm">
-        <p className="text-sm text-slate-500">Total</p>
-        <p className="text-3xl font-black text-primary-800">{money(total)}</p>
-        <p className="mt-1 text-xs font-bold text-emerald-700">Cashback estimado {money(cashbackOf(total))}</p>
-        <YellowButton className="mt-4 w-full" onClick={checkout}>
-          {user && isClienteRole(user.role) ? 'Finalizar compra' : 'Entrar para finalizar a compra'}
-        </YellowButton>
-        {!(user && isClienteRole(user.role)) && (
-          <p className="mt-2 text-center text-[11px] text-slate-500">
-            Você pode montar o carrinho sem cadastro. O login entra só agora, para pagar e agendar.
+
+      <aside className="h-fit rounded-[12px] border border-[#e6e8ee] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+        <p className="text-sm font-bold uppercase tracking-wide text-slate-400">Resumo do pedido</p>
+        <div className="mt-3 flex justify-between text-sm">
+          <span>Subtotal</span>
+          <span className="font-semibold">{money(total)}</span>
+        </div>
+        <div className="mt-4 flex items-end justify-between border-t border-[#eef0f4] pt-3">
+          <span className="font-bold text-[#002d62]">Total</span>
+          <p className="text-[28px] font-black text-[#002d62]">{money(total)}</p>
+        </div>
+        {cashback > 0 && (
+          <p className="mt-3 rounded-lg bg-[#fff4cc] px-3 py-2 text-sm font-semibold text-[#002d62]">
+            Você ganhará <b>{money(cashback)}</b> de cashback
           </p>
         )}
+        <ul className="mt-4 space-y-2 text-[12px] font-semibold text-[#334155]">
+          <li className="flex items-center gap-2"><IconShield className="h-4 w-4 text-[#002d62]" /> Garantia de até 90 dias</li>
+          <li className="flex items-center gap-2"><IconVerified className="h-4 w-4 text-[#002d62]" /> Profissional verificado</li>
+          <li className="flex items-center gap-2"><IconLock className="h-4 w-4 text-[#002d62]" /> Pagamento online 100% seguro</li>
+        </ul>
+        <YellowButton className="mt-5 w-full" onClick={checkout}>
+          {user && isClienteRole(user.role) ? `Continuar para pagamento →` : 'Entrar para finalizar'}
+        </YellowButton>
+        <p className="mt-3 flex items-center justify-center gap-1 text-[11px] text-slate-500">
+          <IconLock className="h-3.5 w-3.5" /> Ambiente 100% seguro
+        </p>
       </aside>
+
       <div className="lg:col-span-2">
         <TrustRow compact />
         <RelatedRail
-          title="Complete o pedido"
-          subtitle="Leve junto e o mesmo profissional resolve na mesma visita."
+          title="Aproveite a visita do profissional"
+          subtitle="Adicione outros serviços e resolva tudo no mesmo atendimento."
           servicos={related}
         />
       </div>

@@ -6,6 +6,7 @@ import { authService } from '../services/auth.service';
 import { useAuthStore } from '../store/authStore';
 import { Logo, Input, Button, Card } from '../components/ui';
 import { isClienteRole } from '../utils/auth-routes';
+import { percentLabel, useStoreConfig } from '../hooks/useStoreConfig';
 import { normalizeUser } from '../utils/normalize-user';
 
 function mensagemErro(err: unknown, fallback: string) {
@@ -24,6 +25,7 @@ function mensagemErro(err: unknown, fallback: string) {
 }
 
 export function CadastroPage() {
+  const { descontoNovoClientePercent } = useStoreConfig();
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [params] = useSearchParams();
@@ -98,7 +100,7 @@ export function CadastroPage() {
 
         <Card>
           <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            <strong>Boas-vindas:</strong> ao se cadastrar, você ganha <strong>10% de desconto</strong> no
+            <strong>Boas-vindas:</strong> ao se cadastrar, você ganha <strong>{percentLabel(descontoNovoClientePercent)}% de desconto</strong> no
             primeiro serviço — válido no PIX, crédito ou débito.
           </div>
           {ref && (

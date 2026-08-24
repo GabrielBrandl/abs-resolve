@@ -10,16 +10,19 @@ export type CategoryNavItem = {
   slug: string;
   label: string;
   image: string;
+  icon: 'bolt' | 'drop' | 'snow' | 'wrench' | 'hammer' | 'spark' | 'building';
+  to?: string;
 };
 
 export const CATEGORY_NAV: CategoryNavItem[] = [
-  { slug: 'eletricista', label: 'Elétrica', image: '/servicos/troca-tomada.webp' },
-  { slug: 'hidraulica', label: 'Hidráulica', image: '/servicos/troca-torneira.webp' },
-  { slug: 'ar-condicionado', label: 'Ar-condicionado', image: '/servicos/limpeza-ar-split.webp' },
-  { slug: 'montador', label: 'Instalações', image: '/servicos/instalacao-suporte-tv.webp' },
-  { slug: 'montador', label: 'Montagens', image: '/servicos/montagem-moveis-simples.webp' },
-  { slug: 'jardinagem', label: 'Reformas', image: '/servicos/poda-jardim.webp' },
-  { slug: 'limpeza-pos-obra', label: 'Limpeza', image: '/servicos/limpeza-pos-obra.webp' },
+  { slug: 'eletricista', label: 'Elétrica', image: '/servicos/troca-tomada.webp', icon: 'bolt' },
+  { slug: 'hidraulica', label: 'Hidráulica', image: '/servicos/troca-torneira.webp', icon: 'drop' },
+  { slug: 'ar-condicionado', label: 'Ar-condicionado', image: '/servicos/limpeza-ar-split.webp', icon: 'snow' },
+  { slug: 'montador', label: 'Instalações', image: '/servicos/instalacao-suporte-tv.webp', icon: 'wrench' },
+  { slug: 'montador', label: 'Montagens', image: '/servicos/montagem-moveis-simples.webp', icon: 'wrench' },
+  { slug: 'limpeza-pos-obra', label: 'Limpeza', image: '/servicos/limpeza-pos-obra.webp', icon: 'spark' },
+  { slug: 'jardinagem', label: 'Reformas', image: '/servicos/poda-jardim.webp', icon: 'hammer' },
+  { slug: 'eletricista', label: 'Empresarial', image: '/servicos/troca-tomada.webp', icon: 'building', to: '/busca?q=empresarial' },
 ];
 
 export const UNIQUE_CATEGORIES = CATEGORY_NAV.filter(

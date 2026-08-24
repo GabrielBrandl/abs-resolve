@@ -52,6 +52,8 @@ export function QuestionariosAdminPage() {
         modoPreco: config.modoPreco,
         precoBase: config.precoBase,
         itensPreco: config.itensPreco,
+        perguntaQuantidadeId: config.perguntaQuantidadeId,
+        multiplicarBasePorQuantidade: config.multiplicarBasePorQuantidade,
       });
       setConfig(atualizado);
       toast('Questionário salvo!', 'success');
@@ -181,6 +183,42 @@ export function QuestionariosAdminPage() {
                 )}
               </div>
 
+              {config.modoPreco === 'personalizado' && (
+                <div className="mb-6 grid gap-4 sm:grid-cols-2">
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium text-slate-700">Pergunta da quantidade</span>
+                    <select
+                      className="w-full rounded-lg border border-abs-gray px-3 py-2"
+                      value={config.perguntaQuantidadeId || 'quantidade'}
+                      onChange={(e) => setConfig({ ...config, perguntaQuantidadeId: e.target.value })}
+                    >
+                      {config.perguntas.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.titulo} ({p.id})
+                        </option>
+                      ))}
+                    </select>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Essa resposta vira o multiplicador (ex.: 4 tomadas).
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 pt-6 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={config.multiplicarBasePorQuantidade !== false}
+                      onChange={(e) =>
+                        setConfig({ ...config, multiplicarBasePorQuantidade: e.target.checked })
+                      }
+                    />
+                    <span>
+                      <span className="block font-medium text-slate-700">Multiplicar preço base pela quantidade</span>
+                      <span className="text-xs text-slate-500">Ex.: R$ 89 × 3 tomadas = R$ 267</span>
+                    </span>
+                  </label>
+                </div>
+              )}
+
               <label className="mb-6 block text-sm">
                 <span className="mb-1 block font-medium text-slate-700">Fotos sugeridas (uma por linha)</span>
                 <textarea
@@ -258,20 +296,37 @@ export function QuestionariosAdminPage() {
                             }}
                           />
                           {config.modoPreco === 'personalizado' && (
-                            <input
-                              type="number"
-                              className="w-28 rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
-                              placeholder="+ R$"
-                              value={op.precoAdicional ?? ''}
-                              onChange={(e) => {
-                                const opcoes = [...p.opcoes];
-                                opcoes[oIdx] = {
-                                  ...opcoes[oIdx],
-                                  precoAdicional: e.target.value ? Number(e.target.value) : undefined,
-                                };
-                                atualizarPergunta(pIdx, { opcoes });
-                              }}
-                            />
+                            <>
+                              <input
+                                type="number"
+                                className="w-24 rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                                placeholder="+ R$"
+                                value={op.precoAdicional ?? ''}
+                                onChange={(e) => {
+                                  const opcoes = [...p.opcoes];
+                                  opcoes[oIdx] = {
+                                    ...opcoes[oIdx],
+                                    precoAdicional: e.target.value ? Number(e.target.value) : undefined,
+                                  };
+                                  atualizarPergunta(pIdx, { opcoes });
+                                }}
+                              />
+                              <select
+                                className="w-40 rounded-lg border border-abs-gray px-2 py-1.5 text-xs"
+                                value={op.modoCobranca || 'por_unidade'}
+                                onChange={(e) => {
+                                  const opcoes = [...p.opcoes];
+                                  opcoes[oIdx] = {
+                                    ...opcoes[oIdx],
+                                    modoCobranca: e.target.value as 'fixo' | 'por_unidade',
+                                  };
+                                  atualizarPergunta(pIdx, { opcoes });
+                                }}
+                              >
+                                <option value="por_unidade">Por unidade × qtd</option>
+                                <option value="fixo">Valor fixo</option>
+                              </select>
+                            </>
                           )}
                           <button
                             type="button"

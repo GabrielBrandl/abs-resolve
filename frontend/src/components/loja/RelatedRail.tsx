@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { addToCart } from '../../store/cartStore';
 import { cashbackOf, money, type ServicoLoja } from '../../storefront/catalog';
+import { useStoreConfig } from '../../hooks/useStoreConfig';
 
 export function RelatedRail({
   title,
@@ -13,6 +14,7 @@ export function RelatedRail({
   servicos: ServicoLoja[];
   cta?: string;
 }) {
+  const { cashbackPercent } = useStoreConfig();
   const navigate = useNavigate();
   if (!servicos.length) return null;
 
@@ -39,7 +41,7 @@ export function RelatedRail({
                   {s.nome}
                 </Link>
                 <p className="text-sm font-black text-primary-800">{price ? money(price) : s.precoTexto}</p>
-                {price ? <p className="text-[11px] font-semibold text-emerald-700">+ {money(cashbackOf(price))} cashback</p> : null}
+                {price ? <p className="text-[11px] font-semibold text-emerald-700">+ {money(cashbackOf(price, cashbackPercent))} cashback</p> : null}
                 <button
                   type="button"
                   onClick={() => {

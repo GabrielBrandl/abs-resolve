@@ -12,6 +12,7 @@ export interface FluxoPerguntaOpcaoConfig {
   id: string;
   label: string;
   precoAdicional?: number;
+  modoCobranca?: 'fixo' | 'por_unidade';
 }
 
 export interface FluxoPerguntaConfig {
@@ -19,6 +20,7 @@ export interface FluxoPerguntaConfig {
   titulo: string;
   opcoes: FluxoPerguntaOpcaoConfig[];
   showIf?: { perguntaId: string; opcaoIds: string[] };
+  papel?: 'quantidade' | 'normal';
 }
 
 export interface ItemPrecoConfig {
@@ -26,6 +28,7 @@ export interface ItemPrecoConfig {
   label: string;
   valor: number;
   when?: Record<string, string[]>;
+  modoCobranca?: 'fixo' | 'por_unidade';
 }
 
 export interface FluxoConfigAdmin {
@@ -37,12 +40,16 @@ export interface FluxoConfigAdmin {
   modoPreco: 'padrao' | 'personalizado';
   precoBase: number | null;
   itensPreco: ItemPrecoConfig[];
+  perguntaQuantidadeId: string | null;
+  multiplicarBasePorQuantidade: boolean;
 }
 
 export interface PrecoConfigCache {
   modoPreco: string;
   precoBase: number | null;
   itensPreco: ItemPrecoConfig[];
+  perguntaQuantidadeId: string | null;
+  multiplicarBasePorQuantidade: boolean;
 }
 
 const fluxoCache = new Map<string, FluxoServico>();
@@ -143,6 +150,8 @@ export class FluxoConfigService {
         modoPreco: row.modoPreco,
         precoBase: row.precoBase != null ? Number(row.precoBase) : null,
         itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
+        perguntaQuantidadeId: row.perguntaQuantidadeId,
+        multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
       });
     }
   }
@@ -204,6 +213,8 @@ export class FluxoConfigService {
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
       itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco),
+      perguntaQuantidadeId: row.perguntaQuantidadeId,
+      multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     };
   }
 
@@ -221,6 +232,8 @@ export class FluxoConfigService {
       modoPreco?: 'padrao' | 'personalizado';
       precoBase?: number | null;
       itensPreco?: ItemPrecoConfig[];
+      perguntaQuantidadeId?: string | null;
+      multiplicarBasePorQuantidade?: boolean;
     }
   ) {
     const existe =
@@ -238,6 +251,10 @@ export class FluxoConfigService {
         ...(data.modoPreco !== undefined && { modoPreco: data.modoPreco }),
         ...(data.precoBase !== undefined && { precoBase: data.precoBase }),
         ...(data.itensPreco !== undefined && { itensPreco: toJson(data.itensPreco) }),
+        ...(data.perguntaQuantidadeId !== undefined && { perguntaQuantidadeId: data.perguntaQuantidadeId }),
+        ...(data.multiplicarBasePorQuantidade !== undefined && {
+          multiplicarBasePorQuantidade: data.multiplicarBasePorQuantidade,
+        }),
       },
       create: {
         slug,
@@ -247,6 +264,8 @@ export class FluxoConfigService {
         modoPreco: data.modoPreco ?? 'padrao',
         precoBase: data.precoBase ?? null,
         itensPreco: toJson(data.itensPreco ?? []),
+        perguntaQuantidadeId: data.perguntaQuantidadeId ?? 'quantidade',
+        multiplicarBasePorQuantidade: data.multiplicarBasePorQuantidade ?? true,
       },
     });
 
@@ -267,6 +286,8 @@ export class FluxoConfigService {
         modoPreco: 'padrao',
         precoBase: null,
         itensPreco: [],
+        perguntaQuantidadeId: 'quantidade',
+        multiplicarBasePorQuantidade: true,
       },
       create: {
         slug,
@@ -275,6 +296,8 @@ export class FluxoConfigService {
         regrasValidacao: toJson(fluxo.regrasValidacao),
         modoPreco: 'padrao',
         itensPreco: [],
+        perguntaQuantidadeId: 'quantidade',
+        multiplicarBasePorQuantidade: true,
       },
     });
 
@@ -290,6 +313,8 @@ export class FluxoConfigService {
     modoPreco: string;
     precoBase: Prisma.Decimal | null;
     itensPreco: unknown;
+    perguntaQuantidadeId: string | null;
+    multiplicarBasePorQuantidade: boolean;
   }): FluxoConfigAdmin {
     const padrao = getFluxo(row.slug);
     return {
@@ -301,6 +326,8 @@ export class FluxoConfigService {
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
       itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
+      perguntaQuantidadeId: row.perguntaQuantidadeId,
+      multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     };
   }
 }

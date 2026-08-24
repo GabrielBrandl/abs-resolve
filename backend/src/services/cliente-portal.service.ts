@@ -67,6 +67,10 @@ export class ClientePortalService {
       expressValor: toNumber(config.expressValor),
       taxaCancelamento: toNumber(config.taxaCancelamento),
       taxaAusencia: toNumber(config.taxaAusencia),
+      cashbackPercent: toNumber(config.cashbackPercent) || 0.1,
+      bonusIndicacao: toNumber(config.bonusIndicacao) || 20,
+      garantiaPadraoDias: Number(config.garantiaPadraoDias) || 90,
+      descontoNovoClientePercent: toNumber(config.descontoNovoClientePercent) || 0.1,
       parcelamento: configParcelamentoPublica(),
     };
   }

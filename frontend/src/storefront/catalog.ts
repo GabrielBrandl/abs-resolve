@@ -12,6 +12,7 @@ export type ServicoLoja = {
   garantiaDias: number;
   imagemUrl: string | null;
   pontos?: number;
+  relacionados?: string[];
 };
 
 export type CategoriaLoja = {
@@ -26,13 +27,13 @@ export function money(value: number | string | null | undefined) {
   return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function cashbackOf(price: number | string | null | undefined) {
-  return Math.round(Number(price || 0) * CASHBACK_PCT * 100) / 100;
+export function cashbackOf(price: number | string | null | undefined, pct = CASHBACK_PCT) {
+  return Math.round(Number(price || 0) * pct * 100) / 100;
 }
 
-export function priceAfterCashback(price: number | null | undefined) {
+export function priceAfterCashback(price: number | null | undefined, pct = CASHBACK_PCT) {
   const p = Number(price || 0);
-  return Math.max(0, Math.round((p - cashbackOf(p)) * 100) / 100);
+  return Math.max(0, Math.round((p - cashbackOf(p, pct)) * 100) / 100);
 }
 
 export function flattenServices(cats: CategoriaLoja[]) {
@@ -87,7 +88,10 @@ function pickSlugs(cats: CategoriaLoja[], slugs: string[], exclude: Set<string>,
 }
 
 export function frequentlyTogether(cats: CategoriaLoja[], slug: string, limit = 4) {
-  return pickSlugs(cats, FREQUENTLY_TOGETHER[slug] || [], new Set([slug]), limit);
+  const atual = findService(cats, slug);
+  const fromAdmin = atual?.relacionados?.filter(Boolean) ?? [];
+  const wanted = fromAdmin.length ? fromAdmin : FREQUENTLY_TOGETHER[slug] || [];
+  return pickSlugs(cats, wanted, new Set([slug]), limit);
 }
 
 export function relatedSameCategory(cats: CategoriaLoja[], slug: string, limit = 4) {
@@ -106,7 +110,11 @@ export function relatedServices(cats: CategoriaLoja[], slug: string, limit = 4) 
 
 export function relatedForCart(cats: CategoriaLoja[], slugs: string[], limit = 4) {
   const exclude = new Set(slugs);
-  const wanted = slugs.flatMap((s) => FREQUENTLY_TOGETHER[s] || []);
+  const wanted = slugs.flatMap((s) => {
+    const atual = findService(cats, s);
+    const fromAdmin = atual?.relacionados?.filter(Boolean) ?? [];
+    return fromAdmin.length ? fromAdmin : FREQUENTLY_TOGETHER[s] || [];
+  });
   const together = pickSlugs(cats, wanted, exclude, limit);
   if (together.length >= limit) return together;
   const catsOfCart = new Set(

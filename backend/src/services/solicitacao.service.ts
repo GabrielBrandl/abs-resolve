@@ -20,6 +20,12 @@ import { formatarRespostasItem } from '../utils/fluxo-respostas.js';
 import { storageService } from './storage.service.js';
 import { pagamentosService } from './pagamentos.service.js';
 
+function percentNovoCliente(config: { descontoNovoClientePercent?: unknown }): number {
+  const raw = toNumber(config.descontoNovoClientePercent);
+  if (!raw) return 10;
+  return raw > 1 ? raw : Math.round(raw * 1000) / 10;
+}
+
 function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
   return `${opcoes.tipo || 'simples'}_${opcoes.amperagem || '10a'}`.toLowerCase();
 }
@@ -223,7 +229,7 @@ export class SolicitacaoService {
     const expressValor = express ? toNumber(config.expressValor) : 0;
 
     const elegivelPrimeiroServico = await this.clienteElegivelDescontoPrimeiroServico(clienteId);
-    const percentualDesconto = elegivelPrimeiroServico ? 10 : 0;
+    const percentualDesconto = elegivelPrimeiroServico ? percentNovoCliente(config) : 0;
     const valorDesconto = elegivelPrimeiroServico
       ? Math.round(precoSubtotal * (percentualDesconto / 100) * 100) / 100
       : 0;
@@ -283,7 +289,7 @@ export class SolicitacaoService {
     const base = toNumber(sol.precoBase || 0);
     const expressValor = express ? toNumber(config.expressValor) : 0;
     const elegivel = await this.clienteElegivelDescontoPrimeiroServico(clienteId);
-    const percentualDesconto = elegivel ? 10 : 0;
+    const percentualDesconto = elegivel ? percentNovoCliente(config) : 0;
     const valorDesconto = elegivel ? Math.round(base * (percentualDesconto / 100) * 100) / 100 : 0;
 
     return prisma.solicitacaoServico.update({
@@ -314,7 +320,7 @@ export class SolicitacaoService {
     const base = toNumber(sol.precoBase || 0);
     const expressValor = sol.express ? toNumber(config.expressValor) : 0;
     const elegivel = await this.clienteElegivelDescontoPrimeiroServico(clienteId);
-    const percentualDesconto = elegivel ? 10 : 0;
+    const percentualDesconto = elegivel ? percentNovoCliente(config) : 0;
     const valorDesconto = elegivel ? Math.round(base * (percentualDesconto / 100) * 100) / 100 : 0;
     const precoFinal = Math.max(0, base - valorDesconto) + expressValor;
 

@@ -355,6 +355,10 @@ export interface SolicitacaoConfig {
   expressValor: number;
   taxaCancelamento: number;
   taxaAusencia: number;
+  cashbackPercent?: number;
+  bonusIndicacao?: number;
+  garantiaPadraoDias?: number;
+  descontoNovoClientePercent?: number;
   parcelamento?: {
     parcelasSemJuros: number;
     taxaJurosMesPercent: number;
@@ -390,6 +394,7 @@ export interface CatalogoServicoAdmin {
   ativo: boolean;
   ordem: number;
   imagemUrl: string | null;
+  relacionados?: string[];
 }
 
 export interface IaConhecimento {
@@ -457,6 +462,7 @@ export interface FluxoPerguntaOpcaoConfig {
   id: string;
   label: string;
   precoAdicional?: number;
+  modoCobranca?: 'fixo' | 'por_unidade';
 }
 
 export interface FluxoPerguntaConfig {
@@ -464,6 +470,7 @@ export interface FluxoPerguntaConfig {
   titulo: string;
   opcoes: FluxoPerguntaOpcaoConfig[];
   showIf?: { perguntaId: string; opcaoIds: string[] };
+  papel?: 'quantidade' | 'normal';
 }
 
 export interface ItemPrecoConfig {
@@ -471,6 +478,7 @@ export interface ItemPrecoConfig {
   label: string;
   valor: number;
   when?: Record<string, string[]>;
+  modoCobranca?: 'fixo' | 'por_unidade';
 }
 
 export interface FluxoConfigAdmin {
@@ -482,6 +490,8 @@ export interface FluxoConfigAdmin {
   modoPreco: 'padrao' | 'personalizado';
   precoBase: number | null;
   itensPreco: ItemPrecoConfig[];
+  perguntaQuantidadeId: string | null;
+  multiplicarBasePorQuantidade: boolean;
 }
 
 export interface ProdutoEstoque {

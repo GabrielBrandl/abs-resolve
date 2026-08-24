@@ -44,7 +44,7 @@ export function ClientePedidosPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-black text-primary-950">Meus serviços</h1>
+      <h1 className="text-3xl font-black text-primary-900">Meus serviços / pedidos</h1>
       <p className="mb-5 text-sm text-slate-500">Acompanhe, reagende e veja a garantia de cada pedido.</p>
 
       <ClienteAvaliacaoSection />
@@ -65,7 +65,7 @@ export function ClientePedidosPage() {
 
           return (
             <div key={p.id} id={`pedido-${p.id}`}>
-            <Card className={`mb-4 rounded-3xl p-5 shadow-sm ${pedidoDestaque === p.id ? 'ring-2 ring-accent-500' : ''}`}>
+            <Card className={`mb-4 rounded-2xl border border-slate-200 p-5 shadow-sm ${pedidoDestaque === p.id ? 'ring-2 ring-accent-500' : ''}`}>
               <div className="flex flex-wrap justify-between gap-3">
                 <div>
                   <h3 className="font-semibold text-primary-800">{p.numero}</h3>

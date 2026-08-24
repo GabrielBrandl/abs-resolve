@@ -33,8 +33,17 @@ describe('tabela-precos-fluxo', () => {
     expect(r.requerValidacaoTecnica).toBe(true);
   });
 
-  it('aplica tier de quantidade tomada', () => {
+  it('multiplica mão de obra pela quantidade de tomadas', () => {
     const r = calcularPrecoFluxo('troca-tomada', { ...RESPOSTAS_TOMADA, quantidade: '2' }, 2);
-    expect(r.preco).toBe(219);
+    expect(r.preco).toBe(298);
+  });
+
+  it('multiplica material da ABS pela quantidade', () => {
+    const r = calcularPrecoFluxo(
+      'troca-tomada',
+      { ...RESPOSTAS_TOMADA, quantidade: '4', fornecimentoTomada: 'abs-padrao' },
+      4
+    );
+    expect(r.preco).toBe(149 * 4 + 25 * 4);
   });
 });

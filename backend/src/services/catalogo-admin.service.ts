@@ -184,6 +184,7 @@ export class CatalogoAdminService {
     ativo: boolean;
     ordem: number;
     imagemUrl: string;
+    relacionados: string[];
   }>) {
     const atual = await prisma.catalogoServico.findUnique({ where: { id } });
     if (!atual) throw new Error('Serviço não encontrado');
@@ -207,6 +208,11 @@ export class CatalogoAdminService {
         ...(data.ativo !== undefined && { ativo: data.ativo }),
         ...(data.ordem !== undefined && { ordem: data.ordem }),
         ...(data.imagemUrl !== undefined && { imagemUrl: data.imagemUrl }),
+        ...(data.relacionados !== undefined && {
+          relacionados: Array.isArray(data.relacionados)
+            ? data.relacionados.filter((s) => typeof s === 'string' && s && s !== atual.slug)
+            : [],
+        }),
         ...(normalizado.tipoPreco && { tipoPreco: normalizado.tipoPreco }),
         ...(normalizado.precoTexto && !data.precoTexto?.trim() && { precoTexto: normalizado.precoTexto }),
       },
@@ -250,18 +256,29 @@ export class CatalogoAdminService {
   }
 
   async getConfig() {
-    return prisma.configSistema.findUnique({ where: { id: 'default' } });
+    return prisma.configSistema.upsert({
+      where: { id: 'default' },
+      update: {},
+      create: { id: 'default' },
+    });
   }
 
   async updateConfig(data: Record<string, number>) {
+    const num = (key: string) => (data[key] !== undefined && Number.isFinite(Number(data[key])) ? Number(data[key]) : undefined);
     return prisma.configSistema.update({
       where: { id: 'default' },
       data: {
-        ...(data.expressValor !== undefined && { expressValor: data.expressValor }),
-        ...(data.taxaCancelamento !== undefined && { taxaCancelamento: data.taxaCancelamento }),
-        ...(data.taxaAusencia !== undefined && { taxaAusencia: data.taxaAusencia }),
-        ...(data.impostos !== undefined && { impostos: data.impostos }),
-        ...(data.lucro !== undefined && { lucro: data.lucro }),
+        ...(num('expressValor') !== undefined && { expressValor: num('expressValor') }),
+        ...(num('taxaCancelamento') !== undefined && { taxaCancelamento: num('taxaCancelamento') }),
+        ...(num('taxaAusencia') !== undefined && { taxaAusencia: num('taxaAusencia') }),
+        ...(num('impostos') !== undefined && { impostos: num('impostos') }),
+        ...(num('taxaCartao') !== undefined && { taxaCartao: num('taxaCartao') }),
+        ...(num('lucro') !== undefined && { lucro: num('lucro') }),
+        ...(num('overhead') !== undefined && { overhead: num('overhead') }),
+        ...(num('cashbackPercent') !== undefined && { cashbackPercent: num('cashbackPercent') }),
+        ...(num('bonusIndicacao') !== undefined && { bonusIndicacao: num('bonusIndicacao') }),
+        ...(num('garantiaPadraoDias') !== undefined && { garantiaPadraoDias: Math.round(num('garantiaPadraoDias')!) }),
+        ...(num('descontoNovoClientePercent') !== undefined && { descontoNovoClientePercent: num('descontoNovoClientePercent') }),
       },
     });
   }

@@ -147,6 +147,7 @@ export function AgendarServicoPage() {
   const [fotosPorSlug, setFotosPorSlug] = useState<Record<string, File[]>>({});
   const [fluxosFotos, setFluxosFotos] = useState<Record<string, string[]>>({});
   const [descontoElegivel, setDescontoElegivel] = useState(false);
+  const [percentualNovoCliente, setPercentualNovoCliente] = useState(10);
   const [valorDescontoAplicado, setValorDescontoAplicado] = useState(0);
   const [pctDescontoAplicado, setPctDescontoAplicado] = useState(0);
   const [metodoPagamento, setMetodoPagamento] = useState<'PIX' | 'CARTAO' | null>(null);
@@ -172,6 +173,11 @@ export function AgendarServicoPage() {
           setTaxaJurosMes(config.parcelamento.taxaJurosMesPercent);
         }
         setDescontoElegivel(Boolean(desc.elegivel));
+        if (Number(desc.percentual) > 0) setPercentualNovoCliente(Number(desc.percentual));
+        if (Number(config.descontoNovoClientePercent) > 0) {
+          const pct = Number(config.descontoNovoClientePercent);
+          setPercentualNovoCliente(pct > 1 ? pct : Math.round(pct * 1000) / 10);
+        }
       })
       .finally(() => setLoading(false));
   }, []);
@@ -361,7 +367,7 @@ export function AgendarServicoPage() {
   }, [cart.items, precosPorSlug]);
 
   const descontoEstimado = descontoElegivel
-    ? Math.round(totalCalculado * 0.1 * 100) / 100
+    ? Math.round(totalCalculado * (percentualNovoCliente / 100) * 100) / 100
     : 0;
   const totalComDescontoEstimado = Math.max(0, totalCalculado - descontoEstimado);
 
@@ -608,7 +614,7 @@ export function AgendarServicoPage() {
 
       {descontoElegivel && (
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          <strong>Primeiro serviço:</strong> 10% de desconto automático no PIX, crédito ou débito.
+          <strong>Primeiro serviço:</strong> {percentualNovoCliente}% de desconto automático no PIX, crédito ou débito.
           Prefere conversar? Use o{' '}
           <button
             type="button"
@@ -875,7 +881,7 @@ export function AgendarServicoPage() {
           </label>
           {descontoElegivel && descontoEstimado > 0 && (
             <p className="mt-3 text-sm text-emerald-700">
-              Desconto novo cliente (10%): −{formatCurrency(descontoEstimado)}
+              Desconto novo cliente ({percentualNovoCliente}%): −{formatCurrency(descontoEstimado)}
             </p>
           )}
           <p className="mt-2 text-xl font-bold text-primary-800">

@@ -124,3 +124,133 @@ export function IconLock({ className = 'h-5 w-5' }: IconProps) {
     </svg>
   );
 }
+
+export function IconSearch({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+export function IconCart({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M4 5h2l1.2 9.2A2 2 0 0 0 9.2 16H17a2 2 0 0 0 2-1.6L20 8H7" />
+      <circle cx="10" cy="20" r="1.3" />
+      <circle cx="17" cy="20" r="1.3" />
+    </svg>
+  );
+}
+
+export function IconBolt({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M13 2 4 14h8l-1 8 9-12h-8z" />
+    </svg>
+  );
+}
+
+export function IconDrop({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M12 3s6 7 6 11a6 6 0 1 1-12 0c0-4 6-11 6-11z" />
+    </svg>
+  );
+}
+
+export function IconSnow({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M12 3v18M5 7l14 10M19 7 5 17M8 4.5 12 8l4-3.5M8 19.5 12 16l4 3.5" />
+    </svg>
+  );
+}
+
+export function IconWrench({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4L16 11z" />
+    </svg>
+  );
+}
+
+export function IconHammer({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="m15 5 4 4-3 1-5 5-2-2 5-5zM4 20l7-7" />
+    </svg>
+  );
+}
+
+export function IconSpark({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M12 3v4M12 17v4M4.9 7.5l2.8 2.8M16.3 13.7l2.8 2.8M4.9 16.5l2.8-2.8M16.3 10.3l2.8-2.8M8 12h4" />
+    </svg>
+  );
+}
+
+export function IconBuilding({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M4 21V6l8-3 8 3v15H4z" />
+      <path d="M9 21v-6h6v6" />
+      <path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01" />
+    </svg>
+  );
+}
+
+export function IconTag({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M3 12V4h8l9 9-8 8z" />
+      <circle cx="8.5" cy="8.5" r="1.2" />
+    </svg>
+  );
+}
+
+export function IconPinSmall({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M12 21s6-5.2 6-10a6 6 0 1 0-12 0c0 4.8 6 10 6 10z" />
+      <circle cx="12" cy="11" r="2" />
+    </svg>
+  );
+}
+
+export function IconHeadset({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M4 13v-1a8 8 0 0 1 16 0v1" />
+      <path d="M4 13h3v6H5a1 1 0 0 1-1-1v-5zM20 13h-3v6h2a1 1 0 0 0 1-1v-5z" />
+      <path d="M17 19v1a3 3 0 0 1-3 3h-1" />
+    </svg>
+  );
+}
+
+export function IconUniform({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M8 6 12 3l4 3 3 3v12H5V9z" />
+      <path d="M9 21v-7h6v7" />
+    </svg>
+  );
+}
+
+export function IconWhatsApp({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+      <path d="M12.04 2C6.58 2 2.15 6.4 2.15 11.83c0 1.74.46 3.44 1.33 4.94L2 22l5.4-1.4a10 10 0 0 0 4.64 1.14h.01c5.46 0 9.89-4.4 9.89-9.83C21.94 6.4 17.5 2 12.04 2zm5.76 14.1c-.24.67-1.4 1.24-1.94 1.32-.5.07-1.13.1-1.82-.11-.42-.13-.96-.31-1.66-.61-2.92-1.26-4.82-4.2-4.97-4.4-.15-.2-1.2-1.6-1.2-3.05s.76-2.16 1.03-2.46c.24-.27.64-.4 1.02-.4.12 0 .23 0 .33.01.29.01.44.03.63.49.24.57.82 2 .89 2.14.07.15.12.32.02.52-.1.2-.15.32-.3.5-.15.17-.31.38-.44.51-.15.15-.3.31-.13.36.12.2.6.5 1.3 1.07 1.12.9 1.5 1.2 1.72 1.33.15.1.36.08.5-.06.17-.17.38-.45.6-.73.15-.2.35-.16.56-.1.21.07 1.34.63 1.57.75.23.11.38.17.44.27.06.1.06.67-.18 1.34z" />
+    </svg>
+  );
+}
+
+export function IconCheck({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m5 12 5 5L20 7" />
+    </svg>
+  );
+}

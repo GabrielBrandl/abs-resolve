@@ -71,11 +71,16 @@ export class SolicitacaoController {
     try {
       const clienteId = await clienteIdFromReq(req);
       const elegivel = await solicitacaoService.clienteElegivelDescontoPrimeiroServico(clienteId);
+      const { getConfigPrecificacao } = await import('../engines/pricing.engine.js');
+      const { toNumber } = await import('../utils/helpers.js');
+      const config = await getConfigPrecificacao();
+      const raw = toNumber(config.descontoNovoClientePercent);
+      const percentual = !raw ? 10 : raw > 1 ? raw : Math.round(raw * 1000) / 10;
       return success(res, {
         elegivel,
-        percentual: 10,
+        percentual,
         mensagem: elegivel
-          ? '10% de desconto no primeiro serviço (PIX, crédito ou débito).'
+          ? `${percentual}% de desconto no primeiro serviço (PIX, crédito ou débito).`
           : 'Desconto de primeiro serviço já utilizado.',
       });
     } catch (err) {

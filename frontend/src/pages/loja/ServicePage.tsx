@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
-import { Breadcrumb, CashbackTag, Stars, TrustRow, TrustStrip, YellowButton } from '../../components/loja/store-ui';
+import { Breadcrumb, CashbackTag, Stars, TrustStrip, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { addToCart } from '../../store/cartStore';
 import { solicitacaoApi } from '../../services/modules.service';
@@ -11,10 +11,10 @@ import {
   findService,
   frequentlyTogether,
   money,
-  priceAfterCashback,
   relatedSameCategory,
 } from '../../storefront/catalog';
 import { WHATSAPP_LINK } from '../../storefront/constants';
+import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
 
 type Fluxo = {
   perguntas?: Array<{ id: string; titulo: string; opcoes: Array<{ id: string; label: string }> }>;
@@ -24,6 +24,7 @@ export function ServicePage() {
   const { slug = '' } = useParams();
   const navigate = useNavigate();
   const { categorias, loading } = useCatalog();
+  const { cashbackPercent } = useStoreConfig();
   const servico = findService(categorias, slug);
   const [fluxo, setFluxo] = useState<Fluxo | null>(null);
   const [respostas, setRespostas] = useState<Record<string, string>>({});
@@ -35,7 +36,7 @@ export function ServicePage() {
   }, [slug]);
 
   const price = servico?.precoMinimo || 0;
-  const cashback = cashbackOf(price);
+  const cashback = cashbackOf(price, cashbackPercent);
   const together = useMemo(() => frequentlyTogether(categorias, slug, 4), [categorias, slug]);
   const sameCategory = useMemo(() => relatedSameCategory(categorias, slug, 4), [categorias, slug]);
 
@@ -76,8 +77,8 @@ export function ServicePage() {
         ]}
       />
 
-      <div className="mt-4 grid gap-6 lg:grid-cols-[1.05fr_1fr_19rem]">
-        <div className="overflow-hidden rounded-3xl bg-white shadow-sm">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1.05fr_1fr_20rem]">
+        <div className="overflow-hidden rounded-[12px] bg-white shadow-sm">
           {servico.imagemUrl ? (
             <img src={servico.imagemUrl} alt={servico.nome} className="h-[360px] w-full object-cover" />
           ) : (
@@ -87,17 +88,25 @@ export function ServicePage() {
         </div>
 
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-primary-600">{servico.categoriaNome}</p>
-          <h1 className="mt-1 text-3xl font-black text-primary-950">{servico.nome}</h1>
+          <p className="text-[11px] font-black uppercase tracking-wide text-[#002d62]">{servico.categoriaNome}</p>
+          <h1 className="mt-1 text-[28px] font-black leading-tight text-[#111827]">{servico.nome}</h1>
           <Stars value={4.9} count={186} />
-          <p className="mt-4 text-3xl font-black text-primary-800">{price ? money(price) : servico.precoTexto}</p>
-          {cashback > 0 && <div className="mt-1"><CashbackTag>10% cashback · você ganha {money(cashback)}</CashbackTag></div>}
+          <div className="mt-4 rounded-[10px] border border-[#e6e8ee] bg-[#f8fafc] p-4">
+            <p className="text-xs text-slate-500">A partir de</p>
+            <div className="flex flex-wrap items-end gap-3">
+              <p className="text-[32px] font-black text-[#002d62]">{price ? money(price) : servico.precoTexto}</p>
+              {cashback > 0 && <CashbackTag>{percentLabel(cashbackPercent)}% CASHBACK</CashbackTag>}
+            </div>
+            {cashback > 0 && (
+              <p className="mt-1 text-sm font-semibold text-emerald-700">Você recebe {money(cashback)} de volta no próximo serviço.</p>
+            )}
+          </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">{servico.descricao}</p>
 
           <div className="mt-6 space-y-4">
             {(fluxo?.perguntas || []).slice(0, 5).map((p, idx) => (
               <div key={p.id}>
-                <p className="mb-2 text-sm font-bold text-primary-900">
+                <p className="mb-2 text-sm font-bold text-[#002d62]">
                   {idx + 1}. {p.titulo}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -106,10 +115,10 @@ export function ServicePage() {
                       key={o.id}
                       type="button"
                       onClick={() => setRespostas((r) => ({ ...r, [p.id]: o.id }))}
-                      className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${
+                      className={`min-w-[7rem] rounded-lg border px-3 py-3 text-left text-sm font-semibold ${
                         respostas[p.id] === o.id
-                          ? 'border-primary-800 bg-primary-800 text-white'
-                          : 'border-slate-200 bg-white hover:border-primary-400'
+                          ? 'border-[#002d62] bg-[#e8f0ff] text-[#002d62]'
+                          : 'border-slate-200 bg-white hover:border-[#002d62]/40'
                       }`}
                     >
                       {o.label}
@@ -120,50 +129,51 @@ export function ServicePage() {
             ))}
             <div>
               <p className="mb-2 text-sm font-bold">Quantidade</p>
-              <div className="flex items-center gap-2">
-                <button type="button" className="h-9 w-9 rounded-full border" onClick={() => setQty((n) => Math.max(1, n - 1))}>−</button>
+              <div className="flex items-center overflow-hidden rounded-md border border-[#d5d9e2] w-fit">
+                <button type="button" className="h-9 w-9" onClick={() => setQty((n) => Math.max(1, n - 1))}>−</button>
                 <span className="w-8 text-center font-black">{qty}</span>
-                <button type="button" className="h-9 w-9 rounded-full border" onClick={() => setQty((n) => n + 1)}>+</button>
+                <button type="button" className="h-9 w-9" onClick={() => setQty((n) => n + 1)}>+</button>
               </div>
             </div>
           </div>
         </div>
 
-        <aside className="h-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-md">
-          <p className="text-xs font-bold uppercase text-slate-400">Resumo do serviço</p>
-          <p className="mt-1 font-bold text-primary-950">{servico.nome}</p>
-          <p className="mt-3 text-3xl font-black text-primary-800">{price ? money(price * qty) : servico.precoTexto}</p>
+        <aside className="h-fit rounded-[12px] border border-[#e6e8ee] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-black text-[#002d62]">Resumo do serviço</p>
+            <button type="button" className="text-xs font-bold text-[#1d4ed8]" onClick={() => setRespostas({})}>Limpar</button>
+          </div>
+          <p className="mt-2 font-bold text-[#111827]">{servico.nome}</p>
+          <p className="mt-3 text-[30px] font-black text-[#002d62]">{price ? money(price * qty) : servico.precoTexto}</p>
           {cashback > 0 && (
-            <p className="mt-2 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
-              Com cashback, o próximo pode sair por {money(priceAfterCashback(price))}
+            <p className="mt-2 rounded-lg bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+              Você receberá {money(cashback * qty)} de cashback no próximo serviço.
             </p>
           )}
           <YellowButton className="mt-4 w-full" onClick={goCart}>
-            Adicionar e ir ao carrinho
+            Comprar e agendar
           </YellowButton>
           <button
             type="button"
             onClick={putInCart}
-            className="mt-2 w-full rounded-xl border-2 border-primary-800 py-3 text-sm font-black uppercase text-primary-800"
+            className="mt-2 w-full rounded-lg border-2 border-[#002d62] py-3 text-sm font-black uppercase text-[#002d62]"
           >
-            Só adicionar ao carrinho
+            Adicionar ao carrinho
           </button>
           <p className="mt-2 text-center text-[11px] text-slate-500">Sem cadastro para olhar e montar o pedido. Login só na hora de pagar.</p>
-          <a href={WHATSAPP_LINK} target="_blank" rel="noreferrer" className="mt-3 block text-center text-xs font-semibold text-primary-700">
+          <a href={WHATSAPP_LINK} target="_blank" rel="noreferrer" className="mt-3 block text-center text-xs font-semibold text-[#002d62]">
             Precisa de algo diferente? Fale no WhatsApp
           </a>
         </aside>
       </div>
 
-      <div className="mt-8 rounded-3xl bg-white p-5">
-        <TrustRow />
+      <div className="mt-6 rounded-[12px] bg-[#fff4cc] p-4">
+        <RelatedRail
+          title="Aproveite a visita do profissional"
+          subtitle="Adicione outros serviços e economize no mesmo atendimento."
+          servicos={together}
+        />
       </div>
-
-      <RelatedRail
-        title="Aproveite a visita do profissional"
-        subtitle="Quem contrata este serviço quase sempre leva estes também — mesmo deslocamento, mais resultado."
-        servicos={together}
-      />
       <RelatedRail
         title={`Mais da categoria ${servico.categoriaNome || ''}`}
         subtitle="Fica na mesma prateleira. Um clique e entra no pedido."
