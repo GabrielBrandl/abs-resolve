@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { ServiceCard } from '../../components/loja/ServiceCard';
-import { Breadcrumb, SectionTitle } from '../../components/loja/store-ui';
+import { Breadcrumb, SectionTitle, TrustRow } from '../../components/loja/store-ui';
 import { CategoryPhotoChip } from '../../components/loja/ShopSidebar';
 import { useCatalog } from '../../hooks/useCatalog';
 import { flattenServices } from '../../storefront/catalog';
@@ -35,6 +35,10 @@ export function CategoryPage() {
         {CATEGORY_NAV.filter((c, i, arr) => arr.findIndex((x) => x.slug === c.slug) === i).map((c) => (
           <CategoryPhotoChip key={c.slug} slug={c.slug} label={c.label} image={c.image} active={c.slug === slug} />
         ))}
+      </div>
+
+      <div className="mt-5">
+        <TrustRow compact />
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

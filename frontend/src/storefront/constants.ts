@@ -27,8 +27,8 @@ export const UNIQUE_CATEGORIES = CATEGORY_NAV.filter(
 );
 
 export const TRUST_BADGES = [
-  { icon: '✓', title: 'Profissionais verificados', text: 'Equipe identificada e treinada' },
-  { icon: '★', title: 'Pagamento 100% seguro', text: 'PIX, cartão e nota fiscal' },
-  { icon: '🛡', title: 'Garantia de até 90 dias', text: 'Proteção em todos os serviços' },
-  { icon: '📄', title: 'Nota fiscal emitida', text: 'Documento automático após o serviço' },
-];
+  { id: 'verified', title: 'Profissionais verificados', short: 'Profissionais verificados', text: 'Equipe identificada e treinada' },
+  { id: 'warranty', title: 'Garantia de até 90 dias', short: 'Garantia 90 dias', text: 'Proteção em todos os serviços' },
+  { id: 'payment', title: 'Pagamento 100% seguro', short: 'Pagamento seguro', text: 'PIX, cartão e nota fiscal' },
+  { id: 'invoice', title: 'Nota fiscal emitida', short: 'Nota fiscal', text: 'Documento automático após o serviço' },
+] as const;

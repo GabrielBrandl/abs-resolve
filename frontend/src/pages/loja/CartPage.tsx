@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCartStore } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
 import { cashbackOf, money, relatedForCart } from '../../storefront/catalog';
-import { YellowButton } from '../../components/loja/store-ui';
+import { TrustRow, YellowButton } from '../../components/loja/store-ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { useCatalog } from '../../hooks/useCatalog';
 import { isClienteRole } from '../../utils/auth-routes';
@@ -76,6 +76,7 @@ export function CartPage() {
         )}
       </aside>
       <div className="lg:col-span-2">
+        <TrustRow compact />
         <RelatedRail
           title="Complete o pedido"
           subtitle="Leve junto e o mesmo profissional resolve na mesma visita."

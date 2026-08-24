@@ -105,3 +105,22 @@ export function IconStar({ className = 'h-5 w-5' }: IconProps) {
     </svg>
   );
 }
+
+export function IconVerified({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <circle cx="10" cy="8" r="3.1" />
+      <path d="M4.8 20c1.1-3.1 3.5-4.7 6.2-4.8" />
+      <path d="M14.5 14.2 17 17l4.2-4.2" />
+    </svg>
+  );
+}
+
+export function IconLock({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}

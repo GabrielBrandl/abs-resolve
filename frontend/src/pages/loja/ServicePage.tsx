@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
-import { Breadcrumb, CashbackTag, Stars, TrustRow, YellowButton } from '../../components/loja/store-ui';
+import { Breadcrumb, CashbackTag, Stars, TrustRow, TrustStrip, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { addToCart } from '../../store/cartStore';
 import { solicitacaoApi } from '../../services/modules.service';
@@ -83,12 +83,7 @@ export function ServicePage() {
           ) : (
             <div className="flex h-[360px] items-center justify-center text-7xl">🔧</div>
           )}
-          <div className="grid grid-cols-2 gap-2 p-4 text-center text-[11px] font-semibold text-slate-600 sm:grid-cols-4">
-            <span>Profissionais verificados</span>
-            <span>Garantia {servico.garantiaDias || 90} dias</span>
-            <span>Pagamento seguro</span>
-            <span>Nota fiscal</span>
-          </div>
+          <TrustStrip garantiaDias={servico.garantiaDias || 90} />
         </div>
 
         <div>

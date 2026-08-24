@@ -1,21 +1,12 @@
-import { TRUST_BADGES, WHATSAPP_LINK } from '../../storefront/constants';
+import { WHATSAPP_LINK } from '../../storefront/constants';
+import { TrustRow } from './store-ui';
 
 export function StoreFooter() {
   return (
     <footer>
       <div className="border-t border-slate-200 bg-[#eef3ff]">
-        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-7 sm:grid-cols-2 lg:grid-cols-4">
-          {TRUST_BADGES.map((b) => (
-            <div key={b.title} className="flex items-start gap-3">
-              <span className="flex h-10 w-8 items-center justify-center rounded-full bg-white text-lg text-primary-700 shadow-sm">
-                {b.icon}
-              </span>
-              <div>
-                <p className="text-sm font-bold text-primary-900">{b.title}</p>
-                <p className="text-xs text-slate-500">{b.text}</p>
-              </div>
-            </div>
-          ))}
+        <div className="mx-auto max-w-7xl px-4 py-7">
+          <TrustRow />
         </div>
       </div>
       <div className="bg-primary-950 py-5 text-center text-sm text-white">
