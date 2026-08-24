@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { cashbackOf, money, type ServicoLoja } from '../../storefront/catalog';
-import { useCartStore } from '../../store/cartStore';
+import { addToCart } from '../../store/cartStore';
 import { CashbackTag, Stars } from './store-ui';
 
 export function ServiceCard({
@@ -12,7 +12,6 @@ export function ServiceCard({
   cta?: string;
   highlight?: string;
 }) {
-  const add = useCartStore((s) => s.add);
   const navigate = useNavigate();
   const price = servico.precoMinimo;
   const cashback = cashbackOf(price);
@@ -23,13 +22,13 @@ export function ServiceCard({
       navigate(`/s/${servico.slug}`);
       return;
     }
-    add({
+    addToCart({
       slug: servico.slug,
       nome: servico.nome,
       categoria: servico.categoria,
       precoMinimo: servico.precoMinimo,
       precoTexto: servico.precoTexto || '',
-      tipoPreco: servico.tipoPreco,
+      tipoPreco: servico.tipoPreco || 'fixo',
       imagemUrl: servico.imagemUrl,
     });
   };

@@ -4,7 +4,7 @@ import { Loading } from '../../components/ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { Breadcrumb, CashbackTag, Stars, TrustRow, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
-import { useCartStore } from '../../store/cartStore';
+import { addToCart } from '../../store/cartStore';
 import { solicitacaoApi } from '../../services/modules.service';
 import {
   cashbackOf,
@@ -24,7 +24,6 @@ export function ServicePage() {
   const { slug = '' } = useParams();
   const navigate = useNavigate();
   const { categorias, loading } = useCatalog();
-  const cart = useCartStore();
   const servico = findService(categorias, slug);
   const [fluxo, setFluxo] = useState<Fluxo | null>(null);
   const [respostas, setRespostas] = useState<Record<string, string>>({});
@@ -56,14 +55,14 @@ export function ServicePage() {
     categoria: servico.categoria,
     precoMinimo: servico.precoMinimo,
     precoTexto: servico.precoTexto || '',
-    tipoPreco: servico.tipoPreco,
+    tipoPreco: servico.tipoPreco || 'fixo',
     imagemUrl: servico.imagemUrl,
   };
 
-  const addToCart = () => cart.add(payload, qty);
+  const putInCart = () => addToCart(payload, qty);
 
   const goCart = () => {
-    addToCart();
+    putInCart();
     navigate('/carrinho');
   };
 
@@ -149,7 +148,7 @@ export function ServicePage() {
           </YellowButton>
           <button
             type="button"
-            onClick={addToCart}
+            onClick={putInCart}
             className="mt-2 w-full rounded-xl border-2 border-primary-800 py-3 text-sm font-black uppercase text-primary-800"
           >
             Só adicionar ao carrinho

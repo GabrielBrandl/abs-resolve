@@ -9,9 +9,9 @@ import { isClienteRole } from '../../utils/auth-routes';
 export function StoreHeader({ showCategories = true }: { showCategories?: boolean }) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const cart = useCartStore();
+  const items = useCartStore((s) => s.items);
   const [q, setQ] = useState('');
-  const count = cart.count();
+  const count = items.reduce((n, i) => n + i.quantidade, 0);
   const firstName = user?.nome?.split(' ')[0] || '';
 
   const search = (e: FormEvent) => {

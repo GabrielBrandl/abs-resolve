@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useCartStore } from '../../store/cartStore';
+import { addToCart } from '../../store/cartStore';
 import { cashbackOf, money, type ServicoLoja } from '../../storefront/catalog';
 
 export function RelatedRail({
@@ -13,7 +13,6 @@ export function RelatedRail({
   servicos: ServicoLoja[];
   cta?: string;
 }) {
-  const add = useCartStore((s) => s.add);
   if (!servicos.length) return null;
 
   return (
@@ -44,13 +43,13 @@ export function RelatedRail({
                   type="button"
                   disabled={s.tipoPreco === 'sob_orcamento'}
                   onClick={() =>
-                    add({
+                    addToCart({
                       slug: s.slug,
                       nome: s.nome,
                       categoria: s.categoria,
                       precoMinimo: s.precoMinimo,
                       precoTexto: s.precoTexto || '',
-                      tipoPreco: s.tipoPreco,
+                      tipoPreco: s.tipoPreco || 'fixo',
                       imagemUrl: s.imagemUrl,
                     })
                   }

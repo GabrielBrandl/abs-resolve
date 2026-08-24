@@ -9,11 +9,12 @@ import { isClienteRole } from '../../utils/auth-routes';
 
 export function CartPage() {
   const cart = useCartStore();
+  const items = useCartStore((s) => s.items);
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const { categorias } = useCatalog();
-  const total = cart.total();
-  const related = relatedForCart(categorias, cart.items.map((i) => i.slug), 4);
+  const total = items.reduce((sum, i) => sum + (Number(i.precoMinimo) || 0) * i.quantidade, 0);
+  const related = relatedForCart(categorias, items.map((i) => i.slug), 4);
 
   const checkout = () => {
     if (!user || !isClienteRole(user.role)) {
@@ -23,7 +24,7 @@ export function CartPage() {
     navigate('/agendar');
   };
 
-  if (cart.items.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="rounded-3xl bg-white p-12 text-center shadow-sm">
         <h1 className="text-2xl font-black text-primary-950">Seu carrinho está vazio</h1>
@@ -40,7 +41,7 @@ export function CartPage() {
       <div className="rounded-3xl bg-white p-5 shadow-sm">
         <h1 className="mb-4 text-2xl font-black text-primary-950">Meus serviços</h1>
         <ul className="divide-y">
-          {cart.items.map((item) => (
+          {items.map((item) => (
             <li key={item.slug} className="flex items-center gap-3 py-4">
               <img src={item.imagemUrl || '/logo.png'} alt="" className="h-20 w-20 rounded-xl object-cover" />
               <div className="flex-1">
