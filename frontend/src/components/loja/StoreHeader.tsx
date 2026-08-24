@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Logo } from '../ui';
 import { useAuthStore } from '../../store/authStore';
 import { useCartStore } from '../../store/cartStore';
@@ -40,9 +40,9 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar um serviço (ex: instalar ar-condicionado)"
-              className="h-12 w-full rounded-l-xl border-0 px-4 text-sm text-slate-800 outline-none"
+              className="h-12 w-full rounded-l-full border-0 px-5 text-sm text-slate-800 outline-none"
             />
-            <button type="submit" className="h-12 rounded-r-xl bg-primary-950 px-5 text-sm font-black">
+            <button type="submit" className="h-12 rounded-r-full bg-primary-950 px-6 text-sm font-black">
               Buscar
             </button>
           </form>
@@ -68,9 +68,8 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
             </Link>
           )}
 
-          <Link to="/carrinho" className="rounded-xl bg-white/10 px-3 py-2 text-sm font-bold">
-            Serviços
-            <span className="ml-1 rounded bg-accent-500 px-1.5 text-xs text-primary-950">{count}</span>
+          <Link to="/carrinho" className="rounded-full bg-accent-500 px-3 py-2 text-sm font-black text-primary-950">
+            Serviços {count}
           </Link>
         </div>
         <form onSubmit={search} className="px-4 pb-3 md:hidden">
@@ -78,21 +77,26 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar um serviço"
-            className="h-11 w-full rounded-xl px-4 text-sm text-slate-800 outline-none"
+            className="h-11 w-full rounded-full px-4 text-sm text-slate-800 outline-none"
           />
         </form>
       </div>
       {showCategories && (
         <nav className="border-b border-slate-200 bg-white">
-          <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-2 py-2">
-            {CATEGORY_NAV.map((c, i) => (
-              <Link
-                key={`${c.slug}-${c.label}-${i}`}
+          <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-3 py-2">
+            {CATEGORY_NAV.filter((c, i, arr) => arr.findIndex((x) => x.label === c.label) === i).map((c) => (
+              <NavLink
+                key={c.label}
                 to={`/c/${c.slug}`}
-                className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold text-primary-800 hover:bg-primary-50"
+                className={({ isActive }) =>
+                  `flex shrink-0 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-semibold ${
+                    isActive ? 'bg-primary-800 text-white' : 'text-primary-800 hover:bg-slate-50'
+                  }`
+                }
               >
-                {c.icon} {c.label}
-              </Link>
+                <img src={c.image} alt="" className="h-8 w-8 rounded-full object-cover" />
+                {c.label}
+              </NavLink>
             ))}
             <Link to="/#ofertas" className="shrink-0 rounded-full bg-accent-500 px-3 py-1.5 text-sm font-black text-primary-950">
               Ofertas do dia

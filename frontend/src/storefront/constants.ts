@@ -6,15 +6,25 @@ export const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_ABS}?text=${encodeURIComp
 export const CASHBACK_PCT = 0.1;
 export const REFERRAL_BONUS = 20;
 
-export const CATEGORY_NAV: Array<{ slug: string; label: string; icon: string }> = [
-  { slug: 'eletricista', label: 'Elétrica', icon: '⚡' },
-  { slug: 'hidraulica', label: 'Hidráulica', icon: '💧' },
-  { slug: 'ar-condicionado', label: 'Ar-condicionado', icon: '❄️' },
-  { slug: 'montador', label: 'Instalações', icon: '🔧' },
-  { slug: 'montador', label: 'Montagens', icon: '🪑' },
-  { slug: 'jardinagem', label: 'Reformas', icon: '🏡' },
-  { slug: 'limpeza-pos-obra', label: 'Limpeza', icon: '🧹' },
+export type CategoryNavItem = {
+  slug: string;
+  label: string;
+  image: string;
+};
+
+export const CATEGORY_NAV: CategoryNavItem[] = [
+  { slug: 'eletricista', label: 'Elétrica', image: '/servicos/troca-tomada.webp' },
+  { slug: 'hidraulica', label: 'Hidráulica', image: '/servicos/troca-torneira.webp' },
+  { slug: 'ar-condicionado', label: 'Ar-condicionado', image: '/servicos/limpeza-ar-split.webp' },
+  { slug: 'montador', label: 'Instalações', image: '/servicos/instalacao-suporte-tv.webp' },
+  { slug: 'montador', label: 'Montagens', image: '/servicos/montagem-moveis-simples.webp' },
+  { slug: 'jardinagem', label: 'Reformas', image: '/servicos/poda-jardim.webp' },
+  { slug: 'limpeza-pos-obra', label: 'Limpeza', image: '/servicos/limpeza-pos-obra.webp' },
 ];
+
+export const UNIQUE_CATEGORIES = CATEGORY_NAV.filter(
+  (c, i, arr) => arr.findIndex((x) => x.slug === c.slug) === i
+);
 
 export const TRUST_BADGES = [
   { icon: '✓', title: 'Profissionais verificados', text: 'Equipe identificada e treinada' },

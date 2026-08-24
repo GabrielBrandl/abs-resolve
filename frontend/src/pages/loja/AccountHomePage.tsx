@@ -31,7 +31,7 @@ export function AccountHomePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-primary-950">Olá, {firstName}! 👋</h1>
+        <h1 className="text-3xl font-black text-primary-950">Olá, {firstName}! O que vamos resolver hoje?</h1>
         <p className="text-slate-500">O que vamos resolver hoje?</p>
       </div>
 
