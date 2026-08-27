@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { cashbackOf, money, type ServicoLoja } from '../../storefront/catalog';
+import { cashbackOf, fallbackFotoServico, fotoServico, money, type ServicoLoja } from '../../storefront/catalog';
 import { CashbackTag } from './store-ui';
 import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
 
@@ -14,26 +14,30 @@ export function ServiceCard({
   const { cashbackPercent } = useStoreConfig();
   const price = servico.precoMinimo;
   const cashback = cashbackOf(price, cashbackPercent);
-  const [broken, setBroken] = useState(false);
+  const primario = fotoServico(servico);
+  const reserva = fallbackFotoServico(servico);
+  const [src, setSrc] = useState(primario);
+  const [semFoto, setSemFoto] = useState(false);
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-[12px] border border-[#e6e8ee] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-      <Link to={`/s/${servico.slug}`} className="relative block h-32 overflow-hidden bg-slate-100 sm:h-36">
-        {servico.imagemUrl && !broken ? (
+      <Link to={`/s/${servico.slug}`} className="relative block h-32 shrink-0 overflow-hidden bg-[#dbe7f5] sm:h-36">
+        {!semFoto ? (
           <img
-            src={`${servico.imagemUrl}${servico.imagemUrl.includes('?') ? '&' : '?'}v=3`}
-            alt={servico.nome}
+            src={`${src}${src.includes('?') ? '&' : '?'}v=3`}
+            alt=""
             width={400}
             height={144}
             loading="lazy"
             decoding="async"
             className="h-full w-full object-cover object-center"
-            onError={() => setBroken(true)}
+            onError={() => {
+              if (src !== reserva && reserva !== src) setSrc(reserva);
+              else setSemFoto(true);
+            }}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[#eef3fb] text-sm font-bold text-[#002d62]">
-            {servico.nome}
-          </div>
+          <div className="h-full w-full bg-[linear-gradient(135deg,#d7e4f4_0%,#b9cbe4_100%)]" />
         )}
         <span className="absolute left-2 top-2 rounded-md bg-white/95 px-2 py-1 text-[11px] font-bold text-[#002d62] shadow-sm">
           ★ Avaliação 4,9
@@ -44,7 +48,7 @@ export function ServiceCard({
           {servico.nome}
         </Link>
         <p className="mt-1 line-clamp-2 min-h-8 text-[12px] leading-snug text-slate-500">
-          {servico.descricao || ' '}
+          {servico.descricao && servico.descricao !== servico.nome ? servico.descricao : ' '}
         </p>
         <div className="mt-auto pt-3">
           <p className="text-[12px] text-slate-500">A partir de</p>

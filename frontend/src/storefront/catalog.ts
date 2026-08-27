@@ -36,6 +36,30 @@ export function priceAfterCashback(price: number | null | undefined, pct = CASHB
   return Math.max(0, Math.round((p - cashbackOf(p, pct)) * 100) / 100);
 }
 
+const FOTO_CATEGORIA: Record<string, string> = {
+  eletricista: '/servicos/troca-tomada.webp',
+  hidraulica: '/servicos/troca-torneira.webp',
+  montador: '/servicos/instalacao-suporte-tv.webp',
+  'ar-condicionado': '/servicos/limpeza-ar-split.webp',
+  jardinagem: '/servicos/poda-jardim.webp',
+  'limpeza-pos-obra': '/servicos/limpeza-pos-obra.webp',
+};
+
+/** Sempre devolve uma foto válida. Nunca usa o nome do serviço no lugar da imagem. */
+export function fotoServico(s: { slug?: string; categoria?: string; imagemUrl?: string | null }) {
+  const slug = s.slug || '';
+  if (slug.includes('ar') && slug.includes('caixa')) return '/servicos/limpeza-ar-split.webp';
+  if (s.imagemUrl && !s.imagemUrl.includes('undefined')) return s.imagemUrl;
+  if (slug) return `/servicos/${slug}.webp`;
+  return FOTO_CATEGORIA[s.categoria || ''] || '/servicos/troca-tomada.webp';
+}
+
+export function fallbackFotoServico(s: { slug?: string; categoria?: string }) {
+  if (s.categoria && FOTO_CATEGORIA[s.categoria]) return FOTO_CATEGORIA[s.categoria];
+  if (s.slug) return `/servicos/${s.slug}.webp`;
+  return '/servicos/limpeza-ar-split.webp';
+}
+
 export function flattenServices(cats: CategoriaLoja[]) {
   return cats.flatMap((c) => c.servicos.map((s) => ({ ...s, categoriaNome: c.nome, icone: c.icone })));
 }

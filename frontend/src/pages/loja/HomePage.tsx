@@ -26,7 +26,7 @@ const HERO_CHECKS = [
 
 const FEATURES = [
   { Icon: IconVerified, title: 'Profissionais verificados' },
-  { Icon: IconUniform, title: 'Uniformizados e identificados' },
+  { Icon: IconUniform, title: 'Uniforme e identificação' },
   { Icon: IconLock, title: 'Pagamento online seguro' },
   { Icon: IconCard, title: 'Parcelamento em até 3x' },
   { Icon: IconWhatsApp, title: 'Atendimento via WhatsApp' },
@@ -96,16 +96,16 @@ export function HomePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 grid-rows-3 gap-2">
+        <div className="grid auto-rows-fr grid-cols-2 grid-rows-3 gap-2">
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="flex items-center gap-3 rounded-[12px] border border-[#e6e8ee] bg-white px-3 py-3.5 shadow-[0_4px_14px_rgba(15,23,42,0.04)]"
+              className="flex h-full min-h-[4.75rem] items-center gap-2.5 rounded-[12px] border border-[#e6e8ee] bg-white px-3 py-3 shadow-[0_4px_14px_rgba(15,23,42,0.04)]"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef3fb] text-[#002d62]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#eef3fb] text-[#002d62]">
                 <f.Icon className="h-5 w-5" />
               </span>
-              <p className="text-[12px] font-bold leading-tight text-[#002d62]">{f.title}</p>
+              <p className="text-[12px] font-bold leading-snug text-pretty text-[#002d62]">{f.title}</p>
             </div>
           ))}
         </div>
