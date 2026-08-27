@@ -97,17 +97,23 @@ export function TrustRow({ compact = false }: { compact?: boolean }) {
 }
 
 export function TrustStrip({ garantiaDias = 90 }: { garantiaDias?: number }) {
+  const labels: Record<string, string> = {
+    verified: 'Profissionais verificados',
+    warranty: `Garantia ${garantiaDias} dias`,
+    payment: 'Pagamento seguro',
+    invoice: 'Nota fiscal',
+  };
+
   return (
-    <div className="grid grid-cols-2 items-stretch gap-2 border-t border-slate-100 p-3 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-3">
       {TRUST_BADGES.map((b) => {
         const Icon = TRUST_ICONS[b.id];
-        const label = b.id === 'warranty' ? `Garantia ${garantiaDias} dias` : b.short;
         return (
-          <div key={b.id} className="flex h-full min-h-[3.25rem] items-center gap-2 rounded-2xl bg-primary-50 px-3 py-2.5">
+          <div key={b.id} className="flex min-h-[3.5rem] items-center gap-2.5 rounded-2xl bg-primary-50 px-3 py-2">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-primary-800 shadow-sm">
               <Icon className="h-4 w-4" />
             </span>
-            <span className="text-[11px] font-bold leading-snug text-pretty text-primary-900">{label}</span>
+            <span className="min-w-0 text-[12px] font-bold leading-tight text-[#002d62]">{labels[b.id] || b.short}</span>
           </div>
         );
       })}

@@ -65,7 +65,7 @@ export function PecaPage() {
         ]}
       />
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1.05fr_1fr_20rem]">
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.05fr_1fr_20rem]">
         <div className="overflow-hidden rounded-[12px] bg-white shadow-sm">
           <img src={fotoServico(peca)} alt={peca.nome} className="h-[280px] w-full object-cover object-center" />
           <TrustStrip garantiaDias={peca.garantiaDias || 90} />

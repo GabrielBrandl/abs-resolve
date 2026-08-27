@@ -82,7 +82,7 @@ export function ServicePage() {
         ]}
       />
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1.05fr_1fr_20rem]">
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.05fr_1fr_20rem]">
         <div className="overflow-hidden rounded-[12px] bg-white shadow-sm">
           <img
             src={`${fotoServico(servico)}${fotoServico(servico).includes('?') ? '&' : '?'}v=3`}
