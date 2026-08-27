@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { Breadcrumb, CashbackTag, Stars, TrustStrip, YellowButton } from '../../components/loja/store-ui';
@@ -16,6 +16,7 @@ import {
 } from '../../storefront/catalog';
 import { WHATSAPP_LINK } from '../../storefront/constants';
 import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
+import { isPecaSlug, pecasDoServico } from '../../storefront/pecas';
 
 type Fluxo = {
   perguntas?: Array<{ id: string; titulo: string; opcoes: Array<{ id: string; label: string }> }>;
@@ -41,7 +42,10 @@ export function ServicePage() {
   const together = useMemo(() => frequentlyTogether(categorias, slug, 4), [categorias, slug]);
   const sameCategory = useMemo(() => relatedSameCategory(categorias, slug, 4), [categorias, slug]);
 
+  const pecas = useMemo(() => pecasDoServico(slug).slice(0, 4), [slug]);
+
   if (loading) return <Loading />;
+  if (isPecaSlug(slug)) return <Navigate to={`/p/${slug}`} replace />;
   if (!servico) {
     return (
       <div>
@@ -175,6 +179,13 @@ export function ServicePage() {
           servicos={together}
         />
       </div>
+      {pecas.length > 0 && (
+        <RelatedRail
+          title="Peças avulsas deste serviço"
+          subtitle="Leve a peça agora e, se quiser, a instalação no mesmo pedido."
+          servicos={pecas}
+        />
+      )}
       <RelatedRail
         title={`Mais da categoria ${servico.categoriaNome || ''}`}
         subtitle="Fica na mesma prateleira. Um clique e entra no pedido."

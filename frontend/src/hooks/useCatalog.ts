@@ -1,28 +1,28 @@
 import { useEffect, useState } from 'react';
 import { solicitacaoApi } from '../services/modules.service';
 import type { CategoriaLoja } from '../storefront/catalog';
-import { CATALOGO_FALLBACK } from '../storefront/static-catalog';
+import { mergeCatalog } from '../storefront/catalog';
 
 export function useCatalog() {
-  const [categorias, setCategorias] = useState<CategoriaLoja[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaLoja[]>(() => mergeCatalog([]));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
       if (cancelled) return;
-      setCategorias((current) => (current.length ? current : CATALOGO_FALLBACK));
+      setCategorias((current) => (current.length ? current : mergeCatalog([])));
       setLoading(false);
     }, 8000);
 
     solicitacaoApi
       .catalogo()
       .then((d) => {
-        const cats = (d.categorias || []) as CategoriaLoja[];
-        if (!cancelled) setCategorias(cats.length ? cats : CATALOGO_FALLBACK);
+        if (cancelled) return;
+        setCategorias(mergeCatalog((d.categorias || []) as CategoriaLoja[]));
       })
       .catch(() => {
-        if (!cancelled) setCategorias(CATALOGO_FALLBACK);
+        if (!cancelled) setCategorias(mergeCatalog([]));
       })
       .finally(() => {
         window.clearTimeout(timer);

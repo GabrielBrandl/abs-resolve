@@ -8,6 +8,8 @@ import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal, Logo } from '.
 import { CheckoutStepper } from '../../components/loja/store-ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { relatedForCart, type CategoriaLoja } from '../../storefront/catalog';
+import { normalizeSearch } from '../../storefront/search';
+import { isPecaSlug } from '../../storefront/pecas';
 import { QuestionarioServico, FotosServicoStep, QuestionarioNav, type PrecoCalculado } from '../../components/cliente/QuestionarioServico';
 import { useToast } from '../../components/Toast';
 import { gtmEtapaAgendar, gtmPush } from '../../utils/gtm';
@@ -18,6 +20,10 @@ import {
 } from '../../utils/parcelamento';
 
 type Step = 'catalogo' | 'carrinho' | 'questionario' | 'resumo' | 'fotos' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
+
+function isPecaItem(item: { slug: string; tipo?: string }) {
+  return item.tipo === 'peca' || isPecaSlug(item.slug);
+}
 
 interface ServicoCatalogo {
   id: string;
@@ -144,6 +150,22 @@ export function AgendarServicoPage() {
   const [itemQuestionarioIdx, setItemQuestionarioIdx] = useState(0);
   const [respostasPorSlug, setRespostasPorSlug] = useState<Record<string, Record<string, string>>>({});
   const [precosPorSlug, setPrecosPorSlug] = useState<Record<string, PrecoCalculado | null>>({});
+
+  useEffect(() => {
+    setPrecosPorSlug((prev) => {
+      const next = { ...prev };
+      for (const item of cart.items) {
+        if (!isPecaItem(item) || next[item.slug]) continue;
+        const valor = (item.precoMinimo || 0) * item.quantidade;
+        next[item.slug] = {
+          preco: valor,
+          breakdown: [{ label: 'Peça avulsa', valor }],
+          requerValidacaoTecnica: false,
+        };
+      }
+      return next;
+    });
+  }, [cart.items]);
   const [fotosPorSlug, setFotosPorSlug] = useState<Record<string, File[]>>({});
   const [fluxosFotos, setFluxosFotos] = useState<Record<string, string[]>>({});
   const [descontoElegivel, setDescontoElegivel] = useState(false);
@@ -296,10 +318,11 @@ export function AgendarServicoPage() {
         ? categorias.flatMap((c) => c.servicos)
         : categorias.find((c) => c.slug === catAtiva)?.servicos || [];
     if (!busca.trim()) return lista;
-    const q = busca.toLowerCase();
-    return lista.filter(
-      (s) => s.nome.toLowerCase().includes(q) || s.descricao?.toLowerCase().includes(q)
-    );
+    const q = normalizeSearch(busca);
+    return lista.filter((s) => {
+      const hay = normalizeSearch([s.nome, s.slug, s.descricao || '', s.categoria].join(' '));
+      return hay.includes(q) || hay.split(' ').some((w) => w.startsWith(q));
+    });
   }, [categorias, catAtiva, busca]);
 
   const iniciarPolling = (solId: string) => {
@@ -346,16 +369,22 @@ export function AgendarServicoPage() {
     setStep('carrinho');
   };
 
+  const servicoItems = cart.items.filter((i) => !isPecaItem(i));
+
   const irQuestionario = () => {
     if (!cart.count()) {
-      toast('Adicione serviços ao carrinho', 'error');
+      toast('Adicione serviços ou peças ao carrinho', 'error');
+      return;
+    }
+    if (!servicoItems.length) {
+      void confirmarPedido();
       return;
     }
     setItemQuestionarioIdx(0);
     setStep('questionario');
   };
 
-  const itemAtual = cart.items[itemQuestionarioIdx];
+  const itemAtual = servicoItems[itemQuestionarioIdx];
   const respostasAtual = itemAtual ? respostasPorSlug[itemAtual.slug] || {} : {};
   const precoAtual = itemAtual ? precosPorSlug[itemAtual.slug] : null;
 
@@ -374,6 +403,7 @@ export function AgendarServicoPage() {
   const temValidacaoTecnica = cart.items.some((i) => precosPorSlug[i.slug]?.requerValidacaoTecnica);
 
   const questionarioCompleto = cart.items.every((item) => {
+    if (isPecaItem(item)) return true;
     const p = precosPorSlug[item.slug];
     return p && !p.requerValidacaoTecnica;
   });
@@ -402,7 +432,7 @@ export function AgendarServicoPage() {
       toast('Responda as perguntas ou aguarde a validação técnica', 'error');
       return;
     }
-    if (itemQuestionarioIdx < cart.items.length - 1) {
+    if (itemQuestionarioIdx < servicoItems.length - 1) {
       setItemQuestionarioIdx((i) => i + 1);
     } else {
       void confirmarPedido();
@@ -757,7 +787,7 @@ export function AgendarServicoPage() {
       {step === 'questionario' && itemAtual && (
         <Card>
           <p className="mb-4 text-sm text-slate-500">
-            Serviço {itemQuestionarioIdx + 1} de {cart.items.length}
+            Serviço {itemQuestionarioIdx + 1} de {servicoItems.length}
           </p>
           <QuestionarioServico
             slug={itemAtual.slug}

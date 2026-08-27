@@ -44,8 +44,10 @@ const TRUST_LINE = [
 export function HomePage() {
   const { cashbackPercent, garantiaPadraoDias } = useStoreConfig();
   const { categorias, loading } = useCatalog();
-  const servicos = flattenServices(categorias);
+  const servicos = flattenServices(categorias).filter((s) => s.tipo !== 'peca' && !s.slug.startsWith('peca-'));
+  const pecas = flattenServices(categorias).filter((s) => s.tipo === 'peca' || s.slug.startsWith('peca-'));
   const destaques = servicos.slice(0, 3);
+  const pecasDestaque = pecas.slice(0, 4);
 
   if (loading) return <Loading />;
 
@@ -110,6 +112,22 @@ export function HomePage() {
           ))}
         </div>
       </section>
+
+      {pecasDestaque.length > 0 && (
+        <section id="pecas">
+          <div className="mb-3 flex items-end justify-between">
+            <h2 className="text-[22px] font-black text-[#111827]">Peças avulsas</h2>
+            <Link to="/busca?q=peca" className="text-sm font-bold text-[#1d4ed8]">
+              Ver todas as peças &gt;
+            </Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {pecasDestaque.map((s) => (
+              <ServiceCard key={s.slug} servico={s} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section id="ofertas">
         <div className="mb-3 flex items-end justify-between">

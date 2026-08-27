@@ -61,6 +61,7 @@ export function montarItensEmail(sol: {
       quantidade?: number;
       subtotal?: number;
       precoUnitario?: number;
+      imagemUrl?: string | null;
     }>;
   };
   if (opcoes?.itens?.length) {
@@ -69,7 +70,11 @@ export function montarItensEmail(sol: {
       quantidade: i.quantidade || 1,
       valor: formatarMoeda(Number(i.subtotal ?? Number(i.precoUnitario || 0) * (i.quantidade || 1))),
       slug: i.slug,
-      imagemUrl: SERVICOS_CATALOGO.find((s) => s.slug === i.slug)?.imagemUrl || `/servicos/${i.slug || 'logo'}.webp`,
+      imagemUrl:
+        i.imagemUrl ||
+        SERVICOS_CATALOGO.find((s) => s.slug === i.slug)?.imagemUrl ||
+        (i.slug?.startsWith('peca-') ? i.imagemUrl : null) ||
+        `/servicos/${i.slug || 'logo'}.webp`,
     }));
   }
   return [

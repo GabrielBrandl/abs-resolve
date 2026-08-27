@@ -8,6 +8,7 @@ import {
   UPSELLS,
 } from '../config/catalogo.js';
 import { CATEGORIAS, PONTUACAO_POR_SLUG, SERVICOS_CATALOGO } from '../config/catalogo-servicos.js';
+import { PECAS_CATALOGO, findPeca, isPecaSlug } from '../config/pecas-catalogo.js';
 import { type FluxoServico, type RespostasFluxo } from '../config/fluxo-servicos.js';
 import { fluxoConfigService } from './fluxo-config.service.js';
 import { calcularPrecoFluxo } from '../config/tabela-precos-fluxo.js';
@@ -115,19 +116,71 @@ export class SolicitacaoService {
         orderBy: [{ categoria: 'asc' }, { ordem: 'asc' }, { nome: 'asc' }],
       });
 
+      const bySlug = new Map(SERVICOS_CATALOGO.map((s) => [s.slug, { ...s }]));
+      for (const s of servicos) {
+        const def = bySlug.get(s.slug);
+        bySlug.set(s.slug, {
+          ...def,
+          ...s,
+          categoria: def?.categoria || String(s.categoria || '').toLowerCase(),
+          imagemUrl: s.imagemUrl || def?.imagemUrl,
+          descricao: s.descricao || def?.descricao,
+          precoTexto: s.precoTexto || def?.precoTexto,
+        } as (typeof SERVICOS_CATALOGO)[number]);
+      }
+      const all = [...bySlug.values()];
       const categorias = CATEGORIAS.map((cat) => ({
         ...cat,
-        servicos: servicos.filter((s) => s.categoria === cat.slug),
+        servicos: all.filter((s) => s.categoria === cat.slug),
       })).filter((c) => c.servicos.length > 0);
 
-      return { categorias, total: servicos.length, servicos };
+      const pecasCategoria = {
+        slug: 'pecas',
+        nome: 'Peças avulsas',
+        icone: '🔩',
+        cor: '#002d62',
+        servicos: PECAS_CATALOGO.map((p) => ({
+          ...p,
+          categoria: 'pecas',
+          tipoPreco: 'fixo' as const,
+          garantiaDias: 90,
+          tipo: 'peca' as const,
+        })),
+      };
+
+      return {
+        categorias: [...categorias, pecasCategoria],
+        total: all.length + pecasCategoria.servicos.length,
+        servicos: [...all, ...pecasCategoria.servicos],
+        pecas: PECAS_CATALOGO,
+      };
     } catch (err) {
       console.warn('[catalogo] banco indisponível, usando catálogo estático', err instanceof Error ? err.message : err);
       const categorias = CATEGORIAS.map((cat) => ({
         ...cat,
         servicos: SERVICOS_CATALOGO.filter((s) => s.categoria === cat.slug),
       })).filter((c) => c.servicos.length > 0);
-      return { categorias, total: SERVICOS_CATALOGO.length, servicos: SERVICOS_CATALOGO };
+      return {
+        categorias: [
+          ...categorias,
+          {
+            slug: 'pecas',
+            nome: 'Peças avulsas',
+            icone: '🔩',
+            cor: '#002d62',
+            servicos: PECAS_CATALOGO.map((p) => ({
+              ...p,
+              categoria: 'pecas',
+              tipoPreco: 'fixo' as const,
+              garantiaDias: 90,
+              tipo: 'peca' as const,
+            })),
+          },
+        ],
+        total: SERVICOS_CATALOGO.length + PECAS_CATALOGO.length,
+        servicos: [...SERVICOS_CATALOGO, ...PECAS_CATALOGO],
+        pecas: PECAS_CATALOGO,
+      };
     }
   }
 
@@ -148,7 +201,7 @@ export class SolicitacaoService {
     express = false,
     aceiteIaDiagnostico = false
   ) {
-    if (!itens.length) throw new Error('Adicione pelo menos um serviço ao carrinho');
+    if (!itens.length) throw new Error('Adicione pelo menos um serviço ou peça ao carrinho');
 
     const detalhes: Array<{
       slug: string;
@@ -163,6 +216,8 @@ export class SolicitacaoService {
       requerValidacaoTecnica?: boolean;
       mensagemValidacao?: string;
       fotos?: string[];
+      tipo?: 'servico' | 'peca';
+      imagemUrl?: string | null;
     }> = [];
 
     let precoSubtotal = 0;
@@ -170,6 +225,26 @@ export class SolicitacaoService {
     let requerValidacaoTecnica = false;
 
     for (const item of itens) {
+      if (isPecaSlug(item.slug)) {
+        const peca = findPeca(item.slug);
+        if (!peca) throw new Error(`Peça "${item.slug}" não encontrada`);
+        if (item.quantidade < 1) continue;
+        const subtotal = peca.precoMinimo * item.quantidade;
+        precoSubtotal += subtotal;
+        detalhes.push({
+          slug: peca.slug,
+          nome: peca.nome,
+          categoria: peca.categoria,
+          quantidade: item.quantidade,
+          precoUnitario: peca.precoMinimo,
+          precoTexto: peca.precoTexto,
+          subtotal,
+          tipo: 'peca',
+          imagemUrl: peca.imagemUrl,
+        });
+        continue;
+      }
+
       const servico = await prisma.catalogoServico.findUnique({ where: { slug: item.slug } });
       if (!servico?.ativo) throw new Error(`Serviço "${item.slug}" não encontrado`);
       if (servico.tipoPreco === 'sob_orcamento') {
@@ -216,6 +291,8 @@ export class SolicitacaoService {
         ...(breakdown ? { breakdown } : {}),
         ...(itemValidacao ? { requerValidacaoTecnica: true, mensagemValidacao } : {}),
         ...(item.fotos?.length ? { fotos: item.fotos } : {}),
+        tipo: 'servico',
+        imagemUrl: servico.imagemUrl,
       });
     }
 
@@ -235,7 +312,11 @@ export class SolicitacaoService {
       : 0;
     const precoFinal = Math.max(0, precoSubtotal - valorDesconto) + expressValor;
 
-    const anchor = await prisma.catalogoServico.findUnique({ where: { slug: itens[0].slug } });
+    const firstService = itens.find((i) => !isPecaSlug(i.slug));
+    const anchorSlug = firstService?.slug || findPeca(itens[0].slug)?.servicoRelacionado || itens[0].slug;
+    const anchor =
+      (await prisma.catalogoServico.findUnique({ where: { slug: anchorSlug } })) ||
+      (await prisma.catalogoServico.findFirst({ where: { ativo: true } }));
     if (!anchor) throw new Error('Serviço inválido');
 
     const fotosTodas = itens.flatMap((i) => i.fotos || []);

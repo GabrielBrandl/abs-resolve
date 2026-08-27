@@ -10,6 +10,8 @@ export interface CartItem {
   tipoPreco: string;
   imagemUrl?: string | null;
   quantidade: number;
+  tipo?: 'servico' | 'peca';
+  servicoRelacionado?: string;
 }
 
 type CartState = {

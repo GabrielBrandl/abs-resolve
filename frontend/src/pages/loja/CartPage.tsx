@@ -43,7 +43,7 @@ export function CartPage() {
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_20.5rem]">
       <div className="rounded-[12px] border border-[#e6e8ee] bg-white p-5">
-        <h1 className="mb-1 text-[26px] font-black text-[#002d62]">Meus serviços</h1>
+        <h1 className="mb-1 text-[26px] font-black text-[#002d62]">Meu pedido</h1>
         <p className="mb-4 text-sm text-slate-500">{items.length} {items.length === 1 ? 'item' : 'itens'} no pedido</p>
         <ul className="divide-y divide-[#eef0f4]">
           {items.map((item) => (
@@ -51,6 +51,9 @@ export function CartPage() {
               <img src={item.imagemUrl || '/logo.png'} alt="" className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover" />
               <div className="min-w-0 flex-1">
                 <p className="font-bold leading-tight text-[#111827]">{item.nome}</p>
+                {(item.tipo === 'peca' || item.slug.startsWith('peca-')) && (
+                  <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-[#002d62]">Peça avulsa</p>
+                )}
                 <p className="mt-1 text-lg font-black text-[#002d62]">{money((item.precoMinimo || 0) * item.quantidade)}</p>
                 <div className="mt-3 flex items-center gap-3">
                   <div className="flex items-center overflow-hidden rounded-md border border-[#d5d9e2]">

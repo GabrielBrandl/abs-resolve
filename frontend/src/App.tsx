@@ -46,6 +46,7 @@ const HomePage = lazy(() => import('./pages/loja/HomePage').then((m) => ({ defau
 const CategoryPage = lazy(() => import('./pages/loja/CategoryPage').then((m) => ({ default: m.CategoryPage })));
 const ServicePage = lazy(() => import('./pages/loja/ServicePage').then((m) => ({ default: m.ServicePage })));
 const SearchPage = lazy(() => import('./pages/loja/SearchPage').then((m) => ({ default: m.SearchPage })));
+const PecaPage = lazy(() => import('./pages/loja/PecaPage').then((m) => ({ default: m.PecaPage })));
 const CartPage = lazy(() => import('./pages/loja/CartPage').then((m) => ({ default: m.CartPage })));
 const AccountHomePage = lazy(() => import('./pages/loja/AccountHomePage').then((m) => ({ default: m.AccountHomePage })));
 const CashbackPage = lazy(() => import('./pages/loja/CashbackPage').then((m) => ({ default: m.CashbackPage })));
@@ -73,6 +74,7 @@ function AppRoutes() {
           <Route path="/" element={<HomePage />} />
           <Route path="/c/:slug" element={<CategoryPage />} />
           <Route path="/s/:slug" element={<ServicePage />} />
+          <Route path="/p/:slug" element={<PecaPage />} />
           <Route path="/busca" element={<SearchPage />} />
           <Route path="/carrinho" element={<CartPage />} />
         </Route>

@@ -15,6 +15,7 @@ export type CategoryNavItem = {
 };
 
 export const CATEGORY_NAV: CategoryNavItem[] = [
+  { slug: 'pecas', label: 'Peças', image: '/opcoes/troca-tomada/tipoTomada/simples.webp', icon: 'bolt', to: '/c/pecas' },
   { slug: 'eletricista', label: 'Elétrica', image: '/servicos/troca-tomada.webp', icon: 'bolt' },
   { slug: 'hidraulica', label: 'Hidráulica', image: '/servicos/troca-torneira.webp', icon: 'drop' },
   { slug: 'ar-condicionado', label: 'Ar-condicionado', image: '/servicos/limpeza-ar-split.webp', icon: 'snow' },
