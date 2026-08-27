@@ -52,8 +52,8 @@ export function HomePage() {
   if (loading) return <Loading />;
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(20rem,36rem)_minmax(0,1fr)] lg:items-start lg:gap-4">
-      <div className="lg:sticky lg:top-[10.5rem]">
+    <div className="space-y-5">
+      <section className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_22rem]">
         <div className="relative overflow-hidden rounded-[14px] bg-[#002d62] text-white shadow-[0_10px_30px_rgba(0,45,98,0.18)]">
           <div className="grid min-h-[352px] lg:grid-cols-[1.08fr_0.92fr]">
             <div className="relative z-10 p-7 md:p-9">
@@ -97,22 +97,21 @@ export function HomePage() {
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="mt-3 space-y-5 lg:mt-0">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid auto-rows-fr grid-cols-2 grid-rows-3 gap-2">
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="flex min-h-[5.25rem] items-center gap-2.5 rounded-[12px] border border-[#e6e8ee] bg-white px-3 py-3 shadow-[0_4px_14px_rgba(15,23,42,0.04)]"
+              className="flex h-full min-h-[6.5rem] flex-col items-center justify-center gap-2 rounded-[12px] border border-[#e6e8ee] bg-white px-2.5 py-3 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)]"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef3fb] text-[#002d62]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#eef3fb] text-[#002d62]">
                 <f.Icon className="h-5 w-5" />
               </span>
-              <p className="min-w-0 flex-1 text-[12px] font-bold leading-snug text-[#002d62]">{f.title}</p>
+              <p className="max-w-[9.5rem] text-[12px] font-bold leading-tight text-balance text-[#002d62]">{f.title}</p>
             </div>
           ))}
         </div>
+      </section>
 
       {pecasDestaque.length > 0 && (
         <section id="pecas">
@@ -122,7 +121,7 @@ export function HomePage() {
               Ver todas as peças &gt;
             </Link>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {pecasDestaque.map((s) => (
               <ServiceCard key={s.slug} servico={s} />
             ))}
@@ -139,7 +138,7 @@ export function HomePage() {
             Ver todos os serviços &gt;
           </Link>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {destaques.map((s) => (
             <ServiceCard key={s.slug} servico={s} />
           ))}
@@ -176,7 +175,6 @@ export function HomePage() {
           <p className="text-sm font-black text-amber-500">★★★★★ 4,8/5</p>
         </div>
       </section>
-      </div>
     </div>
   );
 }
