@@ -2,16 +2,23 @@ import nodemailer from 'nodemailer';
 import { prisma } from '../utils/prisma.js';
 import { normalizarTelefoneWhatsApp, telefoneWhatsAppCliente } from '../utils/telefone.js';
 import {
+  anexosImagensPedido,
+  htmlItensPedido,
+  type AnexoEmail,
+  type ItemEmailPedido,
+} from '../utils/email-pedido.js';
+import {
   enviarWhatsAppEvolution,
   enviarWhatsAppMetaTemplate,
   enviarWhatsAppMetaTexto,
   whatsappMetaConfigured,
 } from './whatsapp.service.js';
 
+const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-  port: parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: false,
+  port: smtpPort,
+  secure: smtpPort === 465,
   auth: process.env.SMTP_USER
     ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
     : undefined,
@@ -68,11 +75,61 @@ export class NotificacaoService {
     `;
   }
 
+  private portalUrl() {
+    return (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://app.absresolve.com.br').replace(/\/$/, '');
+  }
+
+  /** E-mail transacional no estilo Amazon: pedido solicitado / pagamento confirmado */
+  private emailPedidoAmazon(opts: {
+    statusTitulo: string;
+    statusCor: string;
+    clienteNome: string;
+    intro: string;
+    pedidoNumero: string;
+    servicos: string;
+    total: string;
+    extraHtml?: string;
+    ctaLabel: string;
+    itens?: ItemEmailPedido[];
+  }) {
+    const primeiroNome = opts.clienteNome.split(' ')[0] || opts.clienteNome;
+    const ctaUrl = `${this.portalUrl()}/conta/servicos`;
+    const anexos = anexosImagensPedido(opts.itens || []);
+    const logoSrc = anexos.some((a) => a.cid === 'logo-abs') ? 'cid:logo-abs' : this.logoUrl();
+    const itensHtml = htmlItensPedido(opts.itens || [], anexos);
+    return `
+      <div style="font-family:Arial,Helvetica,sans-serif;background:#eaeded;padding:16px 8px">
+        <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #d5d9d9">
+          <div style="background:#002d62;padding:14px 20px;text-align:center">
+            <img src="${logoSrc}" alt="ABS Resolve" width="180" style="max-width:180px;height:auto" />
+          </div>
+          <div style="padding:22px 24px 8px">
+            <p style="margin:0 0 6px;font-size:22px;font-weight:700;color:${opts.statusCor}">${opts.statusTitulo}</p>
+            <p style="margin:0 0 16px;font-size:14px;color:#0f1111">Olá, ${primeiroNome}. ${opts.intro}</p>
+            <p style="margin:0 0 8px;font-size:12px;color:#565959">Pedido <strong>${opts.pedidoNumero}</strong></p>
+            ${itensHtml || `<p style="margin:0 0 12px;font-size:14px">${opts.servicos}</p>`}
+            <table style="width:100%;border-collapse:collapse;font-size:14px">
+              <tr>
+                <td style="padding:10px 0;border-top:1px solid #e3e6e6;font-weight:700">Total</td>
+                <td style="padding:10px 0;border-top:1px solid #e3e6e6;text-align:right;font-size:18px;font-weight:800;color:#002d62">${opts.total}</td>
+              </tr>
+            </table>
+            ${opts.extraHtml || ''}
+            <p style="margin:20px 0 8px;text-align:center">
+              <a href="${ctaUrl}" style="display:inline-block;background:#ffb800;color:#002d62;text-decoration:none;font-weight:800;padding:12px 22px;border-radius:8px">${opts.ctaLabel}</a>
+            </p>
+          </div>
+          <div style="padding:12px 24px 20px;font-size:12px;color:#565959">ABS Resolve · Chamou. Confiou. Resolveu.</div>
+        </div>
+      </div>
+    `;
+  }
+
   async enviarEmail(
     destino: string,
     assunto: string,
     html: string,
-    anexos?: Array<{ filename: string; content: Buffer; contentType?: string }>
+    anexos?: AnexoEmail[]
   ) {
     try {
       if (process.env.SMTP_HOST) {
@@ -85,13 +142,15 @@ export class NotificacaoService {
             filename: a.filename,
             content: a.content,
             contentType: a.contentType,
+            cid: a.cid,
           })),
         });
       } else if (process.env.NODE_ENV !== 'production') {
         console.info(`[email] ${destino} — ${assunto}${anexos?.length ? ` (+${anexos.length} anexo(s))` : ''}`);
       }
       await this.registrar('email', 'email', destino, assunto, html, 'enviada');
-    } catch {
+    } catch (err) {
+      console.warn('[email] falha:', destino, assunto, err instanceof Error ? err.message : err);
       await this.registrar('email', 'email', destino, assunto, html, 'falha');
     }
   }
@@ -353,8 +412,17 @@ export class NotificacaoService {
     const msg = `Olá, ${clienteNome}! Seu pedido ${numero} foi recebido e está em processamento.`;
     await this.enviarEmail(
       email,
-      'Pedido recebido — ABS Resolve',
-      this.template('Pedido recebido', [msg])
+      `Pedido solicitado ${numero} — ABS Resolve`,
+      this.emailPedidoAmazon({
+        statusTitulo: 'Pedido solicitado',
+        statusCor: '#067d62',
+        clienteNome,
+        intro: 'Recebemos o seu pedido. Quando o pagamento for confirmado, você recebe outro e-mail.',
+        pedidoNumero: numero,
+        servicos: 'Serviço ABS Resolve',
+        total: '—',
+        ctaLabel: 'Acompanhar pedido',
+      })
     );
     await this.enviarWhatsApp(telefone, msg);
   }
@@ -373,6 +441,7 @@ export class NotificacaoService {
     pedidoNumero?: string;
     linkPagamento?: string | null;
     pixCode?: string | null;
+    itens?: ItemEmailPedido[];
   }) {
     const metodo = METODO_PAGAMENTO_LABEL[data.metodo] || data.metodo;
     const valor = formatarMoeda(data.valor);
@@ -391,12 +460,20 @@ export class NotificacaoService {
         : '';
     await this.enviarEmail(
       data.email,
-      'Nova cobrança — ABS Resolve',
-      this.template('Nova cobrança disponível', [
-        `Olá, ${data.clienteNome}!`,
-        `Geramos uma cobrança de <strong>${valor}</strong> via ${metodo}${ref}, com vencimento em <strong>${venc}</strong>.`,
-        'Assim que o pagamento for confirmado, enviaremos o comprovante e a NFS-e do serviço por e-mail.',
-      ], linkHtml + pixHtml)
+      `Pedido solicitado ${data.pedidoNumero ? data.pedidoNumero + ' ' : ''}— ABS Resolve`,
+      this.emailPedidoAmazon({
+        statusTitulo: 'Pedido solicitado',
+        statusCor: '#067d62',
+        clienteNome: data.clienteNome,
+        intro: 'Recebemos o seu pedido. Enviamos esta confirmação agora; quando o pagamento for aprovado no Asaas, você recebe outro e-mail.',
+        pedidoNumero: data.pedidoNumero || '—',
+        servicos: data.itens?.map((i) => i.nome).join(', ') || `Cobrança via ${metodo}${ref}`,
+        total: valor,
+        extraHtml: `${linkHtml}${pixHtml}<p style="margin:12px 0 0;font-size:13px;color:#565959">Vencimento: <strong>${venc}</strong>.</p>`,
+        ctaLabel: 'Acompanhar pedido',
+        itens: data.itens,
+      }),
+      anexosImagensPedido(data.itens || [])
     );
     await this.enviarWhatsApp(
       data.telefone,
@@ -412,6 +489,7 @@ export class NotificacaoService {
     whatsapp?: string | null;
     pedidoNumero: string;
     servicos: string;
+    itens?: ItemEmailPedido[];
     valor: number;
     metodo: string;
     dataPagamento?: Date | string | null;
@@ -461,17 +539,26 @@ export class NotificacaoService {
       `Agende o horário do atendimento pelo portal do cliente.\n\n` +
       `_Chamou. ConfioU. Resolveu._`;
 
-    const anexos = data.nfse?.anexo ? [data.nfse.anexo] : undefined;
+    const anexos = [
+      ...anexosImagensPedido(data.itens || []),
+      ...(data.nfse?.anexo ? [data.nfse.anexo] : []),
+    ];
 
     await this.enviarEmail(
       data.email,
-      'Pagamento confirmado e NFS-e — ABS Resolve',
-      this.template('Pagamento confirmado', [
-        `Olá, ${data.clienteNome}!`,
-        `Seu pagamento foi aprovado e o pedido <strong>${data.pedidoNumero}</strong> está confirmado.`,
-        'Segue abaixo o comprovante de pagamento e os dados da NFS-e do serviço.',
-        'Agende o horário do atendimento pelo portal do cliente.',
-      ], comprovanteHtml + nfseHtml),
+      `Pagamento confirmado ${data.pedidoNumero} — ABS Resolve`,
+      this.emailPedidoAmazon({
+        statusTitulo: 'Pagamento confirmado',
+        statusCor: '#067d62',
+        clienteNome: data.clienteNome,
+        intro: 'O Asaas confirmou o seu pagamento. Seu pedido está confirmado.',
+        pedidoNumero: data.pedidoNumero,
+        servicos: data.servicos,
+        total: valorFmt,
+        extraHtml: comprovanteHtml + nfseHtml,
+        ctaLabel: 'Agendar atendimento',
+        itens: data.itens,
+      }),
       anexos
     );
     await this.enviarWhatsApp(this.whatsappCliente(data), msg);

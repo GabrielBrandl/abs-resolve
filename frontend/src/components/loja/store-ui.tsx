@@ -121,7 +121,7 @@ export function WhatsAppFab() {
       href={WHATSAPP_LINK}
       target="_blank"
       rel="noreferrer"
-      className="fixed bottom-[5.5rem] right-3 z-50 flex h-12 items-center gap-2 rounded-full bg-[#25D366] px-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-900/20 md:bottom-5 md:right-4 md:h-auto md:px-4 md:py-3"
+      className="fixed bottom-[5.5rem] right-3 z-50 flex h-12 items-center gap-2 rounded-full bg-[#25D366] px-4 text-sm font-bold text-white shadow-lg shadow-emerald-900/25 md:bottom-5 md:right-4 md:h-12 md:px-5"
     >
       <span className="hidden md:inline">WhatsApp</span>
       <span className="md:hidden">WA</span>

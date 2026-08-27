@@ -195,7 +195,7 @@ export function QuestionarioServico({
           <div className="bg-primary-700 px-4 py-3 text-white">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="font-bold">Consultor ABS</p>
+                <p className="font-bold">Detalhes do serviço</p>
                 <p className="text-xs text-white/75">{nome} · Quantidade: {quantidade}</p>
               </div>
               {fluxo.perguntas.length > 0 && (
@@ -386,7 +386,7 @@ export function QuestionarioServico({
                 onClick={onResetRespostas}
                 className="text-xs font-medium text-primary-600 underline"
               >
-                Refazer conversa
+                Refazer perguntas
               </button>
             </div>
           )}

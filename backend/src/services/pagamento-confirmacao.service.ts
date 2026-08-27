@@ -11,6 +11,7 @@ import {
   formatarEnderecoCliente,
   resumoMaterialSolicitacao,
 } from '../utils/fluxo-respostas.js';
+import { montarItensEmail } from '../utils/email-pedido.js';
 
 function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
   return `${opcoes.tipo || 'simples'}_${opcoes.amperagem || '10a'}`.toLowerCase();
@@ -141,6 +142,7 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
         whatsapp: pagamento.cliente.whatsapp,
         pedidoNumero: pedido.numero,
         servicos,
+        itens: montarItensEmail(sol),
         valor: toNumber(pagamento.valor),
         metodo: pagamento.metodo,
         dataPagamento: pagamento.paymentDate,

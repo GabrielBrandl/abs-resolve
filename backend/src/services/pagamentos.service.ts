@@ -2,6 +2,22 @@ import { prisma } from '../utils/prisma.js';
 import { confirmarPagamentoRecebido } from './pagamento-confirmacao.service.js';
 import { asaasService } from './asaas.service.js';
 import { notificacaoService } from './notificacao.service.js';
+import { montarItensEmail, type ItemEmailPedido } from '../utils/email-pedido.js';
+
+async function itensEmailDoPedido(pedidoId?: string, solicitacaoId?: string): Promise<ItemEmailPedido[]> {
+  const sol = solicitacaoId
+    ? await prisma.solicitacaoServico.findUnique({
+        where: { id: solicitacaoId },
+        include: { servico: true },
+      })
+    : pedidoId
+      ? await prisma.solicitacaoServico.findFirst({
+          where: { pedidoId },
+          include: { servico: true },
+        })
+      : null;
+  return montarItensEmail(sol);
+}
 
 export class PagamentosService {
   async listar(filters: { status?: string; clienteId?: string; dataInicio?: string; dataFim?: string }) {
@@ -84,6 +100,13 @@ export class PagamentosService {
       include: { cliente: true, pedido: { select: { numero: true } } },
     });
 
+    let itensEmail: ItemEmailPedido[] = [];
+    try {
+      itensEmail = await itensEmailDoPedido(data.pedidoId, data.solicitacaoId);
+    } catch {
+      itensEmail = [];
+    }
+
     notificacaoService
       .notificarCobrancaGerada({
         clienteNome: cliente.nome,
@@ -95,6 +118,7 @@ export class PagamentosService {
         pedidoNumero: pagamento.pedido?.numero,
         linkPagamento: pagamento.invoiceUrl,
         pixCode: pagamento.pixCode,
+        itens: itensEmail,
       })
       .catch(() => {});
 

@@ -26,7 +26,7 @@ const HERO_CHECKS = [
 
 const FEATURES = [
   { Icon: IconVerified, title: 'Profissionais verificados' },
-  { Icon: IconUniform, label: 'Uniformizados e identificados', title: 'Uniformizados e identificados' },
+  { Icon: IconUniform, title: 'Uniformizados e identificados' },
   { Icon: IconLock, title: 'Pagamento online seguro' },
   { Icon: IconCard, title: 'Parcelamento em até 3x' },
   { Icon: IconWhatsApp, title: 'Atendimento via WhatsApp' },
@@ -50,21 +50,22 @@ export function HomePage() {
   if (loading) return <Loading />;
 
   return (
-    <div className="space-y-6">
-      <section className="grid gap-3 lg:grid-cols-[1.38fr_0.62fr]">
-        <div className="relative overflow-hidden rounded-[12px] bg-[#002d62] text-white">
-          <div className="grid min-h-[340px] lg:grid-cols-[1.05fr_0.95fr]">
+    <div className="space-y-5">
+      <section className="grid gap-3 lg:grid-cols-[minmax(0,1.45fr)_18.5rem]">
+        <div className="relative overflow-hidden rounded-[14px] bg-[#002d62] text-white shadow-[0_10px_30px_rgba(0,45,98,0.18)]">
+          <div className="grid min-h-[352px] lg:grid-cols-[1.08fr_0.92fr]">
             <div className="relative z-10 p-7 md:p-9">
-              <h1 className="max-w-md text-[30px] font-black leading-[1.12] md:text-[36px]">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#ffb800]">ABS Resolve · Manaus</p>
+              <h1 className="mt-2 max-w-[22rem] text-[32px] font-black leading-[1.08] md:text-[38px]">
                 Soluções rápidas para{' '}
                 <span className="text-[#ffb800]">sua casa ou empresa.</span>
               </h1>
-              <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/80">
+              <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-white/80">
                 Profissionais qualificados, preço justo, pagamento seguro e garantia de até {garantiaPadraoDias} dias.
               </p>
               <ul className="mt-5 space-y-2">
                 {HERO_CHECKS.map((item) => (
-                  <li key={item} className="flex items-center gap-2 text-sm font-semibold">
+                  <li key={item} className="flex items-center gap-2.5 text-[13px] font-semibold">
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ffb800] text-[#002d62]">
                       <IconCheck className="h-3.5 w-3.5" />
                     </span>
@@ -73,12 +74,13 @@ export function HomePage() {
                 ))}
               </ul>
               <Link to="/c/eletricista" className="mt-7 inline-block">
-                <YellowButton className="px-6">Ver preço e agendar →</YellowButton>
+                <YellowButton className="px-7 py-3.5 text-[13px]">Ver preço e agendar →</YellowButton>
               </Link>
             </div>
-            <div className="relative hidden min-h-[340px] lg:block">
-              <img src="/hero-abs.png" alt="Técnico ABS Resolve" className="h-full w-full object-cover object-[center_20%]" />
-              <div className="absolute bottom-5 right-5 rounded-lg bg-[#001a44]/90 px-3 py-2 text-sm font-semibold">
+            <div className="relative hidden min-h-[352px] lg:block">
+              <img src="/hero-abs.png" alt="Técnico ABS Resolve" className="h-full w-full object-cover object-[center_18%]" />
+              <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#002d62] to-transparent" />
+              <div className="absolute bottom-5 right-5 rounded-lg bg-[#001a44]/90 px-3 py-2 text-sm font-semibold shadow-lg">
                 <span className="text-[#ffb800]">★ 4,8</span>
                 <span className="ml-2 text-white/90">+2.000 avaliações</span>
               </div>
@@ -88,8 +90,11 @@ export function HomePage() {
 
         <div className="grid grid-cols-2 grid-rows-3 gap-2">
           {FEATURES.map((f) => (
-            <div key={f.title} className="flex items-center gap-3 rounded-[10px] border border-[#e6e8ee] bg-white px-3 py-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#eef3fb] text-[#002d62]">
+            <div
+              key={f.title}
+              className="flex items-center gap-3 rounded-[12px] border border-[#e6e8ee] bg-white px-3 py-3.5 shadow-[0_4px_14px_rgba(15,23,42,0.04)]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef3fb] text-[#002d62]">
                 <f.Icon className="h-5 w-5" />
               </span>
               <p className="text-[12px] font-bold leading-tight text-[#002d62]">{f.title}</p>
@@ -111,14 +116,17 @@ export function HomePage() {
           {destaques.map((s) => (
             <ServiceCard key={s.slug} servico={s} />
           ))}
-          <aside id="cashback" className="relative overflow-hidden rounded-[12px] bg-[#002d62] p-5 text-white ring-2 ring-[#ffb800]">
-            <p className="text-[13px] font-extrabold uppercase tracking-wide">Cashback em todos os serviços!</p>
-            <p className="mt-3 text-[34px] font-black leading-none text-[#ffb800]">{percentLabel(cashbackPercent)}%</p>
-            <p className="text-[22px] font-black text-[#ffb800]">DE VOLTA</p>
-            <div className="mt-4 flex gap-2">
-              <span className="h-10 w-10 rounded-full bg-[#ffb800] shadow-lg shadow-yellow-500/40" />
-              <span className="h-8 w-8 rounded-full bg-[#ffd54a]" />
-              <span className="h-6 w-6 rounded-full bg-[#f5c518]" />
+          <aside
+            id="cashback"
+            className="relative overflow-hidden rounded-[14px] bg-[#002d62] p-5 text-white ring-[3px] ring-[#ffb800]"
+          >
+            <p className="text-[12px] font-extrabold uppercase tracking-wide text-white/90">Cashback em todos os serviços</p>
+            <p className="mt-3 text-[42px] font-black leading-none text-[#ffb800]">{percentLabel(cashbackPercent)}%</p>
+            <p className="mt-1 text-[20px] font-black tracking-wide text-[#ffb800]">DE VOLTA</p>
+            <div className="mt-5 flex items-end gap-2">
+              <span className="h-12 w-12 rounded-full bg-[radial-gradient(circle_at_30%_30%,#ffe27a,#ffb800_55%,#c98a00)] shadow-lg" />
+              <span className="h-9 w-9 rounded-full bg-[radial-gradient(circle_at_30%_30%,#ffe27a,#ffb800_55%,#c98a00)]" />
+              <span className="mb-1 h-7 w-9 rounded-full bg-[radial-gradient(circle_at_30%_30%,#ffe27a,#ffd54a_50%,#e0a000)]" />
             </div>
             <Link to="/conta/cashback" className="mt-6 block">
               <YellowButton className="w-full">Saiba como funciona</YellowButton>
@@ -127,7 +135,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-[12px] border border-[#e6e8ee] bg-white px-4 py-4">
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-[#e6e8ee] bg-white px-5 py-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)]">
         <div className="flex flex-wrap gap-x-6 gap-y-3">
           {TRUST_LINE.map((item) => (
             <p key={item.text} className="flex items-center gap-2 text-[12px] font-semibold text-[#334155]">

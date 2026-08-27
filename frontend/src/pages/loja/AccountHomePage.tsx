@@ -37,15 +37,16 @@ export function AccountHomePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-black leading-tight text-primary-900 sm:text-3xl">Olá, {firstName}! O que vamos resolver hoje?</h1>
+        <h1 className="text-[28px] font-black leading-tight text-[#002d62] sm:text-[32px]">Olá, {firstName}! 👋</h1>
+        <p className="mt-1 text-sm text-slate-500">O que vamos resolver hoje?</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl bg-accent-500 p-5 text-primary-950">
+        <div className="rounded-[14px] bg-[#ffb800] p-5 text-[#002d62] shadow-[0_8px_24px_rgba(255,184,0,0.25)]">
           <p className="text-sm font-bold">Meu cashback</p>
           <p className="mt-2 text-4xl font-black">{money(cashback)}</p>
-          <p className="text-xs">disponível para usar</p>
-          <Link to="/conta/cashback" className="mt-4 inline-block rounded-lg bg-primary-800 px-4 py-2 text-xs font-black uppercase text-white">
+          <p className="text-xs font-semibold text-[#002d62]/70">disponível para usar</p>
+          <Link to="/conta/cashback" className="mt-4 inline-block rounded-lg bg-[#002d62] px-4 py-2 text-xs font-black uppercase text-white">
             Usar meu cashback
           </Link>
         </div>

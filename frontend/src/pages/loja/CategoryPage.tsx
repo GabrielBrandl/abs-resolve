@@ -20,7 +20,7 @@ export function CategoryPage() {
   return (
     <div>
       <Breadcrumb items={[{ label: 'Início', to: '/' }, { label: categoria?.nome || 'Categoria' }]} />
-      <div className="mt-3 overflow-hidden rounded-3xl bg-primary-900 text-white lg:grid lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="mt-3 overflow-hidden rounded-[14px] bg-[#002d62] text-white lg:grid lg:grid-cols-[1.1fr_0.9fr]">
         <div className="p-6">
           <p className="text-xs font-black uppercase tracking-wide text-accent-400">Categoria</p>
           <h1 className="mt-1 text-3xl font-black">{categoria?.nome || 'Serviços'}</h1>

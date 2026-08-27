@@ -399,13 +399,13 @@ export function AgendarServicoPage() {
 
   const avancarQuestionario = () => {
     if (!precoAtual || precoAtual.requerValidacaoTecnica) {
-      toast('Conclua a conversa ou aguarde a validação técnica', 'error');
+      toast('Responda as perguntas ou aguarde a validação técnica', 'error');
       return;
     }
     if (itemQuestionarioIdx < cart.items.length - 1) {
       setItemQuestionarioIdx((i) => i + 1);
     } else {
-      setStep('resumo');
+      void confirmarPedido();
     }
   };
 
@@ -430,11 +430,6 @@ export function AgendarServicoPage() {
   };
 
   const confirmarPedido = async () => {
-    const semFoto = cart.items.find((i) => !(fotosPorSlug[i.slug]?.length));
-    if (semFoto) {
-      toast(`Envie pelo menos uma foto para "${semFoto.nome}"`, 'error');
-      return;
-    }
     setSubmitting(true);
     try {
       const itens = cart.items.map((i) => ({
@@ -572,29 +567,6 @@ export function AgendarServicoPage() {
 
   if (loading) return <Loading />;
 
-  const stepLabels: Record<Step, string> = {
-    catalogo: 'Catálogo',
-    carrinho: 'Carrinho',
-    questionario: 'Conversa',
-    resumo: 'Resumo',
-    fotos: 'Fotos',
-    pagamento: 'Pagamento',
-    aguardando: 'Confirmação',
-    horario: 'Horário',
-    concluido: 'Pronto',
-  };
-  const stepOrder: Step[] = [
-    'catalogo',
-    'carrinho',
-    'questionario',
-    'resumo',
-    'fotos',
-    'pagamento',
-    'aguardando',
-    'horario',
-    'concluido',
-  ];
-
   const checkoutStep: 1 | 2 | 3 | 4 =
     step === 'catalogo' || step === 'carrinho'
       ? 1
@@ -615,36 +587,8 @@ export function AgendarServicoPage() {
       {descontoElegivel && (
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
           <strong>Primeiro serviço:</strong> {percentualNovoCliente}% de desconto automático no PIX, crédito ou débito.
-          Prefere conversar? Use o{' '}
-          <button
-            type="button"
-            className="font-semibold underline"
-            onClick={() => window.dispatchEvent(new Event('abs:abrir-consultor'))}
-          >
-            Consultor ABS
-          </button>
-          .
         </div>
       )}
-
-      <div className="mb-6 -mx-1 overflow-x-auto px-1">
-        <div className="flex min-w-max gap-2 text-xs font-medium">
-        {stepOrder.map((s, i) => {
-          const active = step === s;
-          const done = stepOrder.indexOf(step) > i;
-          return (
-            <span
-              key={s}
-              className={`rounded-full px-3 py-1 ${
-                active ? 'bg-accent-500 text-primary-900' : done ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-400'
-              }`}
-            >
-              {i + 1}. {stepLabels[s]}
-            </span>
-          );
-        })}
-        </div>
-      </div>
 
       {step === 'catalogo' && (
         <>
@@ -792,12 +736,12 @@ export function AgendarServicoPage() {
             <p className="text-xl font-bold text-primary-800">
               A partir de: {formatCurrency(cart.total() + (express ? expressValor : 0))}
             </p>
-            <p className="text-xs text-slate-500">O valor final será calculado durante a conversa</p>
+            <p className="text-xs text-slate-500">O valor final é calculado nas perguntas do serviço</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={() => setStep('catalogo')}>Continuar comprando</Button>
               <Button variant="cta" onClick={irQuestionario} disabled={!cart.count()}>
-                Conversar e calcular valor
+                Informar detalhes e calcular valor
               </Button>
             </div>
           </div>
@@ -832,12 +776,18 @@ export function AgendarServicoPage() {
             }}
             onAvancar={avancarQuestionario}
             disabled={!precoAtual || precoAtual.requerValidacaoTecnica}
-            avancarLabel={itemQuestionarioIdx < cart.items.length - 1 ? 'Próximo serviço' : 'Ver resumo'}
+            avancarLabel={
+              submitting
+                ? 'Processando...'
+                : itemQuestionarioIdx < cart.items.length - 1
+                  ? 'Próximo serviço'
+                  : 'Ir para pagamento'
+            }
           />
         </Card>
       )}
 
-      {step === 'resumo' && (
+      {false && step === 'resumo' && (
         <>
         <Card>
           <h3 className="mb-4 text-lg font-bold text-primary-800">Resumo do pedido</h3>
@@ -905,7 +855,7 @@ export function AgendarServicoPage() {
         </>
       )}
 
-      {step === 'fotos' && (
+      {false && step === 'fotos' && (
         <Card>
           <h3 className="mb-2 text-lg font-bold text-primary-800">Fotos do local</h3>
           <p className="mb-4 text-sm text-slate-500">
@@ -933,6 +883,14 @@ export function AgendarServicoPage() {
       {step === 'pagamento' && (
         <Card>
           <h3 className="mb-2 text-lg font-bold text-primary-800">Pagamento</h3>
+          <ul className="mb-4 divide-y divide-slate-100 rounded-lg border border-slate-200">
+            {cart.items.map((item) => (
+              <li key={item.slug} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span className="font-medium text-primary-800">{item.nome}</span>
+                <span className="font-bold">{formatCurrency(precosPorSlug[item.slug]?.preco ?? 0)}</span>
+              </li>
+            ))}
+          </ul>
           {valorDescontoAplicado > 0 && (
             <p className="mb-2 text-sm text-emerald-700">
               Desconto primeiro serviço ({pctDescontoAplicado}%): −{formatCurrency(valorDescontoAplicado)}
@@ -1029,12 +987,17 @@ export function AgendarServicoPage() {
 
       {step === 'aguardando' && (
         <Card>
-          <h3 className="mb-2 font-bold text-primary-800">Aguardando confirmação do pagamento</h3>
+          <p className="text-sm font-black uppercase tracking-wide text-emerald-700">Pedido solicitado</p>
+          <h3 className="mt-1 text-xl font-bold text-primary-800">Recebemos o seu pedido</h3>
+          <p className="mt-2 text-sm text-slate-600">
+            Enviamos um e-mail confirmando a solicitação. Quando o Asaas confirmar o pagamento, você recebe
+            outro e-mail de pagamento confirmado.
+          </p>
           <PixQrArea pixCode={pagamento?.pixCode} invoiceUrl={pagamento?.invoiceUrl} />
           {aguardandoPagamento && (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
-              Verificando pagamento a cada 2 segundos...
+              Aguardando confirmação do pagamento...
             </div>
           )}
         </Card>

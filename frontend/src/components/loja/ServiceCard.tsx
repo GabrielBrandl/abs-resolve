@@ -32,7 +32,7 @@ export function ServiceCard({
           </div>
         )}
         <span className="absolute left-2 top-2 rounded-md bg-white/95 px-2 py-1 text-[11px] font-bold text-[#002d62] shadow-sm">
-          Avaliação 4,9
+          ★ Avaliação 4,9
         </span>
       </Link>
       <div className="flex flex-1 flex-col p-3.5">

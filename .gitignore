@@ -16,3 +16,4 @@ generated/
 .idea/
 deploy/easypanel.env.local
 deploy/secrets.env
+backend/tmp-emails/

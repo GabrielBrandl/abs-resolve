@@ -5,7 +5,6 @@ import { getHomeForRole } from './utils/auth-routes';
 import { AppLayout } from './components/AppLayout';
 import { ProtectedRoute, PublicRoute, StaffOnlyRoute, ClienteOnlyRoute } from './components/ProtectedRoute';
 import { Loading } from './components/ui';
-import { HelpConsultorWidget } from './components/HelpConsultorWidget';
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const CadastroPage = lazy(() => import('./pages/CadastroPage').then((m) => ({ default: m.CadastroPage })));
@@ -182,7 +181,6 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppRoutes />
-      <HelpConsultorWidget />
     </BrowserRouter>
   );
 }
