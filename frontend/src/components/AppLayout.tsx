@@ -9,10 +9,10 @@ export function AppLayout() {
   const { theme, toggleTheme } = useUiStore();
 
   return (
-    <div className="flex min-h-screen bg-surface dark:bg-surface-muted">
+    <div className="flex h-screen overflow-hidden bg-surface dark:bg-surface-muted">
       <Sidebar />
 
-      <div className="flex min-w-0 flex-1 flex-col md:contents">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-sidebar px-4 py-3 text-white md:hidden">
           <Logo variant="sidebar" className="h-8" />
           <div className="flex items-center gap-1">
@@ -38,7 +38,7 @@ export function AppLayout() {
 
         <SidebarMobileDrawer open={menuOpen} onClose={() => setMenuOpen(false)} />
 
-        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface-muted dark:bg-surface-muted">
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface-muted dark:bg-surface-muted">
           <div className="p-4 md:p-8">
             <Outlet />
           </div>

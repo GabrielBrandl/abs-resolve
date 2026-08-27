@@ -78,8 +78,8 @@ function SidebarPanel({
   };
 
   return (
-    <>
-      <div className={`border-b border-white/10 ${collapsed ? 'px-2 py-3' : 'px-4 py-4'}`}>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className={`shrink-0 border-b border-white/10 ${collapsed ? 'px-2 py-3' : 'px-4 py-4'}`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between gap-2'}`}>
           {!collapsed && <Logo variant="sidebar" className="h-12" />}
           {collapsed && (
@@ -113,7 +113,7 @@ function SidebarPanel({
         )}
       </div>
 
-      <nav className={`flex-1 space-y-3 overflow-y-auto py-4 ${collapsed ? 'px-1.5' : 'px-3'}`}>
+      <nav className={`min-h-0 flex-1 space-y-3 overflow-y-auto py-4 ${collapsed ? 'px-1.5' : 'px-3'}`}>
         {groups.map((group) => (
           <div key={group.title}>
             {!collapsed && (
@@ -146,7 +146,7 @@ function SidebarPanel({
         ))}
       </nav>
 
-      <div className={`border-t border-white/10 ${collapsed ? 'px-1.5 py-3' : 'px-4 py-4'}`}>
+      <div className={`mt-auto shrink-0 border-t border-white/10 ${collapsed ? 'px-1.5 py-3' : 'px-4 py-4'}`}>
         {!collapsed && (
           <div className="mb-3 px-2">
             <p className="truncate text-sm font-medium">{user?.nome}</p>
@@ -180,7 +180,7 @@ function SidebarPanel({
           {collapsed ? '⎋' : 'Sair'}
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -189,7 +189,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`hidden shrink-0 flex-col bg-sidebar text-white transition-[width] duration-200 md:flex ${
+      className={`sticky top-0 hidden h-screen shrink-0 flex-col overflow-hidden bg-sidebar text-white transition-[width] duration-200 md:flex ${
         collapsed ? 'w-[4.5rem]' : 'w-64'
       }`}
     >
