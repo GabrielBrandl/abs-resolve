@@ -132,7 +132,7 @@ export function mergeCatalog(api: CategoriaLoja[] = []): CategoriaLoja[] {
 }
 
 export function catalogItems(cats: CategoriaLoja[]) {
-  return flattenServices(cats.length ? cats : mergeCatalog([]));
+  return flattenServices(mergeCatalog(cats));
 }
 
 export const FREQUENTLY_TOGETHER: Record<string, string[]> = {
