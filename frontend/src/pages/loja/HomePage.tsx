@@ -26,11 +26,11 @@ const HERO_CHECKS = [
 
 const FEATURES = [
   { Icon: IconVerified, title: 'Profissionais verificados' },
-  { Icon: IconUniform, title: 'Uniforme e identificação' },
-  { Icon: IconLock, title: 'Pagamento online seguro' },
-  { Icon: IconCard, title: 'Parcelamento em até 3x' },
-  { Icon: IconWhatsApp, title: 'Atendimento via WhatsApp' },
-  { Icon: IconShield, title: 'Garantia de até 90 dias' },
+  { Icon: IconUniform, title: 'Equipe uniformizada' },
+  { Icon: IconLock, title: 'Pagamento seguro' },
+  { Icon: IconCard, title: 'Parcele em até 3x' },
+  { Icon: IconWhatsApp, title: 'WhatsApp direto' },
+  { Icon: IconShield, title: 'Garantia de 90 dias' },
 ];
 
 const TRUST_LINE = [
@@ -53,7 +53,7 @@ export function HomePage() {
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 lg:grid-cols-[minmax(0,1.45fr)_18.5rem]">
+      <section className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_22rem]">
         <div className="relative overflow-hidden rounded-[14px] bg-[#002d62] text-white shadow-[0_10px_30px_rgba(0,45,98,0.18)]">
           <div className="grid min-h-[352px] lg:grid-cols-[1.08fr_0.92fr]">
             <div className="relative z-10 p-7 md:p-9">
@@ -102,12 +102,12 @@ export function HomePage() {
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="flex h-full min-h-[4.75rem] items-center gap-2.5 rounded-[12px] border border-[#e6e8ee] bg-white px-3 py-3 shadow-[0_4px_14px_rgba(15,23,42,0.04)]"
+              className="flex h-full min-h-[6.5rem] flex-col items-center justify-center gap-2 rounded-[12px] border border-[#e6e8ee] bg-white px-2.5 py-3 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)]"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#eef3fb] text-[#002d62]">
                 <f.Icon className="h-5 w-5" />
               </span>
-              <p className="text-[12px] font-bold leading-snug text-pretty text-[#002d62]">{f.title}</p>
+              <p className="max-w-[9.5rem] text-[12px] font-bold leading-tight text-balance text-[#002d62]">{f.title}</p>
             </div>
           ))}
         </div>
