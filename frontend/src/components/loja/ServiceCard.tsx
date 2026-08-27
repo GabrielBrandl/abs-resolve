@@ -23,6 +23,10 @@ export function ServiceCard({
           <img
             src={`${servico.imagemUrl}${servico.imagemUrl.includes('?') ? '&' : '?'}v=3`}
             alt={servico.nome}
+            width={400}
+            height={144}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover object-center"
             onError={() => setBroken(true)}
           />

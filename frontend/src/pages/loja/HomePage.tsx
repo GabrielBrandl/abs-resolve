@@ -78,7 +78,15 @@ export function HomePage() {
               </Link>
             </div>
             <div className="relative hidden min-h-[352px] lg:block">
-              <img src="/hero-abs.png" alt="Técnico ABS Resolve" className="h-full w-full object-cover object-[center_18%]" />
+              <img
+                src="/hero-abs.webp"
+                alt="Técnico da ABS Resolve em atendimento"
+                width={800}
+                height={352}
+                fetchPriority="high"
+                decoding="async"
+                className="h-full w-full object-cover object-[center_18%]"
+              />
               <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#002d62] to-transparent" />
               <div className="absolute bottom-5 right-5 rounded-lg bg-[#001a44]/90 px-3 py-2 text-sm font-semibold shadow-lg">
                 <span className="text-[#ffb800]">★ 4,8</span>
