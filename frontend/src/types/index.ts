@@ -494,13 +494,45 @@ export interface FluxoConfigAdmin {
   multiplicarBasePorQuantidade: boolean;
 }
 
+export type StatusEstoque = 'ok' | 'minimo' | 'critico' | 'ruptura';
+
 export interface ProdutoEstoque {
   id: string;
   nome: string;
   sku: string;
   quantidade: number;
+  reservado: number;
+  disponivel: number;
   minimo: number;
-  status?: string;
+  critico: number;
+  servicoSlug?: string | null;
+  precoUnitario?: number | null;
+  valorEstoque?: number | null;
+  status: StatusEstoque;
+  updatedAt?: string;
+}
+
+export interface EstoqueDashboard {
+  totalProdutos: number;
+  ruptura: number;
+  critico: number;
+  minimo: number;
+  ok: number;
+  totalUnidades: number;
+  reservadoTotal: number;
+  valorEstoque: number;
+  alertas: number;
+}
+
+export interface MovimentacaoEstoque {
+  id: string;
+  tipo: string;
+  categoria: string;
+  descricao: string;
+  quantidade: number;
+  valor?: number | null;
+  responsavel: string;
+  createdAt: string;
 }
 
 export interface TecnicoOs {

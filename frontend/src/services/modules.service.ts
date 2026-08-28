@@ -3,7 +3,7 @@ import { mensagemErroApi } from '../utils/api-error';
 import type {
   ApiResponse, Cliente, Lead, Pedido, Pagamento, Servico, OrdemServico, DashboardKPIs,
   PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
-  EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin, IaConhecimento,
+  EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, EstoqueDashboard, MovimentacaoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin, IaConhecimento,
   ParceiroAdmin, ParceiroDetalhe,
 } from '../types';
 
@@ -494,6 +494,45 @@ export const tecnicoApi = {
   aCaminho: (agendamentoId: string) => post(`/tecnico/agendamentos/${agendamentoId}/a-caminho`),
   chegada: (agendamentoId: string) => post(`/tecnico/agendamentos/${agendamentoId}/chegada`),
   voltarAgendamento: (agendamentoId: string) => post(`/tecnico/agendamentos/${agendamentoId}/voltar`),
+};
+
+export const estoqueAdminApi = {
+  dashboard: () => get<EstoqueDashboard>('/admin/estoque/dashboard'),
+  alertas: () => get<ProdutoEstoque[]>('/admin/estoque/alertas'),
+  listar: (params?: { busca?: string; status?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.busca) qs.set('busca', params.busca);
+    if (params?.status) qs.set('status', params.status);
+    const q = qs.toString();
+    return get<ProdutoEstoque[]>(`/admin/estoque${q ? `?${q}` : ''}`);
+  },
+  buscar: (id: string) => get<ProdutoEstoque>(`/admin/estoque/${id}`),
+  criar: (body: {
+    sku: string;
+    nome: string;
+    quantidade?: number;
+    minimo?: number;
+    critico?: number;
+    servicoSlug?: string;
+    precoUnitario?: number;
+  }) => post<ProdutoEstoque>('/admin/estoque', body),
+  atualizar: (id: string, body: {
+    nome?: string;
+    minimo?: number;
+    critico?: number;
+    servicoSlug?: string | null;
+    precoUnitario?: number | null;
+  }) => patch<ProdutoEstoque>(`/admin/estoque/${id}`, body),
+  movimentar: (id: string, body: {
+    tipo: 'entrada' | 'saida' | 'ajuste';
+    quantidade: number;
+    motivo: string;
+  }) => post<ProdutoEstoque>(`/admin/estoque/${id}/movimentar`, body),
+  liberarReserva: (id: string, quantidade?: number) =>
+    post<ProdutoEstoque>(`/admin/estoque/${id}/liberar-reserva`, { quantidade }),
+  historico: (id: string, limite = 50) =>
+    get<MovimentacaoEstoque[]>(`/admin/estoque/${id}/historico?limite=${limite}`),
+  sincronizar: () => post<{ criados: number; atualizados: number; total: number }>('/admin/estoque/sincronizar'),
 };
 
 export const adminApiExtra = {

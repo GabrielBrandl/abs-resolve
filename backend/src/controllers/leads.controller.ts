@@ -13,12 +13,21 @@ export class LeadsController {
     }
   }
 
+  async dashboard(_req: Request, res: Response) {
+    try {
+      return success(res, await leadsService.dashboard());
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
+
   async listar(req: Request, res: Response) {
     try {
       const data = await leadsService.listar({
         etapa: req.query.etapa as string,
         responsavel: req.query.responsavel as string,
         origem: req.query.origem as string,
+        prioridade: req.query.prioridade as string,
         busca: req.query.busca as string,
       });
       return success(res, data);
@@ -45,9 +54,22 @@ export class LeadsController {
     }
   }
 
+  async atualizar(req: Request, res: Response) {
+    try {
+      const data = await leadsService.atualizar(paramId(req.params.id), req.body);
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async atualizarEtapa(req: Request, res: Response) {
     try {
-      const data = await leadsService.atualizarEtapa(paramId(req.params.id), req.body.etapa);
+      const data = await leadsService.atualizarEtapa(
+        paramId(req.params.id),
+        req.body.etapa,
+        req.body.motivoPerda
+      );
       return success(res, data);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
@@ -77,7 +99,7 @@ export class LeadsController {
 
   async converterCliente(req: Request, res: Response) {
     try {
-      const data = await leadsService.converterParaCliente(paramId(req.params.id));
+      const data = await leadsService.converterParaCliente(paramId(req.params.id), req.user!.userId);
       return success(res, data, 201);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);

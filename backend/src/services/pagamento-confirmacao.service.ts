@@ -12,6 +12,7 @@ import {
   resumoMaterialSolicitacao,
 } from '../utils/fluxo-respostas.js';
 import { montarItensEmail } from '../utils/email-pedido.js';
+import { isPecaSlug } from '../config/pecas-catalogo.js';
 
 function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
   return `${opcoes.tipo || 'simples'}_${opcoes.amperagem || '10a'}`.toLowerCase();
@@ -84,10 +85,15 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
   });
 
   if (sol && sol.status === 'aguardando_pagamento') {
-    const opcoes = sol.opcoes as { itens?: Array<{ slug: string }> };
+    const opcoes = sol.opcoes as { itens?: Array<{ slug: string; quantidade?: number }> };
     if (opcoes.itens?.length) {
       for (const item of opcoes.itens) {
-        await estoqueService.reservarPorServico(item.slug, 'padrao').catch(() => {});
+        const qtd = item.quantidade && item.quantidade > 0 ? item.quantidade : 1;
+        if (isPecaSlug(item.slug)) {
+          await estoqueService.reservarPorSlug(item.slug, qtd).catch(() => {});
+        } else {
+          await estoqueService.reservarPorServico(item.slug, 'padrao', qtd).catch(() => {});
+        }
       }
     } else {
       const op = sol.opcoes as Record<string, string>;

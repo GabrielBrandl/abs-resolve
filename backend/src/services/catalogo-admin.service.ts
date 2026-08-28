@@ -284,20 +284,24 @@ export class CatalogoAdminService {
   }
 
   async listarEstoque() {
-    const produtos = await estoqueService.listar();
-    return Promise.all(
-      produtos.map(async (p) => ({ ...p, status: await estoqueService.statusAlerta(p) }))
-    );
+    return estoqueService.listarComFiltros();
   }
 
   async atualizarEstoque(id: string, quantidade: number, minimo?: number) {
-    return prisma.produtoEstoque.update({
-      where: { id },
-      data: {
+    const produto = await prisma.produtoEstoque.findUnique({ where: { id } });
+    if (!produto) throw new Error('Produto não encontrado');
+    if (quantidade !== produto.quantidade) {
+      await estoqueService.movimentar(id, {
+        tipo: 'ajuste',
         quantidade,
-        ...(minimo !== undefined && { minimo }),
-      },
-    });
+        motivo: 'Ajuste via catálogo admin',
+        responsavel: 'admin',
+      });
+    }
+    if (minimo !== undefined && minimo !== produto.minimo) {
+      return estoqueService.atualizar(id, { minimo });
+    }
+    return estoqueService.buscarPorId(id);
   }
 
   async listarTecnicos() {

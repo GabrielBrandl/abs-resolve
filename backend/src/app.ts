@@ -23,6 +23,8 @@ import catalogoAdminRoutes from './routes/catalogo-admin.routes.js';
 import iaTreinamentoRoutes from './routes/ia-treinamento.routes.js';
 import parceirosRoutes from './routes/parceiros.routes.js';
 import tecnicoRoutes from './routes/tecnico.routes.js';
+import nfseAdminRoutes from './routes/nfse-admin.routes.js';
+import estoqueAdminRoutes from './routes/estoque-admin.routes.js';
 import { pagamentosController } from './controllers/pagamentos.controller.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { success, error } from './utils/response.js';
@@ -158,6 +160,8 @@ export function createApp() {
   app.use('/agendamentos', agendamentoRoutes);
   app.use('/diagnostico', diagnosticoRoutes);
   app.use('/admin/catalogo', catalogoAdminRoutes);
+  app.use('/admin/nfse', nfseAdminRoutes);
+  app.use('/admin/estoque', estoqueAdminRoutes);
   app.use('/admin/ia', iaTreinamentoRoutes);
   app.use('/parceiros', parceirosRoutes);
   app.use('/tecnico', tecnicoRoutes);
