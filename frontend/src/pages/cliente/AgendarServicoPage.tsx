@@ -642,10 +642,6 @@ export function AgendarServicoPage() {
       />
       <CheckoutStepper current={checkoutStep} />
 
-      <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-        <strong>PIX:</strong> {descontoPixPercent}% de desconto automático no pagamento via PIX.
-      </div>
-
       {step === 'catalogo' && (
         <>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
