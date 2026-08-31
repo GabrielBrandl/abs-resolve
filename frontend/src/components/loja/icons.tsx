@@ -326,3 +326,46 @@ export function IconCheck({ className = 'h-5 w-5' }: IconProps) {
     </svg>
   );
 }
+
+/** Moedas douradas para o card de cashback — vetorial, sem fundo opaco */
+export function IconCoinsCashback({ className = 'h-20 w-20' }: IconProps) {
+  return (
+    <svg viewBox="0 0 120 96" className={className} aria-hidden fill="none">
+      <defs>
+        <linearGradient id="coinFace" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ffe066" />
+          <stop offset="45%" stopColor="#ffb800" />
+          <stop offset="100%" stopColor="#c9920a" />
+        </linearGradient>
+        <linearGradient id="coinEdge" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffd24d" />
+          <stop offset="100%" stopColor="#a67c00" />
+        </linearGradient>
+        <linearGradient id="coinShine" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.55" />
+          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="60" cy="86" rx="30" ry="5" fill="#000" fillOpacity="0.18" />
+      <ellipse cx="60" cy="74" rx="34" ry="9" fill="url(#coinEdge)" />
+      <ellipse cx="60" cy="70" rx="34" ry="9" fill="url(#coinFace)" />
+      <ellipse cx="60" cy="58" rx="34" ry="9" fill="url(#coinEdge)" />
+      <ellipse cx="60" cy="54" rx="34" ry="9" fill="url(#coinFace)" />
+      <ellipse cx="60" cy="42" rx="34" ry="9" fill="url(#coinEdge)" />
+      <ellipse cx="60" cy="38" rx="34" ry="9" fill="url(#coinFace)" />
+      <ellipse cx="52" cy="35" rx="14" ry="5" fill="url(#coinShine)" />
+      <text
+        x="60"
+        y="42"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill="#7a5a00"
+        fontSize="18"
+        fontWeight="900"
+        fontFamily="system-ui, sans-serif"
+      >
+        R$
+      </text>
+    </svg>
+  );
+}

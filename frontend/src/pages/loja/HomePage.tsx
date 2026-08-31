@@ -18,6 +18,7 @@ import {
   IconWhatsApp,
   IconInstall,
   IconParcelas,
+  IconCoinsCashback,
 } from '../../components/loja/icons';
 
 const HERO_CHECKS = [
@@ -128,30 +129,36 @@ export function HomePage() {
             Ver todos os serviços &gt;
           </Link>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {destaques.map((s) => (
             <ServiceCard key={s.slug} servico={s} />
           ))}
           <aside
             id="cashback"
-            className="relative overflow-hidden rounded-[14px] bg-[#002d62] p-5 text-white ring-[3px] ring-[#ffb800]"
+            className="relative flex h-full min-h-[17.5rem] flex-col overflow-hidden rounded-[14px] border-2 border-[#ffb800] bg-[linear-gradient(160deg,#002d62_0%,#003875_55%,#002d62_100%)] p-5 text-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]"
           >
-            <p className="text-[12px] font-extrabold uppercase tracking-wide text-white/90">
-              Cashback em todos os serviços!
-            </p>
-            <p className="mt-3 text-[42px] font-black leading-none text-[#ffb800]">
-              {percentLabel(cashbackPercent)}%
-            </p>
-            <p className="mt-1 text-[20px] font-black tracking-wide text-[#ffb800]">DE VOLTA</p>
-            <img
-              src="/cashback-coins.webp"
-              alt=""
-              width={180}
-              height={100}
-              className="mt-4 h-20 w-auto object-contain drop-shadow-lg"
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[#ffb800]/10 blur-2xl"
             />
-            <Link to="/conta/cashback" className="mt-5 block">
-              <YellowButton className="w-full uppercase tracking-wide">Saiba como funciona</YellowButton>
+            <div className="relative flex flex-1 flex-col items-center justify-center text-center">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/85">
+                Cashback em todos os serviços!
+              </p>
+              <div className="mt-3 flex items-end justify-center gap-1.5">
+                <span className="text-[46px] font-black leading-none text-[#ffb800]">
+                  {percentLabel(cashbackPercent)}%
+                </span>
+                <span className="mb-1 text-[15px] font-black uppercase tracking-wide text-[#ffb800]">
+                  de volta
+                </span>
+              </div>
+              <IconCoinsCashback className="mt-2 h-[4.5rem] w-auto drop-shadow-[0_8px_16px_rgba(0,0,0,0.25)]" />
+            </div>
+            <Link to="/conta/cashback" className="relative mt-4 block">
+              <YellowButton className="w-full py-2.5 text-[11px] uppercase tracking-wide">
+                Saiba como funciona
+              </YellowButton>
             </Link>
           </aside>
         </div>
