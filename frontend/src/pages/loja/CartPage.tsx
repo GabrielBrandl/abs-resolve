@@ -16,12 +16,9 @@ export function CartPage() {
   const { categorias } = useCatalog();
   const total = items.reduce((sum, i) => sum + (Number(i.precoMinimo) || 0) * i.quantidade, 0);
   const related = relatedForCart(categorias, items.map((i) => i.slug), 4);
+  const logadoCliente = Boolean(user && isClienteRole(user.role));
 
   const checkout = () => {
-    if (!user || !isClienteRole(user.role)) {
-      navigate(`/login?next=${encodeURIComponent('/agendar')}`);
-      return;
-    }
     navigate('/agendar');
   };
 
@@ -84,8 +81,16 @@ export function CartPage() {
           <li className="flex items-center gap-2"><IconLock className="h-4 w-4 text-[#002d62]" /> Pagamento online 100% seguro</li>
         </ul>
         <YellowButton className="mt-5 w-full" onClick={checkout}>
-          {user && isClienteRole(user.role) ? `Continuar para pagamento →` : 'Entrar para finalizar'}
+          Continuar para pagamento →
         </YellowButton>
+        {!logadoCliente && (
+          <p className="mt-3 text-center text-[12px] text-slate-500">
+            Não precisa criar conta.{' '}
+            <Link to={`/login?next=${encodeURIComponent('/agendar')}`} className="font-semibold text-[#002d62] underline">
+              Já tenho conta
+            </Link>
+          </p>
+        )}
         <p className="mt-3 flex items-center justify-center gap-1 text-[11px] text-slate-500">
           <IconLock className="h-3.5 w-3.5" /> Ambiente 100% seguro
         </p>

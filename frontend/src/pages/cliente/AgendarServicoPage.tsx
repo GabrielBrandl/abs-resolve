@@ -1,22 +1,27 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { cpf } from 'cpf-cnpj-validator';
 import { solicitacaoApi } from '../../services/modules.service';
+import { authService } from '../../services/auth.service';
 import { useCartStore } from '../../store/cartStore';
+import { useAuthStore } from '../../store/authStore';
 import { formatCurrency } from '../../types';
-import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal } from '../../components/ui';
+import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal, Input } from '../../components/ui';
 import { CheckoutStepper } from '../../components/loja/store-ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { relatedForCart, type CategoriaLoja } from '../../storefront/catalog';
 import { normalizeSearch } from '../../storefront/search';
 import { useToast } from '../../components/Toast';
 import { gtmEtapaAgendar, gtmPush } from '../../utils/gtm';
+import { isClienteRole } from '../../utils/auth-routes';
+import { normalizeUser } from '../../utils/normalize-user';
 import {
   calcularParcelamento,
   PARCELAS_SEM_JUROS,
   TAXA_JUROS_MES_PERCENT_DEFAULT,
 } from '../../utils/parcelamento';
 
-type Step = 'catalogo' | 'carrinho' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
+type Step = 'catalogo' | 'carrinho' | 'dados' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
 
 interface ServicoCatalogo {
   id: string;
@@ -147,7 +152,10 @@ export function AgendarServicoPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const cart = useCartStore();
-  const [step, setStep] = useState<Step>('catalogo');
+  const user = useAuthStore((s) => s.user);
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const logadoCliente = Boolean(user && isClienteRole(user.role));
+  const [step, setStep] = useState<Step>(() => (cart.count() > 0 ? 'carrinho' : 'catalogo'));
   const [categorias, setCategorias] = useState<CategoriaCatalogo[]>([]);
   const relatedCheckout = relatedForCart(
     categorias as unknown as CategoriaLoja[],
@@ -175,6 +183,20 @@ export function AgendarServicoPage() {
   const [parcelas, setParcelas] = useState(1);
   const [parcelasSemJuros, setParcelasSemJuros] = useState(PARCELAS_SEM_JUROS);
   const [taxaJurosMes, setTaxaJurosMes] = useState(TAXA_JUROS_MES_PERCENT_DEFAULT);
+  const [guestForm, setGuestForm] = useState({
+    nome: '',
+    cpf: '',
+    email: '',
+    telefone: '',
+    rua: '',
+    numero: '',
+    bairro: '',
+    cidade: '',
+    uf: '',
+    cep: '',
+    complemento: '',
+    consentimentoLgpd: false,
+  });
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retomouAgendamento = useRef(false);
   const assistenteImportado = useRef(false);
@@ -364,7 +386,55 @@ export function AgendarServicoPage() {
       toast('Adicione serviços ou peças ao carrinho', 'error');
       return;
     }
+    if (!logadoCliente) {
+      setStep('dados');
+      return;
+    }
     void confirmarPedido();
+  };
+
+  const enviarDadosConvidado = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!cpf.isValid(guestForm.cpf.replace(/\D/g, ''))) {
+      toast('CPF inválido', 'error');
+      return;
+    }
+    if (!guestForm.consentimentoLgpd) {
+      toast('Aceite os termos LGPD para continuar', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const ref = searchParams.get('ref')?.trim() || sessionStorage.getItem('abs-ref') || '';
+      const result = await authService.checkoutConvidado({
+        nome: guestForm.nome,
+        cpf: guestForm.cpf,
+        email: guestForm.email,
+        telefone: guestForm.telefone,
+        consentimentoLgpd: true,
+        ...(ref ? { ref } : {}),
+        endereco: {
+          rua: guestForm.rua,
+          numero: guestForm.numero,
+          bairro: guestForm.bairro,
+          cidade: guestForm.cidade,
+          uf: guestForm.uf,
+          cep: guestForm.cep,
+          complemento: guestForm.complemento,
+        },
+      });
+      const authUser = normalizeUser(result.user);
+      if (!authUser || !isClienteRole(authUser.role)) {
+        throw new Error('Não foi possível iniciar o checkout. Tente novamente.');
+      }
+      setAuth(authUser, result.accessToken);
+      gtmPush('agendar_checkout_convidado', { email: guestForm.email });
+      setSubmitting(false);
+      await confirmarPedido();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao continuar', 'error');
+      setSubmitting(false);
+    }
   };
 
   const descontoPixEstimado =
@@ -512,7 +582,7 @@ export function AgendarServicoPage() {
   const checkoutStep: 1 | 2 | 3 | 4 =
     step === 'catalogo'
       ? 1
-      : step === 'carrinho'
+      : step === 'carrinho' || step === 'dados'
         ? 2
         : step === 'pagamento' || step === 'aguardando'
           ? 3
@@ -683,6 +753,118 @@ export function AgendarServicoPage() {
             servicos={relatedCheckout}
           />
         </>
+      )}
+
+      {step === 'dados' && (
+        <Card>
+          <h3 className="mb-1 text-lg font-bold text-primary-800">Seus dados para o atendimento</h3>
+          <p className="mb-4 text-sm text-slate-600">
+            Não é obrigatório criar conta. Informe só o necessário para agendar e pagar.
+            Os dados do cartão são pedidos na etapa de pagamento.
+          </p>
+          <p className="mb-4 text-sm text-slate-500">
+            Já tem conta?{' '}
+            <Link
+              to={`/login?next=${encodeURIComponent('/agendar')}`}
+              className="font-semibold text-primary-700 underline"
+            >
+              Entrar
+            </Link>
+          </p>
+          <form onSubmit={enviarDadosConvidado} className="space-y-1">
+            <Input
+              label="Nome completo"
+              value={guestForm.nome}
+              onChange={(e) => setGuestForm({ ...guestForm, nome: e.target.value })}
+              required
+            />
+            <Input
+              label="CPF"
+              value={guestForm.cpf}
+              onChange={(e) => setGuestForm({ ...guestForm, cpf: e.target.value })}
+              required
+            />
+            <p className="-mt-2 mb-3 text-xs text-slate-500">Necessário para pagamento e nota fiscal.</p>
+            <Input
+              label="E-mail"
+              type="email"
+              value={guestForm.email}
+              onChange={(e) => setGuestForm({ ...guestForm, email: e.target.value })}
+              required
+            />
+            <Input
+              label="Telefone / WhatsApp"
+              value={guestForm.telefone}
+              onChange={(e) => setGuestForm({ ...guestForm, telefone: e.target.value })}
+              required
+            />
+            <p className="mb-2 mt-3 text-sm font-medium text-primary-700">Endereço de atendimento</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Input
+                label="CEP"
+                value={guestForm.cep}
+                onChange={(e) => setGuestForm({ ...guestForm, cep: e.target.value })}
+                required
+              />
+              <Input
+                label="UF"
+                value={guestForm.uf}
+                onChange={(e) => setGuestForm({ ...guestForm, uf: e.target.value.toUpperCase().slice(0, 2) })}
+                required
+              />
+            </div>
+            <Input
+              label="Rua"
+              value={guestForm.rua}
+              onChange={(e) => setGuestForm({ ...guestForm, rua: e.target.value })}
+              required
+            />
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Input
+                label="Número"
+                value={guestForm.numero}
+                onChange={(e) => setGuestForm({ ...guestForm, numero: e.target.value })}
+                required
+              />
+              <Input
+                label="Complemento"
+                value={guestForm.complemento}
+                onChange={(e) => setGuestForm({ ...guestForm, complemento: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Input
+                label="Bairro"
+                value={guestForm.bairro}
+                onChange={(e) => setGuestForm({ ...guestForm, bairro: e.target.value })}
+                required
+              />
+              <Input
+                label="Cidade"
+                value={guestForm.cidade}
+                onChange={(e) => setGuestForm({ ...guestForm, cidade: e.target.value })}
+                required
+              />
+            </div>
+            <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={guestForm.consentimentoLgpd}
+                onChange={(e) => setGuestForm({ ...guestForm, consentimentoLgpd: e.target.checked })}
+              />
+              <span>Li e aceito o tratamento dos meus dados conforme a LGPD para realização do serviço.</span>
+            </label>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-between">
+              <Button type="button" onClick={() => setStep('carrinho')}>
+                Voltar ao carrinho
+              </Button>
+              <Button type="submit" variant="cta" disabled={submitting}>
+                {submitting ? 'Continuando...' : 'Continuar para pagamento'}
+              </Button>
+            </div>
+          </form>
+        </Card>
       )}
 
       {step === 'pagamento' && (

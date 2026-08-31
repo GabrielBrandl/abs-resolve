@@ -96,6 +96,16 @@ export class AuthController {
     }
   }
 
+  async checkoutConvidado(req: Request, res: Response) {
+    try {
+      const result = await authService.checkoutConvidado(req.body);
+      setRefreshCookies(res, result.refreshToken, result.refreshTokenValue);
+      return success(res, { user: result.user, accessToken: result.accessToken }, 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro no checkout', 400);
+    }
+  }
+
   async esqueciSenha(req: Request, res: Response) {
     try {
       const { cpfCnpj } = req.body;

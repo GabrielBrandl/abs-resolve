@@ -93,7 +93,7 @@ export function CadastroPage() {
         <div className="mb-6 text-center">
           <Logo variant="default" className="mx-auto h-24" />
           <h1 className="mt-4 text-2xl font-bold text-white">Crie sua conta</h1>
-          <p className="text-sm text-white/80">Cadastro obrigatório para solicitar serviços</p>
+          <p className="text-sm text-white/80">Opcional — você também pode comprar sem cadastro</p>
         </div>
 
         <Card>

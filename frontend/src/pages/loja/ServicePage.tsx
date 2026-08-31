@@ -112,7 +112,7 @@ export function ServicePage() {
           >
             Adicionar ao carrinho
           </button>
-          <p className="mt-2 text-center text-[11px] text-slate-500">Sem cadastro para olhar e montar o pedido. Login só na hora de pagar.</p>
+          <p className="mt-2 text-center text-[11px] text-slate-500">Sem cadastro obrigatório. Login só se você quiser.</p>
           <a href={WHATSAPP_LINK} target="_blank" rel="noreferrer" className="mt-3 block text-center text-xs font-semibold text-[#002d62]">
             Precisa de algo diferente? Fale no WhatsApp
           </a>

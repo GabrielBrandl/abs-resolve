@@ -137,7 +137,16 @@ export function LoginPage() {
               </p>
               <p className="mt-2 text-center text-sm text-slate-500">
                 Não tem conta?{' '}
-                <Link to={searchParams.get('next') ? `/cadastro?next=${encodeURIComponent(searchParams.get('next') || '')}` : '/cadastro'} className="font-semibold text-primary-600">Cadastre-se — obrigatório</Link>
+                <Link
+                  to={
+                    searchParams.get('next')
+                      ? `/agendar`
+                      : '/cadastro'
+                  }
+                  className="font-semibold text-primary-600"
+                >
+                  {searchParams.get('next') ? 'Continuar sem conta' : 'Cadastre-se'}
+                </Link>
               </p>
               <p className="mt-2 text-center text-xs text-emerald-700">
                 Pagamento no PIX: 5% de desconto automático em todos os serviços.
@@ -149,15 +158,15 @@ export function LoginPage() {
           <p className="text-sm font-semibold text-accent-400">Chamou. ConfioU. Resolveu.</p>
           <p className="mt-1.5 text-xs leading-relaxed text-white/80">
             {modo === 'cliente'
-              ? 'Primeira vez aqui? Cadastre-se e solicite o serviço pelo portal — sem fila e sem espera.'
+              ? 'Login é opcional. Você pode comprar informando só os dados do atendimento.'
               : 'Acesso interno da equipe e parceiros. Sem login? Peça liberação ao administrador.'}
           </p>
           {modo === 'cliente' && (
             <Link
-              to={searchParams.get('next') ? `/cadastro?next=${encodeURIComponent(searchParams.get('next') || '')}` : '/cadastro'}
+              to={searchParams.get('next') ? searchParams.get('next')! : '/cadastro'}
               className="mt-3 inline-block text-xs font-semibold text-accent-400 underline decoration-accent-400/40 underline-offset-2 hover:text-accent-300"
             >
-              Criar minha conta
+              {searchParams.get('next') ? 'Continuar sem conta' : 'Criar minha conta'}
             </Link>
           )}
         </div>

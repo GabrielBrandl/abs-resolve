@@ -32,4 +32,11 @@ export const authService = {
     setAccessToken(data.data.accessToken);
     return data.data;
   },
+
+  async checkoutConvidado(body: unknown) {
+    const { data } = await api.post<ApiResponse<LoginResponse>>('/auth/checkout-convidado', body);
+    if (!data.success || !data.data) throw new Error(data.error || 'Erro no checkout');
+    setAccessToken(data.data.accessToken);
+    return data.data;
+  },
 };

@@ -76,6 +76,7 @@ function AppRoutes() {
           <Route path="/p/:slug" element={<PecaPage />} />
           <Route path="/busca" element={<SearchPage />} />
           <Route path="/carrinho" element={<CartPage />} />
+          <Route path="/agendar" element={<AgendarServicoPage />} />
         </Route>
 
         <Route element={<PublicRoute />}>
@@ -147,9 +148,6 @@ function AppRoutes() {
 
         <Route element={<ProtectedRoute allowedRoles={['cliente']} />}>
           <Route element={<ClienteOnlyRoute />}>
-            <Route element={<StoreLayout />}>
-              <Route path="/agendar" element={<AgendarServicoPage />} />
-            </Route>
             <Route element={<AccountLayout />}>
               <Route path="/conta" element={<AccountHomePage />} />
               <Route path="/conta/servicos" element={<ClientePedidosPage />} />

@@ -12,6 +12,7 @@ import {
 import { sanitizeUser } from '../utils/user.js';
 import { limparClienteOrfaoPorDocumento } from '../utils/cliente-cascade.js';
 import { notificacaoService } from './notificacao.service.js';
+import { validarCpf } from '../utils/validators.js';
 
 async function dummyPasswordCheck() {
   await bcrypt.hash('timing-safe-dummy', 4);
@@ -227,6 +228,119 @@ export class AuthService {
 
     const user = await prisma.user.findUnique({ where: { email: data.email } });
     if (!user) throw new Error('Erro ao criar conta');
+
+    return this.issueSession(user);
+  }
+
+  /**
+   * Checkout sem criar senha: gera Cliente + User com senha aleatória e abre sessão.
+   * Se o CPF/e-mail já existir, pede login (o convidado pode usar "Esqueci a senha").
+   */
+  async checkoutConvidado(data: {
+    nome: string;
+    cpf: string;
+    email: string;
+    telefone: string;
+    endereco: {
+      rua?: string;
+      numero?: string;
+      bairro?: string;
+      cidade?: string;
+      uf?: string;
+      cep?: string;
+      complemento?: string;
+    };
+    consentimentoLgpd: boolean;
+    ref?: string;
+  }) {
+    if (!data.consentimentoLgpd) {
+      throw new Error('É necessário aceitar os termos LGPD');
+    }
+
+    const nome = String(data.nome || '').trim();
+    const email = String(data.email || '').trim().toLowerCase();
+    const telefone = String(data.telefone || '').replace(/\D/g, '');
+    const doc = String(data.cpf || '').replace(/\D/g, '');
+
+    if (!nome || nome.length < 3) throw new Error('Informe o nome completo');
+    if (!email || !email.includes('@')) throw new Error('Informe um e-mail válido');
+    if (telefone.length < 10) throw new Error('Informe um telefone válido com DDD');
+    if (!validarCpf(doc)) throw new Error('CPF inválido');
+
+    const endereco = data.endereco || {};
+    if (!String(endereco.cep || '').replace(/\D/g, '') || !endereco.rua || !endereco.numero || !endereco.bairro || !endereco.cidade || !endereco.uf) {
+      throw new Error('Preencha o endereço completo (CEP, rua, número, bairro, cidade e UF)');
+    }
+
+    await limparClienteOrfaoPorDocumento(doc, email);
+
+    const existingByCpf = await prisma.cliente.findUnique({
+      where: { cpf: doc },
+      include: { user: true },
+    });
+    if (existingByCpf?.user) {
+      throw new Error('Este CPF já tem conta. Entre com login ou use "Esqueci a senha".');
+    }
+
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    });
+    if (existingUser) {
+      throw new Error('Este e-mail já tem conta. Entre com login ou use "Esqueci a senha".');
+    }
+
+    let parceiroId: string | undefined;
+    if (data.ref) {
+      const parceiro = await prisma.parceiro.findFirst({
+        where: { codigo: data.ref.trim().toUpperCase(), ativo: true },
+      });
+      if (parceiro) parceiroId = parceiro.id;
+    }
+
+    const senhaAleatoria = randomBytes(32).toString('hex');
+    const senhaHash = await bcrypt.hash(senhaAleatoria, 12);
+
+    const cliente = existingByCpf
+      ? await prisma.cliente.update({
+          where: { id: existingByCpf.id },
+          data: {
+            nome,
+            email,
+            telefone,
+            whatsapp: telefone,
+            endereco,
+            consentimentoLgpd: true,
+            dataAceite: new Date(),
+            ...(parceiroId ? { parceiroId } : {}),
+          },
+        })
+      : await prisma.cliente.create({
+          data: {
+            tipo: 'PF',
+            nome,
+            cpf: doc,
+            email,
+            telefone,
+            whatsapp: telefone,
+            endereco,
+            consentimentoLgpd: true,
+            dataAceite: new Date(),
+            parceiroId,
+          },
+        });
+
+    await prisma.user.create({
+      data: {
+        nome,
+        email,
+        senhaHash,
+        role: 'cliente',
+        clienteId: cliente.id,
+      },
+    });
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new Error('Erro ao iniciar checkout');
 
     return this.issueSession(user);
   }

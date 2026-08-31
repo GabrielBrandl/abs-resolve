@@ -51,7 +51,7 @@ function processQueue(error: unknown, token: string | null = null) {
 
 function isAuthCredentialRequest(config: { url?: string; baseURL?: string } | undefined) {
   const url = `${config?.baseURL || ''}${config?.url || ''}`;
-  return /\/auth\/(login|login-cliente|registrar|esqueci-senha|redefinir-senha)(\?|$)/.test(url);
+  return /\/auth\/(login|login-cliente|registrar|checkout-convidado|esqueci-senha|redefinir-senha)(\?|$)/.test(url);
 }
 
 api.interceptors.response.use(
