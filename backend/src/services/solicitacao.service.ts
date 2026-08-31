@@ -258,12 +258,11 @@ export class SolicitacaoService {
       let itemValidacao = false;
       let mensagemValidacao: string | undefined;
 
-      if (fluxo) {
-        if (!item.respostas || !Object.keys(item.respostas).length) {
-          throw new Error(`Complete o questionário de "${servico.nome}" antes de pagar`);
-        }
-        validarRespostasFluxo(item.slug, item.respostas);
-        const calculo = calcularPrecoFluxo(item.slug, item.respostas, item.quantidade);
+      const temRespostas = Boolean(item.respostas && Object.keys(item.respostas).length);
+
+      if (fluxo && temRespostas) {
+        validarRespostasFluxo(item.slug, item.respostas!);
+        const calculo = calcularPrecoFluxo(item.slug, item.respostas!, item.quantidade);
         subtotal = calculo.preco;
         precoUnit = item.quantidade > 0 ? subtotal / item.quantidade : subtotal;
         breakdown = calculo.breakdown;
@@ -271,8 +270,10 @@ export class SolicitacaoService {
         mensagemValidacao = calculo.mensagemValidacao;
         if (itemValidacao) requerValidacaoTecnica = true;
       } else {
+        // Preço fixo do catálogo (sem questionário)
         precoUnit = toNumber(servico.precoMinimo || 0);
         subtotal = precoUnit * item.quantidade;
+        breakdown = [{ label: 'Serviço (preço fixo)', valor: subtotal }];
       }
 
       precoSubtotal += subtotal;

@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { Breadcrumb, Stars, TrustStrip, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { addToCart } from '../../store/cartStore';
-import { solicitacaoApi } from '../../services/modules.service';
 import {
   findService,
   frequentlyTogether,
@@ -16,23 +15,12 @@ import {
 import { WHATSAPP_LINK } from '../../storefront/constants';
 import { isPecaSlug, pecasDoServico } from '../../storefront/pecas';
 
-type Fluxo = {
-  perguntas?: Array<{ id: string; titulo: string; opcoes: Array<{ id: string; label: string }> }>;
-};
-
 export function ServicePage() {
   const { slug = '' } = useParams();
   const navigate = useNavigate();
   const { categorias, loading } = useCatalog();
   const servico = findService(categorias, slug);
-  const [fluxo, setFluxo] = useState<Fluxo | null>(null);
-  const [respostas, setRespostas] = useState<Record<string, string>>({});
   const [qty, setQty] = useState(1);
-
-  useEffect(() => {
-    if (!slug) return;
-    solicitacaoApi.fluxo(slug).then((d) => setFluxo(d as Fluxo)).catch(() => setFluxo(null));
-  }, [slug]);
 
   const price = servico?.precoMinimo || 0;
   const together = useMemo(() => frequentlyTogether(categorias, slug, 4), [categorias, slug]);
@@ -93,53 +81,25 @@ export function ServicePage() {
           <h1 className="mt-1 text-[28px] font-black leading-tight text-[#111827]">{servico.nome}</h1>
           <Stars value={4.9} count={186} />
           <div className="mt-4 rounded-[10px] border border-[#e6e8ee] bg-[#f8fafc] p-4">
-            <p className="text-xs text-slate-500">A partir de</p>
+            <p className="text-xs text-slate-500">Preço fixo</p>
             <div className="flex flex-wrap items-end gap-3">
               <p className="text-[32px] font-black text-[#002d62]">{price ? money(price) : servico.precoTexto}</p>
             </div>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">{servico.descricao}</p>
 
-          <div className="mt-6 space-y-4">
-            {(fluxo?.perguntas || []).slice(0, 5).map((p, idx) => (
-              <div key={p.id}>
-                <p className="mb-2 text-sm font-bold text-[#002d62]">
-                  {idx + 1}. {p.titulo}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {p.opcoes.map((o) => (
-                    <button
-                      key={o.id}
-                      type="button"
-                      onClick={() => setRespostas((r) => ({ ...r, [p.id]: o.id }))}
-                      className={`min-w-[7rem] rounded-lg border px-3 py-3 text-left text-sm font-semibold ${
-                        respostas[p.id] === o.id
-                          ? 'border-[#002d62] bg-[#e8f0ff] text-[#002d62]'
-                          : 'border-slate-200 bg-white hover:border-[#002d62]/40'
-                      }`}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-            <div>
-              <p className="mb-2 text-sm font-bold">Quantidade</p>
-              <div className="flex items-center overflow-hidden rounded-md border border-[#d5d9e2] w-fit">
-                <button type="button" className="h-9 w-9" onClick={() => setQty((n) => Math.max(1, n - 1))}>−</button>
-                <span className="w-8 text-center font-black">{qty}</span>
-                <button type="button" className="h-9 w-9" onClick={() => setQty((n) => n + 1)}>+</button>
-              </div>
+          <div className="mt-6">
+            <p className="mb-2 text-sm font-bold">Quantidade</p>
+            <div className="flex w-fit items-center overflow-hidden rounded-md border border-[#d5d9e2]">
+              <button type="button" className="h-9 w-9" onClick={() => setQty((n) => Math.max(1, n - 1))}>−</button>
+              <span className="w-8 text-center font-black">{qty}</span>
+              <button type="button" className="h-9 w-9" onClick={() => setQty((n) => n + 1)}>+</button>
             </div>
           </div>
         </div>
 
         <aside className="h-fit rounded-[12px] border border-[#e6e8ee] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-black text-[#002d62]">Resumo do serviço</p>
-            <button type="button" className="text-xs font-bold text-[#1d4ed8]" onClick={() => setRespostas({})}>Limpar</button>
-          </div>
+          <p className="text-sm font-black text-[#002d62]">Resumo do serviço</p>
           <p className="mt-2 font-bold text-[#111827]">{servico.nome}</p>
           <p className="mt-3 text-[30px] font-black text-[#002d62]">{price ? money(price * qty) : servico.precoTexto}</p>
           <YellowButton className="mt-4 w-full" onClick={goCart}>

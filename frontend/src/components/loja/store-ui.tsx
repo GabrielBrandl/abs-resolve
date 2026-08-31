@@ -177,7 +177,7 @@ export function Breadcrumb({ items }: { items: Array<{ label: string; to?: strin
 }
 
 export function CheckoutStepper({ current }: { current: 1 | 2 | 3 | 4 }) {
-  const steps = ['Serviço', 'Detalhes', 'Pagamento', 'Agendamento'];
+  const steps = ['Serviço', 'Pedido', 'Pagamento', 'Agendamento'];
   return (
     <ol className="mb-6 grid grid-cols-4 gap-2">
       {steps.map((label, i) => {

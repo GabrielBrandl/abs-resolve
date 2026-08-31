@@ -3,14 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { solicitacaoApi } from '../../services/modules.service';
 import { useCartStore } from '../../store/cartStore';
 import { formatCurrency } from '../../types';
-import { imagemServicoComRespostas } from '../../config/imagens-opcoes';
-import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal, Logo } from '../../components/ui';
+import { PageHeader, Loading, Card, Button, ScarcityBadge, Modal } from '../../components/ui';
 import { CheckoutStepper } from '../../components/loja/store-ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { relatedForCart, type CategoriaLoja } from '../../storefront/catalog';
 import { normalizeSearch } from '../../storefront/search';
-import { isPecaSlug } from '../../storefront/pecas';
-import { QuestionarioServico, FotosServicoStep, QuestionarioNav, type PrecoCalculado } from '../../components/cliente/QuestionarioServico';
 import { useToast } from '../../components/Toast';
 import { gtmEtapaAgendar, gtmPush } from '../../utils/gtm';
 import {
@@ -19,11 +16,7 @@ import {
   TAXA_JUROS_MES_PERCENT_DEFAULT,
 } from '../../utils/parcelamento';
 
-type Step = 'catalogo' | 'carrinho' | 'questionario' | 'resumo' | 'fotos' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
-
-function isPecaItem(item: { slug: string; tipo?: string }) {
-  return item.tipo === 'peca' || isPecaSlug(item.slug);
-}
+type Step = 'catalogo' | 'carrinho' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
 
 interface ServicoCatalogo {
   id: string;
@@ -175,27 +168,6 @@ export function AgendarServicoPage() {
   const [aguardandoPagamento, setAguardandoPagamento] = useState(false);
   const [orcamentoModal, setOrcamentoModal] = useState<ServicoCatalogo | null>(null);
   const [orcamentoDesc, setOrcamentoDesc] = useState('');
-  const [itemQuestionarioIdx, setItemQuestionarioIdx] = useState(0);
-  const [respostasPorSlug, setRespostasPorSlug] = useState<Record<string, Record<string, string>>>({});
-  const [precosPorSlug, setPrecosPorSlug] = useState<Record<string, PrecoCalculado | null>>({});
-
-  useEffect(() => {
-    setPrecosPorSlug((prev) => {
-      const next = { ...prev };
-      for (const item of cart.items) {
-        if (!isPecaItem(item) || next[item.slug]) continue;
-        const valor = (item.precoMinimo || 0) * item.quantidade;
-        next[item.slug] = {
-          preco: valor,
-          breakdown: [{ label: 'Peça avulsa', valor }],
-          requerValidacaoTecnica: false,
-        };
-      }
-      return next;
-    });
-  }, [cart.items]);
-  const [fotosPorSlug, setFotosPorSlug] = useState<Record<string, File[]>>({});
-  const [fluxosFotos, setFluxosFotos] = useState<Record<string, string[]>>({});
   const [descontoPixPercent, setDescontoPixPercent] = useState(5);
   const [valorDescontoAplicado, setValorDescontoAplicado] = useState(0);
   const [pctDescontoAplicado, setPctDescontoAplicado] = useState(0);
@@ -241,7 +213,7 @@ export function AgendarServicoPage() {
         imagemUrl: servico.imagemUrl,
       });
     }
-    setStep('questionario');
+    setStep('carrinho');
   }, [loading, categorias, searchParams, cart]);
 
   // Retomar agendamento de pedido já pago (ex.: veio de Meus Pedidos)
@@ -271,7 +243,7 @@ export function AgendarServicoPage() {
     })();
   }, [searchParams, loading, navigate, setSearchParams, toast]);
 
-  // Importar respostas do Consultor ABS (conversa guiada)
+  // Importar serviço do Consultor ABS (preço fixo — sem questionário)
   useEffect(() => {
     if (loading || assistenteImportado.current) return;
     if (searchParams.get('assistente') !== '1') return;
@@ -287,7 +259,6 @@ export function AgendarServicoPage() {
         precoTexto: string;
         tipoPreco: string;
         imagemUrl?: string | null;
-        respostas: Record<string, string>;
       };
       sessionStorage.removeItem('abs-guided-selling');
       if (!cart.items.some((i) => i.slug === data.slug)) {
@@ -301,11 +272,9 @@ export function AgendarServicoPage() {
           imagemUrl: data.imagemUrl,
         });
       }
-      setRespostasPorSlug({ [data.slug]: data.respostas || {} });
-      setItemQuestionarioIdx(0);
-      setStep('questionario');
+      setStep('carrinho');
       setSearchParams({}, { replace: true });
-      toast('Orçamento do consultor carregado. Confira e continue.', 'success');
+      toast('Serviço do consultor adicionado ao carrinho.', 'success');
     } catch {
       sessionStorage.removeItem('abs-guided-selling');
     }
@@ -390,31 +359,13 @@ export function AgendarServicoPage() {
     setStep('carrinho');
   };
 
-  const servicoItems = cart.items.filter((i) => !isPecaItem(i));
-
-  const irQuestionario = () => {
+  const irPagamento = () => {
     if (!cart.count()) {
       toast('Adicione serviços ou peças ao carrinho', 'error');
       return;
     }
-    if (!servicoItems.length) {
-      void confirmarPedido();
-      return;
-    }
-    setItemQuestionarioIdx(0);
-    setStep('questionario');
+    void confirmarPedido();
   };
-
-  const itemAtual = servicoItems[itemQuestionarioIdx];
-  const respostasAtual = itemAtual ? respostasPorSlug[itemAtual.slug] || {} : {};
-  const precoAtual = itemAtual ? precosPorSlug[itemAtual.slug] : null;
-
-  const totalCalculado = useMemo(() => {
-    return cart.items.reduce((sum, item) => {
-      const p = precosPorSlug[item.slug];
-      return sum + (p?.preco ?? (item.precoMinimo || 0) * item.quantidade);
-    }, 0);
-  }, [cart.items, precosPorSlug]);
 
   const descontoPixEstimado =
     metodoPagamento === 'PIX'
@@ -423,84 +374,17 @@ export function AgendarServicoPage() {
   const totalComPix =
     metodoPagamento === 'PIX' ? Math.max(0, preco - descontoPixEstimado) : preco;
 
-  const temValidacaoTecnica = cart.items.some((i) => precosPorSlug[i.slug]?.requerValidacaoTecnica);
-
-  const questionarioCompleto = cart.items.every((item) => {
-    if (isPecaItem(item)) return true;
-    const p = precosPorSlug[item.slug];
-    return p && !p.requerValidacaoTecnica;
-  });
-
-  const setRespostaAtual = (perguntaId: string, valor: string) => {
-    if (!itemAtual) return;
-    setRespostasPorSlug((prev) => ({
-      ...prev,
-      [itemAtual.slug]: { ...(prev[itemAtual.slug] || {}), [perguntaId]: valor },
-    }));
-  };
-
-  const resetRespostasAtual = () => {
-    if (!itemAtual) return;
-    setRespostasPorSlug((prev) => ({ ...prev, [itemAtual.slug]: {} }));
-    setPrecosPorSlug((prev) => ({ ...prev, [itemAtual.slug]: null }));
-  };
-
-  const setPrecoAtual = (preco: PrecoCalculado | null) => {
-    if (!itemAtual) return;
-    setPrecosPorSlug((prev) => ({ ...prev, [itemAtual.slug]: preco }));
-  };
-
-  const avancarQuestionario = () => {
-    if (!precoAtual || precoAtual.requerValidacaoTecnica) {
-      toast('Responda as perguntas ou aguarde a validação técnica', 'error');
-      return;
-    }
-    if (itemQuestionarioIdx < servicoItems.length - 1) {
-      setItemQuestionarioIdx((i) => i + 1);
-    } else {
-      void confirmarPedido();
-    }
-  };
-
-  const irFotos = async () => {
-    if (!questionarioCompleto) {
-      toast('Conclua a conversa de todos os serviços', 'error');
-      return;
-    }
-    const cache: Record<string, string[]> = { ...fluxosFotos };
-    for (const item of cart.items) {
-      if (!cache[item.slug]) {
-        try {
-          const fluxo = await solicitacaoApi.fluxo(item.slug);
-          cache[item.slug] = fluxo.fotosObrigatorias || [];
-        } catch {
-          cache[item.slug] = [];
-        }
-      }
-    }
-    setFluxosFotos(cache);
-    setStep('fotos');
-  };
-
   const confirmarPedido = async () => {
     setSubmitting(true);
     try {
       const itens = cart.items.map((i) => ({
         slug: i.slug,
         quantidade: i.quantidade,
-        respostas: respostasPorSlug[i.slug] || {},
       }));
       const sol = await solicitacaoApi.criarCarrinho({
         itens,
         express,
       });
-
-      for (const item of cart.items) {
-        const files = fotosPorSlug[item.slug];
-        if (files?.length) {
-          await solicitacaoApi.uploadFotos(sol.id, files, item.slug);
-        }
-      }
 
       setSolicitacaoId(sol.id);
       setPreco(Number(sol.precoFinal));
@@ -626,9 +510,9 @@ export function AgendarServicoPage() {
   if (loading) return <Loading />;
 
   const checkoutStep: 1 | 2 | 3 | 4 =
-    step === 'catalogo' || step === 'carrinho'
+    step === 'catalogo'
       ? 1
-      : step === 'questionario' || step === 'resumo' || step === 'fotos'
+      : step === 'carrinho'
         ? 2
         : step === 'pagamento' || step === 'aguardando'
           ? 3
@@ -754,7 +638,7 @@ export function AgendarServicoPage() {
               {cart.items.map((item) => (
                 <li key={item.slug} className="flex flex-col gap-3 py-4 sm:flex-row sm:flex-wrap sm:items-center">
                   <img
-                    src={imagemServicoComRespostas(item.slug, respostasPorSlug[item.slug] || {}, item.imagemUrl)}
+                    src={item.imagemUrl || '/favicon.svg'}
                     alt=""
                     className="h-16 w-16 shrink-0 rounded-lg border object-cover"
                   />
@@ -781,14 +665,14 @@ export function AgendarServicoPage() {
           <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div>
             <p className="text-xl font-bold text-primary-800">
-              A partir de: {formatCurrency(cart.total())}
+              Total: {formatCurrency(cart.total())}
             </p>
-            <p className="text-xs text-slate-500">O valor final é calculado nas perguntas do serviço</p>
+            <p className="text-xs text-slate-500">Preço fixo · pagamento na próxima etapa</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={() => setStep('catalogo')}>Continuar comprando</Button>
-              <Button variant="cta" onClick={irQuestionario} disabled={!cart.count()}>
-                Informar detalhes e calcular valor
+              <Button variant="cta" onClick={irPagamento} disabled={!cart.count() || submitting}>
+                {submitting ? 'Preparando pagamento...' : 'Comprar e agendar'}
               </Button>
             </div>
           </div>
@@ -801,123 +685,6 @@ export function AgendarServicoPage() {
         </>
       )}
 
-      {step === 'questionario' && itemAtual && (
-        <Card>
-          <p className="mb-4 text-sm text-slate-500">
-            Serviço {itemQuestionarioIdx + 1} de {servicoItems.length}
-          </p>
-          <QuestionarioServico
-            slug={itemAtual.slug}
-            nome={itemAtual.nome}
-            quantidade={itemAtual.quantidade}
-            imagemCatalogo={itemAtual.imagemUrl}
-            respostas={respostasAtual}
-            onResposta={setRespostaAtual}
-            onPrecoChange={setPrecoAtual}
-            onResetRespostas={resetRespostasAtual}
-          />
-          <QuestionarioNav
-            onVoltar={() => {
-              if (itemQuestionarioIdx > 0) setItemQuestionarioIdx((i) => i - 1);
-              else setStep('carrinho');
-            }}
-            onAvancar={avancarQuestionario}
-            disabled={!precoAtual || precoAtual.requerValidacaoTecnica}
-            avancarLabel={
-              submitting
-                ? 'Processando...'
-                : itemQuestionarioIdx < cart.items.length - 1
-                  ? 'Próximo serviço'
-                  : 'Ir para pagamento'
-            }
-          />
-        </Card>
-      )}
-
-      {false && step === 'resumo' && (
-        <>
-        <Card>
-          <h3 className="mb-4 text-lg font-bold text-primary-800">Resumo do pedido</h3>
-          {temValidacaoTecnica && (
-            <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-              <span className="inline-flex flex-wrap items-center gap-1">
-                Um ou mais serviços requerem validação técnica da <Logo variant="inline" className="h-4" />.
-                Entre em contato pelo WhatsApp antes de pagar.
-              </span>
-            </div>
-          )}
-          <ul className="divide-y divide-abs-gray">
-            {cart.items.map((item) => {
-              const p = precosPorSlug[item.slug];
-              return (
-                <li key={item.slug} className="flex gap-3 py-3">
-                  <img
-                    src={imagemServicoComRespostas(item.slug, respostasPorSlug[item.slug] || {}, item.imagemUrl)}
-                    alt=""
-                    className="h-14 w-14 shrink-0 rounded-lg border object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                  <div className="flex justify-between font-semibold text-primary-800">
-                    <span>{item.nome}</span>
-                    <span>{formatCurrency(p?.preco ?? 0)}</span>
-                  </div>
-                  {p?.breakdown?.map((b, i) => (
-                    <p key={i} className="flex justify-between text-xs text-slate-500">
-                      <span>{b.label}</span>
-                      <span>{formatCurrency(b.valor)}</span>
-                    </p>
-                  ))}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="mt-2 text-xl font-bold text-primary-800">
-            Total: {formatCurrency(totalCalculado)}
-          </p>
-          <QuestionarioNav
-            onVoltar={() => {
-              setItemQuestionarioIdx(cart.items.length - 1);
-              setStep('questionario');
-            }}
-            onAvancar={irFotos}
-            disabled={!questionarioCompleto}
-            avancarLabel="Enviar fotos"
-          />
-        </Card>
-          <RelatedRail
-            title="Leve mais nesta visita"
-            subtitle="O profissional já vai até você. Vale incluir agora."
-            servicos={relatedCheckout}
-          />
-        </>
-      )}
-
-      {false && step === 'fotos' && (
-        <Card>
-          <h3 className="mb-2 text-lg font-bold text-primary-800">Fotos do local</h3>
-          <p className="mb-4 text-sm text-slate-500">
-            Envie fotos conforme indicado para cada serviço. Isso ajuda na validação antes do atendimento.
-          </p>
-          {cart.items.map((item) => (
-            <FotosServicoStep
-              key={item.slug}
-              slug={item.slug}
-              nome={item.nome}
-              labels={fluxosFotos[item.slug] || []}
-              arquivos={fotosPorSlug[item.slug] || []}
-              onChange={(files) => setFotosPorSlug((prev) => ({ ...prev, [item.slug]: files }))}
-            />
-          ))}
-          <QuestionarioNav
-            onVoltar={() => setStep('resumo')}
-            onAvancar={confirmarPedido}
-            disabled={submitting || cart.items.some((i) => !(fotosPorSlug[i.slug]?.length))}
-            avancarLabel={submitting ? 'Processando...' : 'Ir para pagamento'}
-          />
-        </Card>
-      )}
-
       {step === 'pagamento' && (
         <Card>
           <h3 className="mb-2 text-lg font-bold text-primary-800">Pagamento</h3>
@@ -925,7 +692,9 @@ export function AgendarServicoPage() {
             {cart.items.map((item) => (
               <li key={item.slug} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                 <span className="font-medium text-primary-800">{item.nome}</span>
-                <span className="font-bold">{formatCurrency(precosPorSlug[item.slug]?.preco ?? 0)}</span>
+                <span className="font-bold">
+                  {formatCurrency((item.precoMinimo || 0) * item.quantidade)}
+                </span>
               </li>
             ))}
           </ul>
