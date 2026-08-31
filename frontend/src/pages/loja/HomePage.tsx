@@ -148,12 +148,12 @@ export function HomePage() {
               </ProductCarouselItem>
             ))}
           </ProductCarousel>
-          <div className="hidden w-[12.5rem] shrink-0 lg:block">
-            <CashbackPromoBanner percentLabel={cashbackPct} />
+          <div className="hidden w-[10.5rem] shrink-0 self-start lg:block">
+            <CashbackPromoBanner />
           </div>
         </div>
-        <div className="mt-3 max-w-md lg:hidden">
-          <CashbackPromoBanner percentLabel={cashbackPct} />
+        <div className="mt-3 w-[10.5rem] lg:hidden">
+          <CashbackPromoBanner />
         </div>
       </section>
 

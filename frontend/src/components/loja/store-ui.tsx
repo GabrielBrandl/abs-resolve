@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { TRUST_BADGES, WHATSAPP_LINK } from '../../storefront/constants';
-import { IconCoinsCashback, IconDoc, IconLock, IconShield, IconVerified } from './icons';
+import { IconDoc, IconLock, IconShield, IconVerified } from './icons';
 
 const TRUST_ICONS = {
   verified: IconVerified,
@@ -75,30 +75,25 @@ export function CashbackTag({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Banner lateral de cashback — apenas na home */
-export function CashbackPromoBanner({ percentLabel }: { percentLabel: string }) {
+/** Banner lateral de cashback — imagem promocional (apenas na home) */
+export function CashbackPromoBanner() {
   return (
-    <aside
+    <Link
       id="cashback"
-      className="flex h-full min-h-[18.5rem] w-full flex-col rounded-[14px] bg-[#002d62] p-4 text-white shadow-[0_8px_24px_rgba(0,45,98,0.15)]"
+      to="/cadastro"
+      className="block w-full overflow-hidden rounded-[12px] shadow-[0_8px_24px_rgba(0,45,98,0.15)] transition hover:opacity-95"
+      aria-label="Cashback em todos os serviços — saiba como funciona"
     >
-      <p className="text-[11px] font-extrabold uppercase leading-snug text-[#ffb800]">
-        Cashback em todos os serviços!
-      </p>
-      <p className="mt-2 text-[10px] leading-snug text-white/85">
-        Receba <span className="font-bold text-[#ffb800]">{percentLabel}%</span> do valor de volta no seu próximo serviço.
-      </p>
-      <div className="my-auto flex flex-col items-center py-2 text-center">
-        <p className="text-[34px] font-black leading-none text-[#ffb800]">{percentLabel}%</p>
-        <p className="mt-1 text-[13px] font-black uppercase tracking-wide text-[#ffb800]">de volta</p>
-        <IconCoinsCashback className="mt-2 h-12 w-auto drop-shadow-[0_6px_12px_rgba(0,0,0,0.2)]" />
-      </div>
-      <Link to="/cadastro" className="mt-auto block">
-        <YellowButton className="w-full py-2.5 text-[10px] uppercase tracking-wide">
-          Saiba como funciona
-        </YellowButton>
-      </Link>
-    </aside>
+      <img
+        src="/cashback-promo.webp"
+        alt="Cashback 10% em todos os serviços — saiba como funciona"
+        width={200}
+        height={225}
+        loading="lazy"
+        decoding="async"
+        className="h-auto w-full object-cover"
+      />
+    </Link>
   );
 }
 
