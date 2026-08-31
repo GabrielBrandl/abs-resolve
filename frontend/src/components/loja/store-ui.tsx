@@ -67,6 +67,34 @@ export function Stars({ value = 4.9, count }: { value?: number; count?: number }
   );
 }
 
+/** Card compacto de cashback — apenas na home */
+export function CashbackPromoCard({ percentLabel }: { percentLabel: string }) {
+  return (
+    <aside
+      id="cashback"
+      className="flex h-full min-h-[15.5rem] flex-col justify-between rounded-[12px] border border-[#ffb800]/40 bg-[#002d62] p-4 text-white shadow-[0_4px_14px_rgba(0,45,98,0.12)]"
+    >
+      <div>
+        <p className="text-[18px] font-black leading-tight text-[#ffb800]">
+          {percentLabel}% DE CASHBACK
+        </p>
+        <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-white/80">
+          em todos os serviços
+        </p>
+        <p className="mt-2 text-[11px] leading-snug text-white/65">
+          Receba {percentLabel}% de volta no seu próximo serviço.
+        </p>
+      </div>
+      <Link
+        to="/cadastro"
+        className="mt-3 inline-flex items-center text-[11px] font-bold text-[#ffb800] hover:underline"
+      >
+        Saiba como funciona →
+      </Link>
+    </aside>
+  );
+}
+
 export function TrustRow({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`grid items-stretch gap-3 ${compact ? 'grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-4'}`}>

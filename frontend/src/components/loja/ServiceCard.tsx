@@ -5,6 +5,7 @@ import { itemPath } from '../../storefront/pecas';
 
 export function ServiceCard({
   servico,
+  cta,
 }: {
   servico: ServicoLoja;
   cta?: string;
@@ -60,7 +61,7 @@ export function ServiceCard({
             to={href}
             className="mt-3 block rounded-lg bg-[#002d62] py-2.5 text-center text-[12px] font-extrabold uppercase tracking-wide text-white"
           >
-            {isPeca ? 'Comprar peça' : 'Ver preço e agendar'}
+            {isPeca ? 'Comprar peça' : cta || 'Comprar e agendar'}
           </Link>
         </div>
       </div>

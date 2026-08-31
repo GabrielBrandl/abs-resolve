@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { solicitacaoApi } from '../services/modules.service';
-import { REFERRAL_BONUS } from '../storefront/constants';
+import { REFERRAL_BONUS, CASHBACK_PCT } from '../storefront/constants';
 
 export type StoreConfig = {
+  cashbackPercent: number;
   bonusIndicacao: number;
   garantiaPadraoDias: number;
   expressValor: number;
@@ -10,6 +11,7 @@ export type StoreConfig = {
 };
 
 const DEFAULT: StoreConfig = {
+  cashbackPercent: CASHBACK_PCT,
   bonusIndicacao: REFERRAL_BONUS,
   garantiaPadraoDias: 90,
   expressValor: 29,
@@ -35,6 +37,7 @@ export function useStoreConfig() {
       .config()
       .then((d) => {
         const next: StoreConfig = {
+          cashbackPercent: Number(d.cashbackPercent) > 0 ? Number(d.cashbackPercent) : CASHBACK_PCT,
           bonusIndicacao: Number(d.bonusIndicacao) > 0 ? Number(d.bonusIndicacao) : REFERRAL_BONUS,
           garantiaPadraoDias: Number(d.garantiaPadraoDias) > 0 ? Number(d.garantiaPadraoDias) : 90,
           expressValor: Number(d.expressValor) > 0 ? Number(d.expressValor) : 29,

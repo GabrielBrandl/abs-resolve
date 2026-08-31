@@ -2,10 +2,10 @@ import { Link } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { ServiceCard } from '../../components/loja/ServiceCard';
 import { ProductCarousel, ProductCarouselItem } from '../../components/loja/ProductCarousel';
-import { YellowButton } from '../../components/loja/store-ui';
+import { CashbackPromoCard, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { flattenServices } from '../../storefront/catalog';
-import { useStoreConfig } from '../../hooks/useStoreConfig';
+import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
 import {
   IconCalendar,
   IconCard,
@@ -46,10 +46,11 @@ const TRUST_LINE = [
 ];
 
 export function HomePage() {
-  const { garantiaPadraoDias } = useStoreConfig();
+  const { cashbackPercent, garantiaPadraoDias } = useStoreConfig();
   const { categorias, loading } = useCatalog();
   const servicos = flattenServices(categorias).filter((s) => s.tipo !== 'peca' && !s.slug.startsWith('peca-'));
   const destaques = servicos.slice(0, 4);
+  const cashbackPct = percentLabel(cashbackPercent);
 
   if (loading) return <Loading />;
 
@@ -61,11 +62,11 @@ export function HomePage() {
             <div className="flex min-h-full flex-col justify-between lg:min-h-[340px]">
               <div>
                 <h1 className="max-w-[20rem] text-[30px] font-black leading-[1.12] md:text-[36px]">
-                  Soluções rápidas para sua{' '}
-                  <span className="text-[#ffb800]">casa ou empresa.</span>
+                  Resolva seu problema{' '}
+                  <span className="text-[#ffb800]">hoje.</span>
                 </h1>
                 <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-white/80">
-                  Profissionais qualificados, preço justo, pagamento seguro e garantia
+                  Serviços para casa e empresa com preço definido, agendamento rápido e garantia
                   {garantiaPadraoDias ? ` de até ${garantiaPadraoDias} dias.` : '.'}
                 </p>
                 <ul className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -79,9 +80,9 @@ export function HomePage() {
                   ))}
                 </ul>
               </div>
-              <Link to="/c/eletricista" className="mt-7 inline-block">
+              <Link to="/busca" className="mt-7 inline-block">
                 <YellowButton className="px-7 py-3.5 text-[13px] uppercase tracking-wide">
-                  Ver preço e agendar →
+                  Ver serviços e agendar →
                 </YellowButton>
               </Link>
             </div>
@@ -136,6 +137,9 @@ export function HomePage() {
               <ServiceCard servico={s} />
             </ProductCarouselItem>
           ))}
+          <ProductCarouselItem>
+            <CashbackPromoCard percentLabel={cashbackPct} />
+          </ProductCarouselItem>
         </ProductCarousel>
       </section>
 

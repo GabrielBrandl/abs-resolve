@@ -4,6 +4,7 @@ export const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_ABS}?text=${encodeURIComp
 )}`;
 
 export const REFERRAL_BONUS = 20;
+export const CASHBACK_PCT = 0.1;
 
 export type CategoryNavItem = {
   slug: string;
