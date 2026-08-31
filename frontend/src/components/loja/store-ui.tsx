@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { TRUST_BADGES, WHATSAPP_LINK } from '../../storefront/constants';
-import { IconDoc, IconLock, IconShield, IconVerified } from './icons';
+import { IconCoinsCashback, IconDoc, IconLock, IconShield, IconVerified } from './icons';
 
 const TRUST_ICONS = {
   verified: IconVerified,
@@ -67,29 +67,36 @@ export function Stars({ value = 4.9, count }: { value?: number; count?: number }
   );
 }
 
-/** Card compacto de cashback — apenas na home */
-export function CashbackPromoCard({ percentLabel }: { percentLabel: string }) {
+export function CashbackTag({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex min-w-[2.6rem] flex-col items-center rounded-md bg-[#fff4cc] px-1.5 py-0.5 text-center text-[9px] font-black uppercase leading-tight tracking-wide text-[#9a7200]">
+      {children}
+    </span>
+  );
+}
+
+/** Banner lateral de cashback — apenas na home */
+export function CashbackPromoBanner({ percentLabel }: { percentLabel: string }) {
   return (
     <aside
       id="cashback"
-      className="flex h-full min-h-[15.5rem] flex-col justify-between rounded-[12px] border border-[#ffb800]/40 bg-[#002d62] p-4 text-white shadow-[0_4px_14px_rgba(0,45,98,0.12)]"
+      className="flex h-full min-h-[18.5rem] w-full flex-col rounded-[14px] bg-[#002d62] p-4 text-white shadow-[0_8px_24px_rgba(0,45,98,0.15)]"
     >
-      <div>
-        <p className="text-[18px] font-black leading-tight text-[#ffb800]">
-          {percentLabel}% DE CASHBACK
-        </p>
-        <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-white/80">
-          em todos os serviços
-        </p>
-        <p className="mt-2 text-[11px] leading-snug text-white/65">
-          Receba {percentLabel}% de volta no seu próximo serviço.
-        </p>
+      <p className="text-[11px] font-extrabold uppercase leading-snug text-[#ffb800]">
+        Cashback em todos os serviços!
+      </p>
+      <p className="mt-2 text-[10px] leading-snug text-white/85">
+        Receba <span className="font-bold text-[#ffb800]">{percentLabel}%</span> do valor de volta no seu próximo serviço.
+      </p>
+      <div className="my-auto flex flex-col items-center py-2 text-center">
+        <p className="text-[34px] font-black leading-none text-[#ffb800]">{percentLabel}%</p>
+        <p className="mt-1 text-[13px] font-black uppercase tracking-wide text-[#ffb800]">de volta</p>
+        <IconCoinsCashback className="mt-2 h-12 w-auto drop-shadow-[0_6px_12px_rgba(0,0,0,0.2)]" />
       </div>
-      <Link
-        to="/cadastro"
-        className="mt-3 inline-flex items-center text-[11px] font-bold text-[#ffb800] hover:underline"
-      >
-        Saiba como funciona →
+      <Link to="/cadastro" className="mt-auto block">
+        <YellowButton className="w-full py-2.5 text-[10px] uppercase tracking-wide">
+          Saiba como funciona
+        </YellowButton>
       </Link>
     </aside>
   );

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { ServiceCard } from '../../components/loja/ServiceCard';
 import { ProductCarousel, ProductCarouselItem } from '../../components/loja/ProductCarousel';
-import { CashbackPromoCard, YellowButton } from '../../components/loja/store-ui';
+import { CashbackPromoBanner, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { flattenServices } from '../../storefront/catalog';
 import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
@@ -49,7 +49,7 @@ export function HomePage() {
   const { cashbackPercent, garantiaPadraoDias } = useStoreConfig();
   const { categorias, loading } = useCatalog();
   const servicos = flattenServices(categorias).filter((s) => s.tipo !== 'peca' && !s.slug.startsWith('peca-'));
-  const destaques = servicos.slice(0, 4);
+  const destaques = servicos.slice(0, 5);
   const cashbackPct = percentLabel(cashbackPercent);
 
   if (loading) return <Loading />;
@@ -131,16 +131,30 @@ export function HomePage() {
             Ver todos os serviços &gt;
           </Link>
         </div>
-        <ProductCarousel>
-          {destaques.map((s) => (
-            <ProductCarouselItem key={s.slug}>
-              <ServiceCard servico={s} />
-            </ProductCarouselItem>
-          ))}
-          <ProductCarouselItem>
-            <CashbackPromoCard percentLabel={cashbackPct} />
-          </ProductCarouselItem>
-        </ProductCarousel>
+        <div className="flex items-stretch gap-3">
+          <ProductCarousel
+            layout="rail"
+            className="min-w-0 flex-1"
+            showArrows
+            showFade={false}
+          >
+            {destaques.map((s) => (
+              <ProductCarouselItem key={s.slug} rail>
+                <ServiceCard
+                  servico={s}
+                  showCashbackBadge
+                  cashbackLabel={cashbackPct}
+                />
+              </ProductCarouselItem>
+            ))}
+          </ProductCarousel>
+          <div className="hidden w-[12.5rem] shrink-0 lg:block">
+            <CashbackPromoBanner percentLabel={cashbackPct} />
+          </div>
+        </div>
+        <div className="mt-3 max-w-md lg:hidden">
+          <CashbackPromoBanner percentLabel={cashbackPct} />
+        </div>
       </section>
 
       <section className="flex flex-col gap-4 rounded-[14px] border border-[#e6e8ee] bg-white px-4 py-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between sm:px-5">

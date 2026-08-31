@@ -2,14 +2,19 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fallbackFotoServico, fotoServico, money, type ServicoLoja } from '../../storefront/catalog';
 import { itemPath } from '../../storefront/pecas';
+import { CashbackTag } from './store-ui';
 
 export function ServiceCard({
   servico,
   cta,
+  showCashbackBadge,
+  cashbackLabel,
 }: {
   servico: ServicoLoja;
   cta?: string;
   highlight?: string;
+  showCashbackBadge?: boolean;
+  cashbackLabel?: string;
 }) {
   const price = servico.precoMinimo;
   const primario = fotoServico(servico);
@@ -56,6 +61,12 @@ export function ServiceCard({
             <p className="text-[20px] font-black text-[#111827]">
               {price ? money(price) : servico.precoTexto || 'Sob orçamento'}
             </p>
+            {showCashbackBadge && cashbackLabel && price ? (
+              <CashbackTag>
+                <span>{cashbackLabel}%</span>
+                <span>Cashback</span>
+              </CashbackTag>
+            ) : null}
           </div>
           <Link
             to={href}

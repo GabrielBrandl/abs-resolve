@@ -4,16 +4,20 @@ type ProductCarouselProps = {
   children: ReactNode;
   className?: string;
   gridClassName?: string;
+  layout?: 'grid' | 'rail';
   showDots?: boolean;
   showFade?: boolean;
+  showArrows?: boolean;
 };
 
 export function ProductCarousel({
   children,
   className = '',
   gridClassName = 'md:grid md:grid-cols-2 md:gap-3 xl:grid-cols-4',
+  layout = 'grid',
   showDots = true,
   showFade = true,
+  showArrows = false,
 }: ProductCarouselProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -58,22 +62,41 @@ export function ProductCarousel({
     slide?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
   };
 
+  const scrollByOne = (dir: 1 | -1) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const next = Math.max(0, Math.min(slideCount - 1, activeIndex + dir));
+    scrollTo(next);
+  };
+
+  const isRail = layout === 'rail';
+  const scrollerClass = isRail
+    ? '-mx-4 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto px-4 pb-1 scrollbar-none md:mx-0 md:px-0'
+    : `-mx-4 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto px-4 pb-1 scrollbar-none md:mx-0 md:px-0 ${gridClassName} md:overflow-visible md:snap-none`;
+
   return (
     <div className={`relative ${className}`}>
-      {showFade && (
+      {showFade && !showArrows && (
         <span
           aria-hidden
           className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#f3f5f8] to-transparent md:hidden"
         />
       )}
-      <div
-        ref={scrollerRef}
-        className={`-mx-4 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto px-4 pb-1 scrollbar-none md:mx-0 md:px-0 ${gridClassName} md:overflow-visible md:snap-none`}
-      >
+      <div ref={scrollerRef} className={scrollerClass}>
         {children}
       </div>
+      {showArrows && slideCount > 1 && (
+        <button
+          type="button"
+          aria-label="Próximo serviço"
+          onClick={() => scrollByOne(1)}
+          className="absolute -right-1 top-[38%] z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#e6e8ee] bg-white text-lg font-bold text-[#002d62] shadow-md hover:bg-[#f8fafc] lg:flex"
+        >
+          ›
+        </button>
+      )}
       {showDots && slideCount > 1 && (
-        <div className="mt-3 flex justify-center gap-1.5 md:hidden">
+        <div className={`mt-3 flex justify-center gap-1.5 ${isRail ? 'lg:hidden' : 'md:hidden'}`}>
           {Array.from({ length: slideCount }).map((_, i) => (
             <button
               key={i}
@@ -96,17 +119,24 @@ export function ProductCarouselItem({
   children,
   className = '',
   compact = false,
+  rail = false,
 }: {
   children: ReactNode;
   className?: string;
   /** Slide mais estreito (ex.: cards relacionados) */
   compact?: boolean;
+  /** Largura fixa para trilho horizontal da home */
+  rail?: boolean;
 }) {
   return (
     <div
       data-carousel-slide
-      className={`shrink-0 snap-start md:w-auto md:max-w-none ${
-        compact ? 'w-[88vw] max-w-[20rem]' : 'w-[82vw] max-w-[17.5rem]'
+      className={`shrink-0 snap-start ${
+        rail
+          ? 'w-[11.25rem] sm:w-[12rem]'
+          : compact
+            ? 'w-[88vw] max-w-[20rem] md:w-auto md:max-w-none'
+            : 'w-[82vw] max-w-[17.5rem] md:w-auto md:max-w-none'
       } ${className}`}
     >
       {children}
