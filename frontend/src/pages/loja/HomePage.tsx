@@ -55,66 +55,52 @@ export function HomePage() {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_16.5rem]">
-        <div className="relative overflow-hidden rounded-[14px] bg-[#002d62] text-white shadow-[0_10px_30px_rgba(0,45,98,0.18)]">
-          <div className="flex h-full min-h-[280px] flex-col justify-between p-6 sm:min-h-[340px] sm:p-7 md:p-8">
-            <div>
-              <h1 className="max-w-[20rem] text-[30px] font-black leading-[1.12] md:text-[36px]">
-                Soluções rápidas para sua{' '}
-                <span className="text-[#ffb800]">casa ou empresa.</span>
-              </h1>
-              <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-white/80">
-                Profissionais qualificados, preço justo, pagamento seguro e garantia
-                {garantiaPadraoDias ? ` de até ${garantiaPadraoDias} dias.` : '.'}
-              </p>
-              <ul className="mt-5 grid gap-2 sm:grid-cols-2">
-                {HERO_CHECKS.map((item) => (
-                  <li key={item} className="flex items-center gap-2 text-[11px] font-semibold leading-snug sm:text-[12px]">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#ffb800] text-[#002d62]">
-                      <IconCheck className="h-3 w-3" />
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
+      <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16.5rem]">
+        <div className="overflow-hidden rounded-[14px] shadow-[0_10px_30px_rgba(0,45,98,0.18)] lg:grid lg:grid-cols-2">
+          <div className="bg-[#002d62] p-6 text-white sm:p-7 md:p-8">
+            <div className="flex min-h-full flex-col justify-between lg:min-h-[340px]">
+              <div>
+                <h1 className="max-w-[20rem] text-[30px] font-black leading-[1.12] md:text-[36px]">
+                  Soluções rápidas para sua{' '}
+                  <span className="text-[#ffb800]">casa ou empresa.</span>
+                </h1>
+                <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-white/80">
+                  Profissionais qualificados, preço justo, pagamento seguro e garantia
+                  {garantiaPadraoDias ? ` de até ${garantiaPadraoDias} dias.` : '.'}
+                </p>
+                <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+                  {HERO_CHECKS.map((item) => (
+                    <li key={item} className="flex items-center gap-2 text-[11px] font-semibold leading-snug sm:text-[12px]">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#ffb800] text-[#002d62]">
+                        <IconCheck className="h-3 w-3" />
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Link to="/c/eletricista" className="mt-7 inline-block">
+                <YellowButton className="px-7 py-3.5 text-[13px] uppercase tracking-wide">
+                  Ver preço e agendar →
+                </YellowButton>
+              </Link>
             </div>
-            <Link to="/c/eletricista" className="mt-7 inline-block">
-              <YellowButton className="px-7 py-3.5 text-[13px] uppercase tracking-wide">
-                Ver preço e agendar →
-              </YellowButton>
-            </Link>
           </div>
-        </div>
 
-        <div className="relative min-h-[180px] overflow-hidden rounded-[14px] sm:min-h-[220px] lg:hidden">
-          <img
-            src="/hero-abs.webp"
-            alt="Técnico da ABS Resolve em atendimento"
-            width={800}
-            height={480}
-            fetchPriority="high"
-            decoding="async"
-            className="h-full w-full object-cover object-[center_20%]"
-          />
-          <div className="absolute right-3 top-3 rounded-lg bg-[#0b1220]/92 px-2.5 py-1.5 text-xs font-semibold shadow-lg">
-            <span className="text-[#ffb800]">★ 4,8</span>
-            <span className="ml-1 text-white/90">+2.000 avaliações</span>
-          </div>
-        </div>
-
-        <div className="relative hidden min-h-[340px] overflow-hidden rounded-[14px] lg:block">
-          <img
-            src="/hero-abs.webp"
-            alt="Técnico da ABS Resolve em atendimento"
-            width={800}
-            height={480}
-            fetchPriority="high"
-            decoding="async"
-            className="h-full w-full object-cover object-[center_20%]"
-          />
-          <div className="absolute right-4 top-4 rounded-lg bg-[#0b1220]/92 px-3 py-2 text-sm font-semibold shadow-lg">
-            <span className="text-[#ffb800]">★ 4,8</span>
-            <span className="ml-1.5 text-white/90">+2.000 avaliações</span>
+          <div className="relative min-h-[220px] sm:min-h-[280px] lg:min-h-[340px]">
+            <img
+              src="/hero-abs.webp"
+              alt="Técnico da ABS Resolve em atendimento"
+              width={800}
+              height={480}
+              fetchPriority="high"
+              decoding="async"
+              className="h-full w-full object-cover object-[center_20%]"
+            />
+            <div className="absolute right-3 top-3 rounded-lg bg-[#0b1220]/92 px-2.5 py-1.5 text-xs font-semibold shadow-lg sm:right-4 sm:top-4 sm:px-3 sm:py-2 sm:text-sm">
+              <span className="text-[#ffb800]">★ 4,8</span>
+              <span className="ml-1 text-white/90 sm:ml-1.5">+2.000 avaliações</span>
+            </div>
           </div>
         </div>
 
