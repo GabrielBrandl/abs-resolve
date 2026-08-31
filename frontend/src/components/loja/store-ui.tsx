@@ -67,14 +67,6 @@ export function Stars({ value = 4.9, count }: { value?: number; count?: number }
   );
 }
 
-export function CashbackTag({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex rounded-md bg-[#ffb800] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#002d62]">
-      {children}
-    </span>
-  );
-}
-
 export function TrustRow({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`grid items-stretch gap-3 ${compact ? 'grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-4'}`}>

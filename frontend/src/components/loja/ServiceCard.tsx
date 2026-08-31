@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { cashbackOf, fallbackFotoServico, fotoServico, money, type ServicoLoja } from '../../storefront/catalog';
+import { fallbackFotoServico, fotoServico, money, type ServicoLoja } from '../../storefront/catalog';
 import { itemPath } from '../../storefront/pecas';
-import { CashbackTag } from './store-ui';
-import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
 
 export function ServiceCard({
   servico,
@@ -12,9 +10,7 @@ export function ServiceCard({
   cta?: string;
   highlight?: string;
 }) {
-  const { cashbackPercent } = useStoreConfig();
   const price = servico.precoMinimo;
-  const cashback = cashbackOf(price, cashbackPercent);
   const primario = fotoServico(servico);
   const reserva = fallbackFotoServico(servico);
   const [src, setSrc] = useState(primario);
@@ -59,11 +55,6 @@ export function ServiceCard({
             <p className="text-[20px] font-black text-[#111827]">
               {price ? money(price) : servico.precoTexto || 'Sob orçamento'}
             </p>
-            {cashback > 0 && (
-              <CashbackTag>
-                {percentLabel(cashbackPercent)}% CASHBACK
-              </CashbackTag>
-            )}
           </div>
           <Link
             to={href}

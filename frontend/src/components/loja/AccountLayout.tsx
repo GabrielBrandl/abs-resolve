@@ -10,7 +10,6 @@ import { useStoreConfig } from '../../hooks/useStoreConfig';
 import {
   IconBag,
   IconCard,
-  IconCash,
   IconDoc,
   IconGift,
   IconHome,
@@ -23,7 +22,6 @@ import {
 const NAV: Array<{ to: string; label: string; Icon: ComponentType<{ className?: string }>; end?: boolean }> = [
   { to: '/conta', label: 'Visão geral', Icon: IconHome, end: true },
   { to: '/conta/servicos', label: 'Meus serviços', Icon: IconBag },
-  { to: '/conta/cashback', label: 'Meu cashback', Icon: IconCash },
   { to: '/conta/garantias', label: 'Garantias', Icon: IconShield },
   { to: '/conta/enderecos', label: 'Meus endereços', Icon: IconPin },
   { to: '/conta/pagamentos', label: 'Pagamentos', Icon: IconCard },

@@ -2,18 +2,16 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
-import { Breadcrumb, CashbackTag, TrustStrip, YellowButton } from '../../components/loja/store-ui';
+import { Breadcrumb, TrustStrip, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { addToCart } from '../../store/cartStore';
-import { cashbackOf, findService, fotoServico, money } from '../../storefront/catalog';
+import { findService, fotoServico, money } from '../../storefront/catalog';
 import { findPeca, pecasDoServico } from '../../storefront/pecas';
-import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
 
 export function PecaPage() {
   const { slug = '' } = useParams();
   const navigate = useNavigate();
   const { categorias, loading } = useCatalog();
-  const { cashbackPercent } = useStoreConfig();
   const peca = findPeca(slug) || findService(categorias, slug);
   const [qty, setQty] = useState(1);
 
@@ -36,7 +34,6 @@ export function PecaPage() {
   }
 
   const price = peca.precoMinimo || 0;
-  const cashback = cashbackOf(price, cashbackPercent);
   const payload = {
     slug: peca.slug,
     nome: peca.nome,
@@ -78,7 +75,6 @@ export function PecaPage() {
             <p className="text-xs text-slate-500">Preço da peça</p>
             <div className="flex flex-wrap items-end gap-3">
               <p className="text-[32px] font-black text-[#002d62]">{price ? money(price) : peca.precoTexto}</p>
-              {cashback > 0 && <CashbackTag>{percentLabel(cashbackPercent)}% CASHBACK</CashbackTag>}
             </div>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">{peca.descricao}</p>

@@ -2,12 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
-import { Breadcrumb, CashbackTag, Stars, TrustStrip, YellowButton } from '../../components/loja/store-ui';
+import { Breadcrumb, Stars, TrustStrip, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { addToCart } from '../../store/cartStore';
 import { solicitacaoApi } from '../../services/modules.service';
 import {
-  cashbackOf,
   findService,
   frequentlyTogether,
   fotoServico,
@@ -15,7 +14,6 @@ import {
   relatedSameCategory,
 } from '../../storefront/catalog';
 import { WHATSAPP_LINK } from '../../storefront/constants';
-import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
 import { isPecaSlug, pecasDoServico } from '../../storefront/pecas';
 
 type Fluxo = {
@@ -26,7 +24,6 @@ export function ServicePage() {
   const { slug = '' } = useParams();
   const navigate = useNavigate();
   const { categorias, loading } = useCatalog();
-  const { cashbackPercent } = useStoreConfig();
   const servico = findService(categorias, slug);
   const [fluxo, setFluxo] = useState<Fluxo | null>(null);
   const [respostas, setRespostas] = useState<Record<string, string>>({});
@@ -38,7 +35,6 @@ export function ServicePage() {
   }, [slug]);
 
   const price = servico?.precoMinimo || 0;
-  const cashback = cashbackOf(price, cashbackPercent);
   const together = useMemo(() => frequentlyTogether(categorias, slug, 4), [categorias, slug]);
   const sameCategory = useMemo(() => relatedSameCategory(categorias, slug, 4), [categorias, slug]);
 
@@ -100,11 +96,7 @@ export function ServicePage() {
             <p className="text-xs text-slate-500">A partir de</p>
             <div className="flex flex-wrap items-end gap-3">
               <p className="text-[32px] font-black text-[#002d62]">{price ? money(price) : servico.precoTexto}</p>
-              {cashback > 0 && <CashbackTag>{percentLabel(cashbackPercent)}% CASHBACK</CashbackTag>}
             </div>
-            {cashback > 0 && (
-              <p className="mt-1 text-sm font-semibold text-emerald-700">Você recebe {money(cashback)} de volta no próximo serviço.</p>
-            )}
           </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">{servico.descricao}</p>
 
@@ -150,11 +142,6 @@ export function ServicePage() {
           </div>
           <p className="mt-2 font-bold text-[#111827]">{servico.nome}</p>
           <p className="mt-3 text-[30px] font-black text-[#002d62]">{price ? money(price * qty) : servico.precoTexto}</p>
-          {cashback > 0 && (
-            <p className="mt-2 rounded-lg bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
-              Você receberá {money(cashback * qty)} de cashback no próximo serviço.
-            </p>
-          )}
           <YellowButton className="mt-4 w-full" onClick={goCart}>
             Comprar e agendar
           </YellowButton>

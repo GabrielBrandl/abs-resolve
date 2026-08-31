@@ -34,7 +34,6 @@ export function CatalogoAdminPage() {
   const [enviandoImg, setEnviandoImg] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [regras, setRegras] = useState({
-    cashbackPercent: 10,
     descontoNovoClientePercent: 10,
     bonusIndicacao: 20,
     garantiaPadraoDias: 90,
@@ -60,7 +59,6 @@ export function CatalogoAdminPage() {
       .config()
       .then((c) => {
         setRegras({
-          cashbackPercent: Math.round(Number(c.cashbackPercent ?? 0.1) * 1000) / 10,
           descontoNovoClientePercent: Math.round(Number(c.descontoNovoClientePercent ?? 0.1) * 1000) / 10,
           bonusIndicacao: Number(c.bonusIndicacao ?? 20),
           garantiaPadraoDias: Number(c.garantiaPadraoDias ?? 90),
@@ -80,7 +78,6 @@ export function CatalogoAdminPage() {
     setSalvandoRegras(true);
     try {
       await catalogoAdminApi.atualizarConfig({
-        cashbackPercent: regras.cashbackPercent / 100,
         descontoNovoClientePercent: regras.descontoNovoClientePercent / 100,
         bonusIndicacao: regras.bonusIndicacao,
         garantiaPadraoDias: regras.garantiaPadraoDias,
@@ -217,10 +214,9 @@ export function CatalogoAdminPage() {
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-1 text-base font-black text-primary-900">Regras e valores da loja</h2>
           <p className="mb-4 text-xs text-slate-500">
-            Cashback, indicação, garantia e taxas. A vitrine e o checkout usam estes números.
+            Indicação, garantia e taxas. A vitrine e o checkout usam estes números.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Input label="Cashback (%)" type="number" min={0} step={0.1} value={regras.cashbackPercent} onChange={(e) => setRegras({ ...regras, cashbackPercent: Number(e.target.value) })} />
             <Input label="Desconto novo cliente (%)" type="number" min={0} step={0.1} value={regras.descontoNovoClientePercent} onChange={(e) => setRegras({ ...regras, descontoNovoClientePercent: Number(e.target.value) })} />
             <Input label="Bônus indicação (R$)" type="number" min={0} value={regras.bonusIndicacao} onChange={(e) => setRegras({ ...regras, bonusIndicacao: Number(e.target.value) })} />
             <Input label="Garantia padrão (dias)" type="number" min={0} value={regras.garantiaPadraoDias} onChange={(e) => setRegras({ ...regras, garantiaPadraoDias: Number(e.target.value) })} />

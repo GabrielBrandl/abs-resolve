@@ -1,12 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useCartStore } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
-import { cashbackOf, money, relatedForCart } from '../../storefront/catalog';
+import { money, relatedForCart } from '../../storefront/catalog';
 import { TrustRow, YellowButton } from '../../components/loja/store-ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { useCatalog } from '../../hooks/useCatalog';
 import { isClienteRole } from '../../utils/auth-routes';
-import { useStoreConfig } from '../../hooks/useStoreConfig';
 import { IconLock, IconShield, IconVerified } from '../../components/loja/icons';
 
 export function CartPage() {
@@ -15,10 +14,8 @@ export function CartPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const { categorias } = useCatalog();
-  const { cashbackPercent } = useStoreConfig();
   const total = items.reduce((sum, i) => sum + (Number(i.precoMinimo) || 0) * i.quantidade, 0);
   const related = relatedForCart(categorias, items.map((i) => i.slug), 4);
-  const cashback = cashbackOf(total, cashbackPercent);
 
   const checkout = () => {
     if (!user || !isClienteRole(user.role)) {
@@ -81,11 +78,6 @@ export function CartPage() {
           <span className="font-bold text-[#002d62]">Total</span>
           <p className="text-[28px] font-black text-[#002d62]">{money(total)}</p>
         </div>
-        {cashback > 0 && (
-          <p className="mt-3 rounded-lg bg-[#fff4cc] px-3 py-2 text-sm font-semibold text-[#002d62]">
-            Você ganhará <b>{money(cashback)}</b> de cashback
-          </p>
-        )}
         <ul className="mt-4 space-y-2 text-[12px] font-semibold text-[#334155]">
           <li className="flex items-center gap-2"><IconShield className="h-4 w-4 text-[#002d62]" /> Garantia de até 90 dias</li>
           <li className="flex items-center gap-2"><IconVerified className="h-4 w-4 text-[#002d62]" /> Profissional verificado</li>

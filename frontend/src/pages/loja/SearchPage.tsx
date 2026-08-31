@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { ServiceCard } from '../../components/loja/ServiceCard';
+import { ProductCarousel, ProductCarouselItem } from '../../components/loja/ProductCarousel';
 import { useCatalog } from '../../hooks/useCatalog';
 import { searchServices } from '../../storefront/catalog';
 
@@ -27,11 +28,13 @@ export function SearchPage() {
       {servicos.length > 0 && (
         <section className="mt-6">
           <h2 className="mb-3 text-lg font-black text-[#002d62]">Serviços</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ProductCarousel>
             {servicos.map((s) => (
-              <ServiceCard key={s.slug} servico={s} />
+              <ProductCarouselItem key={s.slug}>
+                <ServiceCard servico={s} />
+              </ProductCarouselItem>
             ))}
-          </div>
+          </ProductCarousel>
         </section>
       )}
 
@@ -39,11 +42,13 @@ export function SearchPage() {
         <section className="mt-8">
           <h2 className="mb-1 text-lg font-black text-[#002d62]">Peças avulsas</h2>
           <p className="mb-3 text-sm text-slate-500">Compre a peça agora. A instalação pode ser adicionada no mesmo pedido.</p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ProductCarousel>
             {pecas.map((s) => (
-              <ServiceCard key={s.slug} servico={s} />
+              <ProductCarouselItem key={s.slug}>
+                <ServiceCard servico={s} />
+              </ProductCarouselItem>
             ))}
-          </div>
+          </ProductCarousel>
         </section>
       )}
 

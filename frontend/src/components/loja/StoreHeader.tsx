@@ -6,7 +6,6 @@ import { CATEGORY_NAV, WHATSAPP_LINK } from '../../storefront/constants';
 import { isClienteRole, getHomeForRole } from '../../utils/auth-routes';
 import { fotoServico, money, searchSuggestions } from '../../storefront/catalog';
 import { itemPath } from '../../storefront/pecas';
-import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
 import { useCatalog } from '../../hooks/useCatalog';
 import { AbsBrand } from './store-ui';
 import {
@@ -54,7 +53,6 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
   const count = items.reduce((n, i) => n + i.quantidade, 0);
   const total = items.reduce((n, i) => n + (Number(i.precoMinimo) || 0) * i.quantidade, 0);
   const firstName = user?.nome?.split(' ')[0] || '';
-  const { cashbackPercent } = useStoreConfig();
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -81,13 +79,10 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
     <header className="sticky top-0 z-40">
       <div className="bg-[#002d62] text-[11px] text-white sm:text-[12px]">
         <div className="mx-auto flex h-9 max-w-[1180px] items-center justify-between gap-3 px-4">
-          <Link to="/#cashback" className="min-w-0 truncate font-medium">
-            <span className="font-extrabold text-[#ffb800]">{percentLabel(cashbackPercent)}% CASHBACK</span>
-            <span className="ml-1 hidden sm:inline">em todos os serviços.</span>
-            <span className="ml-1 font-semibold underline decoration-[#ffb800]/80 underline-offset-2">
-              Saiba como funciona &gt;
-            </span>
-          </Link>
+          <p className="min-w-0 truncate font-medium">
+            <span className="font-extrabold text-[#ffb800]">Preço antes da visita</span>
+            <span className="ml-1 hidden sm:inline">· agendamento em minutos · pagamento seguro</span>
+          </p>
           <div className="flex shrink-0 items-center gap-4 text-white/90">
             <a href={WHATSAPP_LINK} target="_blank" rel="noreferrer" className="hidden items-center gap-1.5 hover:text-[#ffb800] sm:flex">
               <IconWhatsApp className="h-3.5 w-3.5 text-[#25D366]" />

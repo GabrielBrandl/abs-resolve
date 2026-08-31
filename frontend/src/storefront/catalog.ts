@@ -1,4 +1,3 @@
-import { CASHBACK_PCT } from './constants';
 import { PECAS_CATALOGO } from './pecas';
 import { searchItems } from './search';
 import { CATALOGO_FALLBACK } from './static-catalog';
@@ -33,15 +32,6 @@ export type CategoriaLoja = {
 
 export function money(value: number | string | null | undefined) {
   return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-export function cashbackOf(price: number | string | null | undefined, pct = CASHBACK_PCT) {
-  return Math.round(Number(price || 0) * pct * 100) / 100;
-}
-
-export function priceAfterCashback(price: number | null | undefined, pct = CASHBACK_PCT) {
-  const p = Number(price || 0);
-  return Math.max(0, Math.round((p - cashbackOf(p, pct)) * 100) / 100);
 }
 
 const FOTO_CATEGORIA: Record<string, string> = {

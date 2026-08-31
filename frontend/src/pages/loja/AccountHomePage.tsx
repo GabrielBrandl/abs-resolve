@@ -5,7 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Loading } from '../../components/ui';
 import { ServiceCard } from '../../components/loja/ServiceCard';
 import { useCatalog } from '../../hooks/useCatalog';
-import { cashbackOf, flattenServices, money } from '../../storefront/catalog';
+import { flattenServices, money } from '../../storefront/catalog';
 import { useStoreConfig } from '../../hooks/useStoreConfig';
 import type { PedidoTimeline } from '../../types';
 import { formatDate } from '../../types';
@@ -13,7 +13,7 @@ import { formatDate } from '../../types';
 export function AccountHomePage() {
   const user = useAuthStore((s) => s.user);
   const { categorias } = useCatalog();
-  const { cashbackPercent, garantiaPadraoDias } = useStoreConfig();
+  const { garantiaPadraoDias } = useStoreConfig();
   const [pedidos, setPedidos] = useState<PedidoTimeline[]>([]);
   const [tab, setTab] = useState<'andamento' | 'agendados' | 'concluidos'>('andamento');
   const [loading, setLoading] = useState(true);
@@ -28,7 +28,6 @@ export function AccountHomePage() {
   const agendados = pedidos.filter((p) => p.agendamento && !['finalizado', 'concluido', 'cancelado'].includes(String(p.status)));
   const andamento = pedidos.filter((p) => ['em_execucao', 'em_processamento', 'a_caminho'].includes(String(p.status)));
   const gasto = pedidos.reduce((s, p) => s + Number(p.valor || 0), 0);
-  const cashback = cashbackOf(gasto, cashbackPercent);
   const proximo = pedidos.find((p) => p.agendamento && !['finalizado', 'concluido', 'cancelado'].includes(String(p.status)));
   const firstName = user?.nome?.split(' ')[0] || 'cliente';
   const recs = flattenServices(categorias).slice(0, 3);
@@ -42,14 +41,6 @@ export function AccountHomePage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-[14px] bg-[#ffb800] p-5 text-[#002d62] shadow-[0_8px_24px_rgba(255,184,0,0.25)]">
-          <p className="text-sm font-bold">Meu cashback</p>
-          <p className="mt-2 text-4xl font-black">{money(cashback)}</p>
-          <p className="text-xs font-semibold text-[#002d62]/70">disponível para usar</p>
-          <Link to="/conta/cashback" className="mt-4 inline-block rounded-lg bg-[#002d62] px-4 py-2 text-xs font-black uppercase text-white">
-            Usar meu cashback
-          </Link>
-        </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-bold text-slate-500">Próximo serviço</p>
           {proximo?.agendamento ? (
@@ -72,37 +63,34 @@ export function AccountHomePage() {
           <p className="text-sm text-slate-500">serviços realizados</p>
           <p className="mt-1 text-sm font-semibold text-primary-800">{garantiaPadraoDias} dias de garantia nos serviços</p>
         </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-black text-primary-900">Próximo atendimento</h2>
-            {proximo && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">Confirmado</span>}
-          </div>
-          {proximo?.agendamento ? (
-            <>
-              <p className="text-lg font-black text-primary-900">{proximo.solicitacao?.servico?.nome || proximo.numero}</p>
-              <p className="mt-1 text-sm text-slate-500">{formatDate(proximo.agendamento.data)} · {proximo.agendamento.horarioInicio}</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link to="/conta/servicos" className="rounded-lg bg-primary-800 px-4 py-2 text-xs font-black uppercase text-white">
-                  Acompanhar serviço
-                </Link>
-                <Link to="/conta/servicos" className="text-xs font-bold text-primary-700">Ver detalhes</Link>
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-slate-500">Quando você agendar, o próximo horário aparece aqui.</p>
-          )}
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-bold text-slate-500">Minha carteira ABS</p>
-          <p className="mt-2 text-4xl font-black text-primary-900">{money(cashback)}</p>
-          <p className="mt-1 text-xs text-emerald-700">Disponível · {money(cashback)}</p>
-          <Link to="/conta/cashback" className="mt-4 inline-block rounded-lg bg-accent-500 px-4 py-2 text-xs font-black uppercase text-primary-950">
-            Usar meu cashback
+        <div className="rounded-[14px] bg-[#002d62] p-5 text-white shadow-[0_8px_24px_rgba(0,45,98,0.18)]">
+          <p className="text-sm font-bold text-white/80">Agendar novo serviço</p>
+          <p className="mt-2 text-sm text-white/70">Preço antes da visita, pagamento seguro e profissional verificado.</p>
+          <Link to="/" className="mt-4 inline-block rounded-lg bg-[#ffb800] px-4 py-2 text-xs font-black uppercase text-[#002d62]">
+            Ver serviços
           </Link>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-black text-primary-900">Próximo atendimento</h2>
+          {proximo && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">Confirmado</span>}
+        </div>
+        {proximo?.agendamento ? (
+          <>
+            <p className="text-lg font-black text-primary-900">{proximo.solicitacao?.servico?.nome || proximo.numero}</p>
+            <p className="mt-1 text-sm text-slate-500">{formatDate(proximo.agendamento.data)} · {proximo.agendamento.horarioInicio}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link to="/conta/servicos" className="rounded-lg bg-primary-800 px-4 py-2 text-xs font-black uppercase text-white">
+                Acompanhar serviço
+              </Link>
+              <Link to="/conta/servicos" className="text-xs font-bold text-primary-700">Ver detalhes</Link>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-slate-500">Quando você agendar, o próximo horário aparece aqui.</p>
+        )}
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -160,7 +148,6 @@ export function AccountHomePage() {
           <ul className="mt-3 space-y-2 text-sm">
             <li className="flex justify-between"><span>Serviços realizados</span><strong>{concluidos.length}</strong></li>
             <li className="flex justify-between"><span>Total gasto</span><strong>{money(gasto)}</strong></li>
-            <li className="flex justify-between"><span>Cashback acumulado</span><strong>{money(cashback)}</strong></li>
           </ul>
           <Link to="/conta/servicos" className="mt-4 inline-block text-sm font-bold text-primary-700">Ver relatório completo</Link>
         </div>

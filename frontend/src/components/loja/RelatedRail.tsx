@@ -1,8 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { addToCart } from '../../store/cartStore';
-import { cashbackOf, fotoServico, money, type ServicoLoja } from '../../storefront/catalog';
+import { fotoServico, money, type ServicoLoja } from '../../storefront/catalog';
 import { itemPath, isPecaSlug } from '../../storefront/pecas';
-import { useStoreConfig } from '../../hooks/useStoreConfig';
+import { ProductCarousel, ProductCarouselItem } from './ProductCarousel';
 
 export function RelatedRail({
   title,
@@ -15,7 +15,6 @@ export function RelatedRail({
   servicos: ServicoLoja[];
   cta?: string;
 }) {
-  const { cashbackPercent } = useStoreConfig();
   const navigate = useNavigate();
   if (!servicos.length) return null;
 
@@ -25,11 +24,12 @@ export function RelatedRail({
         <h2 className="text-lg font-black text-primary-950">{title}</h2>
         {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <ProductCarousel gridClassName="md:grid md:grid-cols-2 md:gap-3 lg:grid-cols-4" showFade={false}>
         {servicos.map((s) => {
           const price = s.precoMinimo;
           return (
-            <article key={s.slug} className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+            <ProductCarouselItem key={s.slug} compact>
+              <article className="flex h-full gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
               <Link to={itemPath(s)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-[#dbe7f5]">
                 <img src={fotoServico(s)} alt="" className="h-full w-full object-cover" />
               </Link>
@@ -38,7 +38,6 @@ export function RelatedRail({
                   {s.nome}
                 </Link>
                 <p className="text-sm font-black text-primary-800">{price ? money(price) : s.precoTexto}</p>
-                {price ? <p className="text-[11px] font-semibold text-emerald-700">+ {money(cashbackOf(price, cashbackPercent))} cashback</p> : null}
                 <button
                   type="button"
                   onClick={() => {
@@ -63,10 +62,11 @@ export function RelatedRail({
                   {s.tipoPreco === 'sob_orcamento' ? 'Ver serviço' : cta}
                 </button>
               </div>
-            </article>
+              </article>
+            </ProductCarouselItem>
           );
         })}
-      </div>
+      </ProductCarousel>
     </section>
   );
 }

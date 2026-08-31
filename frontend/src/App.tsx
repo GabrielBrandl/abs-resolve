@@ -49,7 +49,6 @@ const SearchPage = lazy(() => import('./pages/loja/SearchPage').then((m) => ({ d
 const PecaPage = lazy(() => import('./pages/loja/PecaPage').then((m) => ({ default: m.PecaPage })));
 const CartPage = lazy(() => import('./pages/loja/CartPage').then((m) => ({ default: m.CartPage })));
 const AccountHomePage = lazy(() => import('./pages/loja/AccountHomePage').then((m) => ({ default: m.AccountHomePage })));
-const CashbackPage = lazy(() => import('./pages/loja/CashbackPage').then((m) => ({ default: m.CashbackPage })));
 const ReferralPage = lazy(() => import('./pages/loja/ReferralPage').then((m) => ({ default: m.ReferralPage })));
 
 function HomeRedirect() {
@@ -154,7 +153,6 @@ function AppRoutes() {
             <Route element={<AccountLayout />}>
               <Route path="/conta" element={<AccountHomePage />} />
               <Route path="/conta/servicos" element={<ClientePedidosPage />} />
-              <Route path="/conta/cashback" element={<CashbackPage />} />
               <Route path="/conta/indique" element={<ReferralPage />} />
               <Route path="/conta/garantias" element={<ClienteGarantiasPage />} />
               <Route path="/conta/enderecos" element={<ClienteCadastroPage />} />

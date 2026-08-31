@@ -3,7 +3,6 @@ export const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_ABS}?text=${encodeURIComp
   'Olá, ABS Resolve! Quero contratar um serviço.'
 )}`;
 
-export const CASHBACK_PCT = 0.1;
 export const REFERRAL_BONUS = 20;
 
 export type CategoryNavItem = {

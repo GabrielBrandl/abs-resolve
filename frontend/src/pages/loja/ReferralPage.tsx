@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { money } from '../../storefront/catalog';
 import { useStoreConfig } from '../../hooks/useStoreConfig';
@@ -23,7 +22,7 @@ export function ReferralPage() {
           <h1 className="text-3xl font-black">Indique e ganhe</h1>
           <p className="mt-2 max-w-lg text-sm font-semibold">
             Seu amigo ganha <strong>{money(bonusIndicacao)}</strong> na primeira contratação. Você ganha{' '}
-            <strong>{money(bonusIndicacao)}</strong> de cashback quando o serviço dele for concluído.
+            <strong>{money(bonusIndicacao)}</strong> de bônus quando o serviço dele for concluído.
           </p>
           <div className="mt-4 rounded-xl bg-white p-4">
             <p className="text-xs font-bold text-slate-500">Seu código</p>
@@ -54,7 +53,7 @@ export function ReferralPage() {
             ['Compartilhe', 'Envie seu código ou link'],
             ['Seu amigo contrata', 'Ele usa o benefício na primeira visita'],
             ['A ABS resolve', 'O serviço é concluído'],
-            ['Você ganha', `${money(bonusIndicacao)} de cashback`],
+            ['Você ganha', `${money(bonusIndicacao)} de bônus`],
           ].map(([t, d], i) => (
             <div key={t} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-800 text-sm font-black text-white">{i + 1}</p>
@@ -85,8 +84,7 @@ export function ReferralPage() {
       </div>
 
       <p className="text-xs text-slate-500">
-        O cashback é liberado após a conclusão do primeiro serviço do indicado.{' '}
-        <Link to="/conta/cashback" className="font-bold text-primary-700">Ver meu cashback</Link>
+        O bônus é liberado após a conclusão do primeiro serviço do indicado.
       </p>
     </div>
   );
