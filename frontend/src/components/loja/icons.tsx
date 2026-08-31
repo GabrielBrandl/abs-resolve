@@ -233,8 +233,80 @@ export function IconHeadset({ className = 'h-5 w-5' }: IconProps) {
 export function IconUniform({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className} {...stroke}>
-      <path d="M8 6 12 3l4 3 3 3v12H5V9z" />
-      <path d="M9 21v-7h6v7" />
+      <circle cx="12" cy="7" r="3" />
+      <path d="M5 20c1.2-3.5 3.8-5.2 7-5.2S17.8 16.5 19 20" />
+      <path d="M9.5 11.5 8 14h8l-1.5-2.5" />
+    </svg>
+  );
+}
+
+export function IconCalendar({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M8 3.5V7M16 3.5V7M3.5 10h17" />
+    </svg>
+  );
+}
+
+export function IconPeople({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <circle cx="9" cy="8" r="2.8" />
+      <circle cx="16.5" cy="9" r="2.2" />
+      <path d="M3.8 19c1-3 3.2-4.5 5.2-4.5S13.2 16 14.2 19" />
+      <path d="M14 14.8c1.4-.5 2.9-.4 4.3.7 1 .8 1.7 2 2 3.5" />
+    </svg>
+  );
+}
+
+export function IconInstall({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 8v8M9.5 14.5 12 17l2.5-2.5" />
+    </svg>
+  );
+}
+
+export function IconParcelas({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <rect x="3" y="5.5" width="18" height="13" rx="2" />
+      <path d="M3 9.5h18" />
+      <path d="M7 14h.01M10.5 14h.01M14 14h.01" />
+      <path d="M16.2 13.2h3.3v3.2h-3.3z" />
+      <path d="M17.1 14.1v2M18.6 14.1v2" />
+    </svg>
+  );
+}
+
+export function IconGear({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3.5v2.2M12 18.3v2.2M4.9 7.5l1.9 1.1M17.2 15.4l1.9 1.1M4.9 16.5l1.9-1.1M17.2 8.6l1.9-1.1" />
+      <path d="M19.5 12h-2.2M6.7 12H4.5" />
+    </svg>
+  );
+}
+
+export function IconSpray({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M9 8h5v12H9z" />
+      <path d="M10 8V6h3v2" />
+      <path d="M16 5c1.5 0 2.5 1 2.5 2.5S17.5 10 16 10" />
+      <path d="M16 4v1M18.5 4.5l-.7.7M19 7h-1" />
+    </svg>
+  );
+}
+
+export function IconTools({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...stroke}>
+      <path d="M14.5 5.5a3.5 3.5 0 0 0-4.7 4.7L4 16l3 3 5.8-5.8a3.5 3.5 0 0 0 4.7-4.7L15.5 10z" />
+      <path d="m8 8 2 2" />
     </svg>
   );
 }

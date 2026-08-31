@@ -21,10 +21,9 @@ import { formatarRespostasItem } from '../utils/fluxo-respostas.js';
 import { storageService } from './storage.service.js';
 import { pagamentosService } from './pagamentos.service.js';
 
-function percentNovoCliente(config: { descontoNovoClientePercent?: unknown }): number {
-  const raw = toNumber(config.descontoNovoClientePercent);
-  if (!raw) return 10;
-  return raw > 1 ? raw : Math.round(raw * 1000) / 10;
+function descontoPixPercent(): number {
+  const raw = Number(process.env.DESCONTO_PIX_PERCENT || 5);
+  return Number.isFinite(raw) && raw > 0 ? raw : 5;
 }
 
 function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
@@ -305,12 +304,8 @@ export class SolicitacaoService {
     const config = await getConfigPrecificacao();
     const expressValor = express ? toNumber(config.expressValor) : 0;
 
-    const elegivelPrimeiroServico = await this.clienteElegivelDescontoPrimeiroServico(clienteId);
-    const percentualDesconto = elegivelPrimeiroServico ? percentNovoCliente(config) : 0;
-    const valorDesconto = elegivelPrimeiroServico
-      ? Math.round(precoSubtotal * (percentualDesconto / 100) * 100) / 100
-      : 0;
-    const precoFinal = Math.max(0, precoSubtotal - valorDesconto) + expressValor;
+    // Desconto de PIX é aplicado só na hora do pagamento (finalizarPagamento).
+    const precoFinal = precoSubtotal + expressValor;
 
     const firstService = itens.find((i) => !isPecaSlug(i.slug));
     const anchorSlug = firstService?.slug || findPeca(itens[0].slug)?.servicoRelacionado || itens[0].slug;
@@ -332,9 +327,6 @@ export class SolicitacaoService {
           requerValidacaoTecnica: false,
           aceiteIaDiagnostico,
           aceiteIaEm: aceiteIaDiagnostico ? new Date().toISOString() : undefined,
-          descontoPrimeiroServico: percentualDesconto || undefined,
-          valorDesconto: valorDesconto || undefined,
-          elegivelPrimeiroServico,
         },
         fotos: fotosTodas,
         precoBase: precoSubtotal,
@@ -346,12 +338,9 @@ export class SolicitacaoService {
     });
   }
 
-  /** Novo cliente: 10% no primeiro serviço pago (PIX/cartão). */
-  async clienteElegivelDescontoPrimeiroServico(clienteId: string) {
-    const pagos = await prisma.pagamento.count({
-      where: { clienteId, status: 'RECEIVED' },
-    });
-    return pagos === 0;
+  /** Percentual de desconto exclusivo para pagamento via PIX. */
+  descontoPixPercent() {
+    return descontoPixPercent();
   }
 
   async atualizarCheckout(id: string, clienteId: string, express: boolean) {
@@ -359,31 +348,22 @@ export class SolicitacaoService {
     if (!sol) throw new Error('Solicitação não encontrada');
     if (sol.status !== 'checkout') throw new Error('Checkout indisponível');
 
-    const opcoes = (sol.opcoes || {}) as {
-      itens?: unknown[];
-      pontosTotal?: number;
-      valorDesconto?: number;
-      descontoPrimeiroServico?: number;
-      elegivelPrimeiroServico?: boolean;
-    };
+    const opcoes = (sol.opcoes || {}) as Record<string, unknown>;
     const config = await getConfigPrecificacao();
     const base = toNumber(sol.precoBase || 0);
     const expressValor = express ? toNumber(config.expressValor) : 0;
-    const elegivel = await this.clienteElegivelDescontoPrimeiroServico(clienteId);
-    const percentualDesconto = elegivel ? percentNovoCliente(config) : 0;
-    const valorDesconto = elegivel ? Math.round(base * (percentualDesconto / 100) * 100) / 100 : 0;
 
     return prisma.solicitacaoServico.update({
       where: { id },
       data: {
         express,
-        precoFinal: Math.max(0, base - valorDesconto) + expressValor,
+        precoFinal: base + expressValor,
         opcoes: {
           ...opcoes,
-          pontosTotal: opcoes.pontosTotal,
-          descontoPrimeiroServico: percentualDesconto || undefined,
-          valorDesconto: valorDesconto || undefined,
-          elegivelPrimeiroServico: elegivel,
+          valorDesconto: undefined,
+          descontoPix: undefined,
+          descontoPrimeiroServico: undefined,
+          elegivelPrimeiroServico: undefined,
         } as Prisma.InputJsonValue,
         status: 'checkout',
       },
@@ -391,8 +371,12 @@ export class SolicitacaoService {
     });
   }
 
-  /** Recalcula desconto de 1º serviço antes de gerar cobrança. */
-  async aplicarDescontoPrimeiroServicoNoCheckout(id: string, clienteId: string) {
+  /** Aplica 5% de desconto apenas quando o método escolhido for PIX. */
+  async aplicarDescontoPixNoPagamento(
+    id: string,
+    clienteId: string,
+    metodo: 'PIX' | 'BOLETO' | 'CARTAO'
+  ) {
     const sol = await prisma.solicitacaoServico.findFirst({ where: { id, clienteId } });
     if (!sol) throw new Error('Solicitação não encontrada');
 
@@ -400,9 +384,9 @@ export class SolicitacaoService {
     const config = await getConfigPrecificacao();
     const base = toNumber(sol.precoBase || 0);
     const expressValor = sol.express ? toNumber(config.expressValor) : 0;
-    const elegivel = await this.clienteElegivelDescontoPrimeiroServico(clienteId);
-    const percentualDesconto = elegivel ? percentNovoCliente(config) : 0;
-    const valorDesconto = elegivel ? Math.round(base * (percentualDesconto / 100) * 100) / 100 : 0;
+    const percentualDesconto = metodo === 'PIX' ? descontoPixPercent() : 0;
+    const valorDesconto =
+      percentualDesconto > 0 ? Math.round(base * (percentualDesconto / 100) * 100) / 100 : 0;
     const precoFinal = Math.max(0, base - valorDesconto) + expressValor;
 
     return prisma.solicitacaoServico.update({
@@ -411,9 +395,10 @@ export class SolicitacaoService {
         precoFinal,
         opcoes: {
           ...opcoes,
-          descontoPrimeiroServico: percentualDesconto || undefined,
+          descontoPix: percentualDesconto || undefined,
           valorDesconto: valorDesconto || undefined,
-          elegivelPrimeiroServico: elegivel,
+          descontoPrimeiroServico: undefined,
+          elegivelPrimeiroServico: undefined,
         } as Prisma.InputJsonValue,
       },
       include: { servico: true, cliente: true, agendamento: true },
@@ -675,7 +660,7 @@ export class SolicitacaoService {
       throw new Error('Checkout inválido para pagamento');
     }
 
-    sol = await this.aplicarDescontoPrimeiroServicoNoCheckout(id, clienteId);
+    sol = await this.aplicarDescontoPixNoPagamento(id, clienteId, metodo);
     const valor = toNumber(sol.precoFinal || 0);
     const numero = `ABS-${Date.now().toString().slice(-8)}`;
 

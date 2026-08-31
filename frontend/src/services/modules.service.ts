@@ -232,12 +232,15 @@ export const solicitacaoApi = {
       precoBase?: number | string;
       opcoes?: {
         valorDesconto?: number;
+        descontoPix?: number;
         descontoPrimeiroServico?: number;
         elegivelPrimeiroServico?: boolean;
       };
     }>('/solicitacao/carrinho', body),
   descontoPrimeiroServico: () =>
-    get<{ elegivel: boolean; percentual: number; mensagem: string }>('/solicitacao/desconto-primeiro-servico'),
+    get<{ elegivel: boolean; percentual: number; somentePix?: boolean; mensagem: string }>(
+      '/solicitacao/desconto-primeiro-servico'
+    ),
   fluxo: (slug: string) =>
     get<{
       slug: string;

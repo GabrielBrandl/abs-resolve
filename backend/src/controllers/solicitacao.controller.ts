@@ -67,21 +67,14 @@ export class SolicitacaoController {
     }
   }
 
-  async descontoPrimeiroServico(req: Request, res: Response) {
+  async descontoPrimeiroServico(_req: Request, res: Response) {
     try {
-      const clienteId = await clienteIdFromReq(req);
-      const elegivel = await solicitacaoService.clienteElegivelDescontoPrimeiroServico(clienteId);
-      const { getConfigPrecificacao } = await import('../engines/pricing.engine.js');
-      const { toNumber } = await import('../utils/helpers.js');
-      const config = await getConfigPrecificacao();
-      const raw = toNumber(config.descontoNovoClientePercent);
-      const percentual = !raw ? 10 : raw > 1 ? raw : Math.round(raw * 1000) / 10;
+      const percentual = solicitacaoService.descontoPixPercent();
       return success(res, {
-        elegivel,
+        elegivel: true,
         percentual,
-        mensagem: elegivel
-          ? `${percentual}% de desconto no primeiro serviço (PIX, crédito ou débito).`
-          : 'Desconto de primeiro serviço já utilizado.',
+        somentePix: true,
+        mensagem: `${percentual}% de desconto exclusivo no pagamento via PIX.`,
       });
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);

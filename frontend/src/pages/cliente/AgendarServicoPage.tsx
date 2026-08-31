@@ -80,13 +80,24 @@ function ServicoCardMedia({ servico, icone }: { servico: ServicoCatalogo; icone:
   );
 }
 
-function PixQrArea({ pixCode, invoiceUrl }: { pixCode?: string; invoiceUrl?: string }) {
+function PagamentoArea({
+  metodo,
+  pixCode,
+  invoiceUrl,
+}: {
+  metodo: 'PIX' | 'CARTAO' | null;
+  pixCode?: string;
+  invoiceUrl?: string;
+}) {
   if (!pixCode && !invoiceUrl) return null;
 
+  const isPix = metodo === 'PIX' || Boolean(pixCode);
+  const titulo = isPix ? 'Pagamento PIX' : 'Pagamento no cartão de crédito';
+
   return (
-    <div className="mb-4 rounded-xl border-2 border-green-200 bg-green-50 p-4">
-      <p className="mb-2 text-sm font-semibold text-green-800">Pagamento PIX</p>
-      {pixCode && (
+    <div className={`mb-4 rounded-xl border-2 p-4 ${isPix ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'}`}>
+      <p className={`mb-2 text-sm font-semibold ${isPix ? 'text-green-800' : 'text-blue-900'}`}>{titulo}</p>
+      {isPix && pixCode && (
         <>
           <div className="mb-3 flex justify-center">
             <img
@@ -105,15 +116,33 @@ function PixQrArea({ pixCode, invoiceUrl }: { pixCode?: string; invoiceUrl?: str
           />
         </>
       )}
-      {invoiceUrl && (
+      {!isPix && invoiceUrl && (
+        <div className="overflow-hidden rounded-lg border border-blue-200 bg-white">
+          <iframe
+            title="Checkout Asaas — cartão"
+            src={invoiceUrl}
+            className="h-[520px] w-full"
+            allow="payment *"
+          />
+          <a
+            href={invoiceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="block border-t px-3 py-2 text-center text-sm text-primary-600 underline"
+            onClick={() => gtmPush('agendar_pagamento_link_externo', { url: invoiceUrl })}
+          >
+            Abrir em nova aba se o formulário não carregar
+          </a>
+        </div>
+      )}
+      {isPix && invoiceUrl && !pixCode && (
         <a
           href={invoiceUrl}
           target="_blank"
           rel="noreferrer"
           className="mt-2 block text-center text-sm text-primary-600 underline"
-          onClick={() => gtmPush('agendar_pagamento_link_externo', { url: invoiceUrl })}
         >
-          Abrir link de pagamento
+          Ver código de pagamento
         </a>
       )}
     </div>
@@ -137,8 +166,7 @@ export function AgendarServicoPage() {
   const [busca, setBusca] = useState('');
   const [solicitacaoId, setSolicitacaoId] = useState('');
   const [preco, setPreco] = useState(0);
-  const [express, setExpress] = useState(false);
-  const [expressValor, setExpressValor] = useState(29);
+  const [express] = useState(false);
   const [slots, setSlots] = useState<Array<{ data: string; horarioInicio: string; horarioFim: string; label: string; escassez: string }>>([]);
   const [proxima, setProxima] = useState<string | null>(null);
   const [slotSel, setSlotSel] = useState<{ data: string; horarioInicio: string; horarioFim: string } | null>(null);
@@ -168,8 +196,7 @@ export function AgendarServicoPage() {
   }, [cart.items]);
   const [fotosPorSlug, setFotosPorSlug] = useState<Record<string, File[]>>({});
   const [fluxosFotos, setFluxosFotos] = useState<Record<string, string[]>>({});
-  const [descontoElegivel, setDescontoElegivel] = useState(false);
-  const [percentualNovoCliente, setPercentualNovoCliente] = useState(10);
+  const [descontoPixPercent, setDescontoPixPercent] = useState(5);
   const [valorDescontoAplicado, setValorDescontoAplicado] = useState(0);
   const [pctDescontoAplicado, setPctDescontoAplicado] = useState(0);
   const [metodoPagamento, setMetodoPagamento] = useState<'PIX' | 'CARTAO' | null>(null);
@@ -189,17 +216,11 @@ export function AgendarServicoPage() {
       .then(([data, config, desc]) => {
         setCategorias(data.categorias || []);
         if (data.categorias?.[0]) setCatAtiva(data.categorias[0].slug);
-        setExpressValor(config.expressValor);
         if (config.parcelamento) {
           setParcelasSemJuros(config.parcelamento.parcelasSemJuros);
           setTaxaJurosMes(config.parcelamento.taxaJurosMesPercent);
         }
-        setDescontoElegivel(Boolean(desc.elegivel));
-        if (Number(desc.percentual) > 0) setPercentualNovoCliente(Number(desc.percentual));
-        if (Number(config.descontoNovoClientePercent) > 0) {
-          const pct = Number(config.descontoNovoClientePercent);
-          setPercentualNovoCliente(pct > 1 ? pct : Math.round(pct * 1000) / 10);
-        }
+        if (Number(desc.percentual) > 0) setDescontoPixPercent(Number(desc.percentual));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -395,10 +416,12 @@ export function AgendarServicoPage() {
     }, 0);
   }, [cart.items, precosPorSlug]);
 
-  const descontoEstimado = descontoElegivel
-    ? Math.round(totalCalculado * (percentualNovoCliente / 100) * 100) / 100
-    : 0;
-  const totalComDescontoEstimado = Math.max(0, totalCalculado - descontoEstimado);
+  const descontoPixEstimado =
+    metodoPagamento === 'PIX'
+      ? Math.round(preco * (descontoPixPercent / 100) * 100) / 100
+      : 0;
+  const totalComPix =
+    metodoPagamento === 'PIX' ? Math.max(0, preco - descontoPixEstimado) : preco;
 
   const temValidacaoTecnica = cart.items.some((i) => precosPorSlug[i.slug]?.requerValidacaoTecnica);
 
@@ -482,12 +505,12 @@ export function AgendarServicoPage() {
       setSolicitacaoId(sol.id);
       setPreco(Number(sol.precoFinal));
       setValorDescontoAplicado(Number(sol.opcoes?.valorDesconto || 0));
-      setPctDescontoAplicado(Number(sol.opcoes?.descontoPrimeiroServico || 0));
+      setPctDescontoAplicado(Number(sol.opcoes?.descontoPix || sol.opcoes?.descontoPrimeiroServico || 0));
       gtmPush('agendar_pedido_criado', {
         solicitacao_id: sol.id,
         valor: Number(sol.precoFinal),
         qtd_itens: cart.items.length,
-        desconto_primeiro_servico: Number(sol.opcoes?.valorDesconto || 0),
+        desconto_pix: Number(sol.opcoes?.valorDesconto || 0),
       });
       setStep('pagamento');
     } catch (e) {
@@ -528,20 +551,33 @@ export function AgendarServicoPage() {
       });
       const res = (await solicitacaoApi.pagar(solicitacaoId, metodo, installmentCount)) as {
         pagamento: { id?: string; invoiceUrl?: string; pixCode?: string };
+        solicitacao?: { precoFinal?: number; opcoes?: { valorDesconto?: number; descontoPix?: number } };
       };
       setPagamento(res.pagamento);
+      if (res.solicitacao?.precoFinal != null) setPreco(Number(res.solicitacao.precoFinal));
+      if (res.solicitacao?.opcoes?.valorDesconto != null) {
+        setValorDescontoAplicado(Number(res.solicitacao.opcoes.valorDesconto));
+      }
+      if (res.solicitacao?.opcoes?.descontoPix != null) {
+        setPctDescontoAplicado(Number(res.solicitacao.opcoes.descontoPix));
+      }
       cart.clear();
       gtmPush(metodo === 'PIX' ? 'agendar_pagamento_pix_gerado' : 'agendar_pagamento_cartao_gerado', {
         solicitacao_id: solicitacaoId,
         metodo,
-        valor: preco,
+        valor: Number(res.solicitacao?.precoFinal ?? preco),
         parcelas: installmentCount || 1,
         tem_invoice: Boolean(res.pagamento?.invoiceUrl),
         tem_pix: Boolean(res.pagamento?.pixCode),
       });
       setStep('aguardando');
       iniciarPolling(solicitacaoId);
-      toast('Pagamento gerado! Aguardando confirmação...', 'success');
+      toast(
+        metodo === 'PIX'
+          ? 'PIX gerado! Pague nesta tela e aguarde a confirmação.'
+          : 'Preencha o cartão abaixo para finalizar o pagamento.',
+        'success'
+      );
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro no pagamento', 'error');
     } finally {
@@ -566,14 +602,6 @@ export function AgendarServicoPage() {
       toast(e instanceof Error ? e.message : 'Erro ao agendar', 'error');
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const toggleExpress = async (checked: boolean) => {
-    setExpress(checked);
-    if (solicitacaoId) {
-      const res = await solicitacaoApi.checkout(solicitacaoId, checked) as { precoFinal: number };
-      setPreco(Number(res.precoFinal));
     }
   };
 
@@ -614,11 +642,9 @@ export function AgendarServicoPage() {
       />
       <CheckoutStepper current={checkoutStep} />
 
-      {descontoElegivel && (
-        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          <strong>Primeiro serviço:</strong> {percentualNovoCliente}% de desconto automático no PIX, crédito ou débito.
-        </div>
-      )}
+      <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <strong>PIX:</strong> {descontoPixPercent}% de desconto automático no pagamento via PIX.
+      </div>
 
       {step === 'catalogo' && (
         <>
@@ -756,15 +782,10 @@ export function AgendarServicoPage() {
             </ul>
           )}
 
-          <label className="mt-4 flex items-center gap-2 rounded-lg border-2 border-accent-400 bg-accent-50 p-3">
-            <input type="checkbox" checked={express} onChange={(e) => setExpress(e.target.checked)} />
-            <span className="font-medium">Atendimento Express (+ {formatCurrency(expressValor)})</span>
-          </label>
-
           <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div>
             <p className="text-xl font-bold text-primary-800">
-              A partir de: {formatCurrency(cart.total() + (express ? expressValor : 0))}
+              A partir de: {formatCurrency(cart.total())}
             </p>
             <p className="text-xs text-slate-500">O valor final é calculado nas perguntas do serviço</p>
             </div>
@@ -855,17 +876,8 @@ export function AgendarServicoPage() {
               );
             })}
           </ul>
-          <label className="mt-4 flex items-center gap-2 rounded-lg border-2 border-accent-400 bg-accent-50 p-3">
-            <input type="checkbox" checked={express} onChange={(e) => setExpress(e.target.checked)} />
-            <span className="font-medium">Atendimento Express (+ {formatCurrency(expressValor)})</span>
-          </label>
-          {descontoElegivel && descontoEstimado > 0 && (
-            <p className="mt-3 text-sm text-emerald-700">
-              Desconto novo cliente ({percentualNovoCliente}%): −{formatCurrency(descontoEstimado)}
-            </p>
-          )}
           <p className="mt-2 text-xl font-bold text-primary-800">
-            Total: {formatCurrency(totalComDescontoEstimado + (express ? expressValor : 0))}
+            Total: {formatCurrency(totalCalculado)}
           </p>
           <QuestionarioNav
             onVoltar={() => {
@@ -921,16 +933,21 @@ export function AgendarServicoPage() {
               </li>
             ))}
           </ul>
-          {valorDescontoAplicado > 0 && (
+          {metodoPagamento === 'PIX' && descontoPixEstimado > 0 && (
             <p className="mb-2 text-sm text-emerald-700">
-              Desconto primeiro serviço ({pctDescontoAplicado}%): −{formatCurrency(valorDescontoAplicado)}
+              Desconto PIX ({descontoPixPercent}%): −{formatCurrency(descontoPixEstimado)}
             </p>
           )}
-          <p className="mb-4 text-2xl font-bold text-primary-700">{formatCurrency(preco)}</p>
-          <label className="mb-4 flex items-center gap-2 rounded-lg border p-3">
-            <input type="checkbox" checked={express} onChange={(e) => toggleExpress(e.target.checked)} />
-            <span>Express (+ {formatCurrency(expressValor)})</span>
-          </label>
+          {valorDescontoAplicado > 0 && metodoPagamento !== 'PIX' && (
+            <p className="mb-2 text-sm text-emerald-700">
+              Desconto PIX ({pctDescontoAplicado}%): −{formatCurrency(valorDescontoAplicado)}
+            </p>
+          )}
+          <p className="mb-1 text-2xl font-bold text-primary-700">{formatCurrency(totalComPix)}</p>
+          {metodoPagamento === 'PIX' && descontoPixEstimado > 0 && (
+            <p className="mb-4 text-xs text-slate-500">De {formatCurrency(preco)} por {formatCurrency(totalComPix)} no PIX</p>
+          )}
+          {metodoPagamento !== 'PIX' && <div className="mb-4" />}
 
           <p className="mb-2 text-sm font-medium text-primary-800">Forma de pagamento</p>
           <div className="mb-4 flex flex-wrap gap-2">
@@ -992,9 +1009,15 @@ export function AgendarServicoPage() {
                 </p>
               )}
               <p className="mt-2 text-xs text-slate-500">
-                O cartão será informado na página segura do Asaas após gerar a cobrança.
+                O cartão é preenchido nesta mesma página, no checkout seguro do Asaas.
               </p>
             </div>
+          )}
+
+          {metodoPagamento === 'PIX' && (
+            <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+              Pagando com PIX você ganha {descontoPixPercent}% de desconto automático.
+            </p>
           )}
 
           <Button
@@ -1006,10 +1029,10 @@ export function AgendarServicoPage() {
               ? 'Gerando pagamento...'
               : metodoPagamento === 'CARTAO'
                 ? parcelaSelecionada.semJuros
-                  ? `Pagar em ${parcelas}x`
+                  ? `Pagar em ${parcelas}x nesta página`
                   : `Pagar em ${parcelas}x (${formatCurrency(parcelaSelecionada.total)})`
                 : metodoPagamento === 'PIX'
-                  ? 'Gerar PIX'
+                  ? `Gerar PIX com ${descontoPixPercent}% off`
                   : 'Escolha a forma de pagamento'}
           </Button>
         </Card>
@@ -1023,7 +1046,11 @@ export function AgendarServicoPage() {
             Enviamos um e-mail confirmando a solicitação. Quando o Asaas confirmar o pagamento, você recebe
             outro e-mail de pagamento confirmado.
           </p>
-          <PixQrArea pixCode={pagamento?.pixCode} invoiceUrl={pagamento?.invoiceUrl} />
+          <PagamentoArea
+            metodo={metodoPagamento}
+            pixCode={pagamento?.pixCode}
+            invoiceUrl={pagamento?.invoiceUrl}
+          />
           {aguardandoPagamento && (
             <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
