@@ -5,8 +5,6 @@ const CATS = [
   { slug: 'hidraulica', nome: 'Hidráulica', icone: '💧', cor: '#0ea5e9' },
   { slug: 'montador', nome: 'Montador', icone: '🔧', cor: '#6366f1' },
   { slug: 'ar-condicionado', nome: 'Ar-condicionado', icone: '❄️', cor: '#06b6d4' },
-  { slug: 'jardinagem', nome: 'Jardinagem', icone: '🌿', cor: '#22c55e' },
-  { slug: 'limpeza-pos-obra', nome: 'Limpeza pós-obra', icone: '🧹', cor: '#64748b' },
 ];
 
 const SERVICOS = [
@@ -23,13 +21,8 @@ const SERVICOS = [
   ['desentupimento-vaso', 'hidraulica', 'Desentupimento de vaso', 299, 'A partir de R$ 299', 'a_partir', 30],
   ['instalacao-suporte-tv', 'montador', 'Instalação de suporte de TV', 159, 'R$ 159', 'fixo', 90],
   ['instalacao-prateleira', 'montador', 'Instalação de prateleira', 149, 'R$ 149', 'fixo', 30],
-  ['montagem-moveis-simples', 'montador', 'Montagem de móvel simples', 249, 'R$ 249', 'fixo', 30],
-  ['montagem-guarda-roupa', 'montador', 'Montagem de guarda-roupa', 499, 'R$ 499', 'fixo', 30],
-  ['instalacao-persiana', 'montador', 'Instalação de persiana', 179, 'R$ 179', 'fixo', 30],
   ['limpeza-ar-split', 'ar-condicionado', 'Limpeza preventiva (split)', 249, 'R$ 249', 'fixo', 30],
   ['instalacao-ar-split', 'ar-condicionado', 'Instalação de ar-condicionado split', null, 'Sob orçamento', 'sob_orcamento', 90],
-  ['poda-jardim', 'jardinagem', 'Poda e limpeza de jardim', 159, 'R$ 159', 'fixo', 0],
-  ['limpeza-pos-obra', 'limpeza-pos-obra', 'Limpeza pós-obra', 15, 'A partir de R$ 15/m²', 'a_partir', 0],
 ] as const;
 
 export const CATALOGO_FALLBACK: CategoriaLoja[] = CATS.map((cat) => ({

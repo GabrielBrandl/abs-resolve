@@ -133,17 +133,6 @@ export const PECAS_CATALOGO: PecaCatalogoDef[] = [
     keywords: ['torneira', 'gourmet', 'peca'],
   },
   {
-    slug: 'peca-registro-gaveta',
-    categoria: 'hidraulica',
-    nome: 'Registro de gaveta',
-    precoMinimo: 59.9,
-    precoTexto: 'R$ 59,90',
-    descricao: 'Registro de gaveta. Peça avulsa, sem instalação.',
-    imagemUrl: '/opcoes/troca-registro/tipoRegistro/registro-gaveta.webp',
-    servicoRelacionado: 'troca-registro',
-    keywords: ['registro', 'gaveta', 'peca'],
-  },
-  {
     slug: 'peca-chuveiro-eletrico',
     categoria: 'eletricista',
     nome: 'Chuveiro elétrico',

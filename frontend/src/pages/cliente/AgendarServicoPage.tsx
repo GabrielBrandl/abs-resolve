@@ -50,8 +50,6 @@ const CORES_CATEGORIA: Record<string, string> = {
   hidraulica: 'from-sky-500 to-sky-700',
   montador: 'from-indigo-500 to-indigo-700',
   'ar-condicionado': 'from-cyan-500 to-cyan-700',
-  jardinagem: 'from-green-500 to-green-700',
-  'limpeza-pos-obra': 'from-slate-500 to-slate-700',
 };
 
 function ServicoCardMedia({ servico, icone }: { servico: ServicoCatalogo; icone: string }) {
@@ -81,30 +79,57 @@ function ServicoCardMedia({ servico, icone }: { servico: ServicoCatalogo; icone:
 function PagamentoArea({
   metodo,
   pixCode,
+  pixQrImage,
   invoiceUrl,
 }: {
   metodo: 'PIX' | 'CARTAO' | null;
   pixCode?: string;
+  pixQrImage?: string;
   invoiceUrl?: string;
 }) {
+  const [copied, setCopied] = useState(false);
+
   if (!pixCode && !invoiceUrl) return null;
 
   const isPix = metodo === 'PIX' || Boolean(pixCode);
   const titulo = isPix ? 'Pagamento PIX' : 'Pagamento no cartão de crédito';
+  const qrSrc =
+    pixQrImage ||
+    (pixCode
+      ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(pixCode)}`
+      : null);
+
+  const copiarPix = async () => {
+    if (!pixCode) return;
+    try {
+      await navigator.clipboard.writeText(pixCode);
+      setCopied(true);
+      gtmPush('agendar_pix_copiado');
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      /* fallback: textarea já permite seleção manual */
+    }
+  };
 
   return (
     <div className={`mb-4 rounded-xl border-2 p-4 ${isPix ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'}`}>
       <p className={`mb-2 text-sm font-semibold ${isPix ? 'text-green-800' : 'text-blue-900'}`}>{titulo}</p>
-      {isPix && pixCode && (
+      {isPix && qrSrc && (
         <>
           <div className="mb-3 flex justify-center">
             <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(pixCode)}`}
+              src={qrSrc}
               alt="QR Code PIX"
-              className="rounded-lg border bg-white p-2"
+              className="h-[220px] w-[220px] rounded-lg border bg-white p-2"
             />
           </div>
-          <p className="mb-1 text-xs font-medium text-green-800">PIX copia e cola:</p>
+          <p className="mb-1 text-xs font-medium text-green-800">
+            Escaneie o QR Code ou copie o código abaixo:
+          </p>
+        </>
+      )}
+      {isPix && pixCode && (
+        <>
           <textarea
             readOnly
             value={pixCode}
@@ -112,24 +137,30 @@ function PagamentoArea({
             rows={3}
             onFocus={() => gtmPush('agendar_pix_copia_cola_focado')}
           />
+          <button
+            type="button"
+            onClick={() => void copiarPix()}
+            className="mt-2 w-full rounded-lg bg-green-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-800"
+          >
+            {copied ? 'Código copiado!' : 'Copiar código PIX'}
+          </button>
         </>
       )}
       {!isPix && invoiceUrl && (
-        <div className="overflow-hidden rounded-lg border border-blue-200 bg-white">
-          <iframe
-            title="Checkout Asaas — cartão"
-            src={invoiceUrl}
-            className="h-[520px] w-full"
-            allow="payment *"
-          />
+        <div className="rounded-lg border border-blue-200 bg-white p-6 text-center">
+          <p className="mb-1 text-sm font-semibold text-blue-900">Checkout seguro Asaas</p>
+          <p className="mb-4 text-sm text-slate-600">
+            Por segurança, o pagamento com cartão abre em uma nova aba. Clique no botão abaixo
+            para informar os dados do cartão.
+          </p>
           <a
             href={invoiceUrl}
             target="_blank"
             rel="noreferrer"
-            className="block border-t px-3 py-2 text-center text-sm text-primary-600 underline"
+            className="inline-block rounded-lg bg-[#002d62] px-6 py-3 text-sm font-bold text-white hover:bg-[#003a7a]"
             onClick={() => gtmPush('agendar_pagamento_link_externo', { url: invoiceUrl })}
           >
-            Abrir em nova aba se o formulário não carregar
+            Abrir checkout seguro
           </a>
         </div>
       )}
@@ -171,7 +202,7 @@ export function AgendarServicoPage() {
   const [slots, setSlots] = useState<Array<{ data: string; horarioInicio: string; horarioFim: string; label: string; escassez: string }>>([]);
   const [proxima, setProxima] = useState<string | null>(null);
   const [slotSel, setSlotSel] = useState<{ data: string; horarioInicio: string; horarioFim: string } | null>(null);
-  const [pagamento, setPagamento] = useState<{ id?: string; invoiceUrl?: string; pixCode?: string } | null>(null);
+  const [pagamento, setPagamento] = useState<{ id?: string; invoiceUrl?: string; pixCode?: string; pixQrImage?: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [aguardandoPagamento, setAguardandoPagamento] = useState(false);
   const [orcamentoModal, setOrcamentoModal] = useState<ServicoCatalogo | null>(null);
@@ -350,6 +381,7 @@ export function AgendarServicoPage() {
             id: status.pagamento!.id,
             invoiceUrl: status.pagamento!.invoiceUrl,
             pixCode: status.pagamento!.pixCode,
+            pixQrImage: status.pagamento!.pixQrImage ?? prev?.pixQrImage,
           }));
         }
         if (status.podeAgendar) {
@@ -504,7 +536,7 @@ export function AgendarServicoPage() {
         parcelas: installmentCount || 1,
       });
       const res = (await solicitacaoApi.pagar(solicitacaoId, metodo, installmentCount)) as {
-        pagamento: { id?: string; invoiceUrl?: string; pixCode?: string };
+        pagamento: { id?: string; invoiceUrl?: string; pixCode?: string; pixQrImage?: string };
         solicitacao?: { precoFinal?: number; opcoes?: { valorDesconto?: number; descontoPix?: number } };
       };
       setPagamento(res.pagamento);
@@ -528,8 +560,8 @@ export function AgendarServicoPage() {
       iniciarPolling(solicitacaoId);
       toast(
         metodo === 'PIX'
-          ? 'PIX gerado! Pague nesta tela e aguarde a confirmação.'
-          : 'Preencha o cartão abaixo para finalizar o pagamento.',
+          ? 'PIX gerado! Escaneie o QR Code ou copie o código abaixo.'
+          : 'Clique em "Abrir checkout seguro" para pagar com cartão.',
         'success'
       );
     } catch (e) {
@@ -976,7 +1008,7 @@ export function AgendarServicoPage() {
               ? 'Gerando pagamento...'
               : metodoPagamento === 'CARTAO'
                 ? parcelaSelecionada.semJuros
-                  ? `Pagar em ${parcelas}x nesta página`
+                  ? `Pagar em ${parcelas}x — abrir checkout`
                   : `Pagar em ${parcelas}x (${formatCurrency(parcelaSelecionada.total)})`
                 : metodoPagamento === 'PIX'
                   ? `Gerar PIX com ${descontoPixPercent}% off`
@@ -996,6 +1028,7 @@ export function AgendarServicoPage() {
           <PagamentoArea
             metodo={metodoPagamento}
             pixCode={pagamento?.pixCode}
+            pixQrImage={pagamento?.pixQrImage}
             invoiceUrl={pagamento?.invoiceUrl}
           />
           {aguardandoPagamento && (

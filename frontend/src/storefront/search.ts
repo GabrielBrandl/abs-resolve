@@ -44,13 +44,8 @@ export const SLUG_KEYWORDS: Record<string, string[]> = {
   'desentupimento-vaso': ['desentupimento', 'vaso', 'banheiro'],
   'instalacao-suporte-tv': ['tv', 'suporte', 'televisao'],
   'instalacao-prateleira': ['prateleira', 'nicho'],
-  'montagem-moveis-simples': ['movel', 'montagem'],
-  'montagem-guarda-roupa': ['guarda-roupa', 'guarda roupa', 'closet'],
-  'instalacao-persiana': ['persiana', 'cortina'],
   'limpeza-ar-split': ['ar', 'split', 'limpeza', 'filtro'],
   'instalacao-ar-split': ['ar', 'split', 'instalacao'],
-  'poda-jardim': ['jardim', 'poda', 'grama'],
-  'limpeza-pos-obra': ['limpeza', 'obra', 'faxina'],
 };
 
 function expandToken(token: string) {

@@ -15,13 +15,8 @@ export const PERGUNTA_TIPO_POR_SLUG: Record<string, string> = {
   'desentupimento-vaso': 'problemaDesentupimento',
   'instalacao-suporte-tv': 'tipoSuporteTv',
   'instalacao-prateleira': 'usoPrateleira',
-  'montagem-moveis-simples': 'tipoMovelSimples',
-  'montagem-guarda-roupa': 'tipoGuardaRoupa',
-  'instalacao-persiana': 'tipoPersiana',
   'limpeza-ar-split': 'sintomaAr',
   'instalacao-ar-split': 'tipoEquipamentoAr',
-  'poda-jardim': 'servicoJardim',
-  'limpeza-pos-obra': 'tipoImovelPosObra',
 };
 
 const chavesComImagem = new Set(

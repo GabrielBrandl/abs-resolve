@@ -6,6 +6,7 @@ import { CashbackPromoBanner, YellowButton } from '../../components/loja/store-u
 import { useCatalog } from '../../hooks/useCatalog';
 import { flattenServices } from '../../storefront/catalog';
 import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
+import { BrandMarquee } from '../../components/loja/BrandMarquee';
 import {
   IconCalendar,
   IconCard,
@@ -156,6 +157,8 @@ export function HomePage() {
           <CashbackPromoBanner />
         </div>
       </section>
+
+      <BrandMarquee />
 
       <section className="flex flex-col gap-4 rounded-[14px] border border-[#e6e8ee] bg-white px-4 py-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div className="-mx-1 flex flex-1 gap-4 overflow-x-auto pb-1 scrollbar-none sm:flex-wrap sm:overflow-visible sm:pb-0">

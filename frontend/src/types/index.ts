@@ -150,6 +150,7 @@ export interface Pagamento {
   createdAt?: string;
   invoiceUrl?: string;
   pixCode?: string;
+  pixQrImage?: string;
   cliente?: { id: string; nome: string };
   pedido?: { numero: string };
 }
@@ -346,6 +347,7 @@ export interface SolicitacaoStatus {
     metodo: string;
     invoiceUrl?: string;
     pixCode?: string;
+    pixQrImage?: string;
   } | null;
   podeAgendar: boolean;
   agendamento?: { id: string; data: string; horarioInicio: string } | null;

@@ -39,8 +39,6 @@ const FOTO_CATEGORIA: Record<string, string> = {
   hidraulica: '/servicos/troca-torneira.webp',
   montador: '/servicos/instalacao-suporte-tv.webp',
   'ar-condicionado': '/servicos/limpeza-ar-split.webp',
-  jardinagem: '/servicos/poda-jardim.webp',
-  'limpeza-pos-obra': '/servicos/limpeza-pos-obra.webp',
   pecas: '/opcoes/troca-tomada/tipoTomada/simples.webp',
 };
 
@@ -136,16 +134,11 @@ export const FREQUENTLY_TOGETHER: Record<string, string[]> = {
   'troca-registro': ['troca-torneira', 'reparo-vazamento', 'instalacao-chuveiro'],
   'reparo-vazamento': ['troca-registro', 'troca-torneira', 'desentupimento-pia'],
   'desentupimento-pia': ['desentupimento-vaso', 'troca-torneira', 'reparo-vazamento'],
-  'desentupimento-vaso': ['desentupimento-pia', 'troca-registro', 'limpeza-pos-obra'],
+  'desentupimento-vaso': ['desentupimento-pia', 'troca-registro', 'troca-torneira'],
   'instalacao-suporte-tv': ['instalacao-prateleira', 'instalacao-luminaria', 'troca-tomada'],
-  'instalacao-prateleira': ['instalacao-suporte-tv', 'montagem-moveis-simples', 'instalacao-persiana'],
-  'montagem-moveis-simples': ['montagem-guarda-roupa', 'instalacao-prateleira', 'instalacao-persiana'],
-  'montagem-guarda-roupa': ['montagem-moveis-simples', 'instalacao-prateleira', 'instalacao-persiana'],
-  'instalacao-persiana': ['instalacao-prateleira', 'instalacao-luminaria', 'montagem-moveis-simples'],
-  'limpeza-ar-split': ['instalacao-ar-split', 'limpeza-pos-obra', 'instalacao-luminaria'],
+  'instalacao-prateleira': ['instalacao-suporte-tv', 'instalacao-luminaria', 'troca-tomada'],
+  'limpeza-ar-split': ['instalacao-ar-split', 'instalacao-luminaria', 'troca-disjuntor'],
   'instalacao-ar-split': ['limpeza-ar-split', 'troca-disjuntor', 'instalacao-suporte-tv'],
-  'poda-jardim': ['limpeza-pos-obra', 'instalacao-prateleira', 'instalacao-luminaria'],
-  'limpeza-pos-obra': ['poda-jardim', 'limpeza-ar-split', 'instalacao-persiana'],
 };
 
 function bySlug(cats: CategoriaLoja[]) {

@@ -4,6 +4,24 @@ import { asaasService } from './asaas.service.js';
 import { notificacaoService } from './notificacao.service.js';
 import { montarItensEmail, type ItemEmailPedido } from '../utils/email-pedido.js';
 
+function pixQrImageFromBase64(encodedImage: string | null | undefined) {
+  if (!encodedImage) return undefined;
+  if (encodedImage.startsWith('data:')) return encodedImage;
+  return `data:image/png;base64,${encodedImage}`;
+}
+
+async function resolverDadosPix(asaasId: string, pixCodeAtual?: string | null) {
+  try {
+    const pix = await asaasService.obterPixQrCode(asaasId);
+    return {
+      pixCode: pix.payload || pixCodeAtual || undefined,
+      pixQrImage: pixQrImageFromBase64(pix.encodedImage),
+    };
+  } catch {
+    return { pixCode: pixCodeAtual || undefined, pixQrImage: undefined };
+  }
+}
+
 async function itensEmailDoPedido(pedidoId?: string, solicitacaoId?: string): Promise<ItemEmailPedido[]> {
   const sol = solicitacaoId
     ? await prisma.solicitacaoServico.findUnique({
@@ -100,6 +118,22 @@ export class PagamentosService {
       include: { cliente: true, pedido: { select: { numero: true } } },
     });
 
+    let pixCode = cobranca.pixTransaction?.payload as string | undefined;
+    let pixQrImage: string | undefined;
+
+    if (data.metodo === 'PIX' && cobranca.id) {
+      const pix = await resolverDadosPix(cobranca.id, pixCode);
+      pixCode = pix.pixCode;
+      pixQrImage = pix.pixQrImage;
+      if (pixCode) {
+        await prisma.pagamento.update({
+          where: { id: pagamento.id },
+          data: { pixCode },
+        });
+        pagamento = { ...pagamento, pixCode };
+      }
+    }
+
     let itensEmail: ItemEmailPedido[] = [];
     try {
       itensEmail = await itensEmailDoPedido(data.pedidoId, data.solicitacaoId);
@@ -133,7 +167,7 @@ export class PagamentosService {
       await confirmarPagamentoRecebido(pagamento.id);
     }
 
-    return pagamento;
+    return { ...pagamento, pixQrImage };
   }
 
   async simularConfirmacao(pagamentoId: string, clienteId: string) {
@@ -189,16 +223,45 @@ export class PagamentosService {
     return confirmarPagamentoRecebido(pagamento.id);
   }
 
+  async obterDadosExibicaoPix(pagamento: {
+    id: string;
+    asaasId: string | null;
+    metodo: string;
+    pixCode: string | null;
+  }) {
+    if (pagamento.metodo !== 'PIX' || !pagamento.asaasId) {
+      return { pixCode: pagamento.pixCode ?? undefined, pixQrImage: undefined };
+    }
+    const pix = await resolverDadosPix(pagamento.asaasId, pagamento.pixCode);
+    if (pix.pixCode && pix.pixCode !== pagamento.pixCode) {
+      await prisma.pagamento.update({ where: { id: pagamento.id }, data: { pixCode: pix.pixCode } });
+    }
+    return pix;
+  }
+
   async segundaVia(id: string) {
     const pagamento = await prisma.pagamento.findUnique({ where: { id } });
     if (!pagamento) throw new Error('Pagamento não encontrado');
     if (!pagamento.asaasId) throw new Error('Pagamento sem integração Asaas');
 
     const cobranca = await asaasService.buscarCobranca(pagamento.asaasId);
+    let pixCode = cobranca.pixTransaction?.payload || pagamento.pixCode;
+    let pixQrImage: string | undefined;
+
+    if (pagamento.metodo === 'PIX' && pagamento.asaasId) {
+      const pix = await resolverDadosPix(pagamento.asaasId, pixCode);
+      pixCode = pix.pixCode;
+      pixQrImage = pix.pixQrImage;
+      if (pixCode && pixCode !== pagamento.pixCode) {
+        await prisma.pagamento.update({ where: { id }, data: { pixCode } });
+      }
+    }
+
     return {
       ...pagamento,
       invoiceUrl: cobranca.invoiceUrl || pagamento.invoiceUrl,
-      pixCode: cobranca.pixTransaction?.payload || pagamento.pixCode,
+      pixCode,
+      pixQrImage,
     };
   }
 

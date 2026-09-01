@@ -20,10 +20,6 @@ export const CATEGORY_NAV: CategoryNavItem[] = [
   { slug: 'hidraulica', label: 'Hidráulica', image: '/servicos/troca-torneira.webp', icon: 'drop' },
   { slug: 'ar-condicionado', label: 'Ar-condicionado', image: '/servicos/limpeza-ar-split.webp', icon: 'snow' },
   { slug: 'montador', label: 'Instalações', image: '/servicos/instalacao-suporte-tv.webp', icon: 'tools' },
-  { slug: 'montador', label: 'Montagens', image: '/servicos/montagem-moveis-simples.webp', icon: 'gear' },
-  { slug: 'limpeza-pos-obra', label: 'Limpeza', image: '/servicos/limpeza-pos-obra.webp', icon: 'spray' },
-  { slug: 'jardinagem', label: 'Reformas', image: '/servicos/poda-jardim.webp', icon: 'home' },
-  { slug: 'eletricista', label: 'Empresarial', image: '/servicos/troca-tomada.webp', icon: 'building', to: '/busca?q=empresarial' },
 ];
 
 export const UNIQUE_CATEGORIES = CATEGORY_NAV.filter(

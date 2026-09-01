@@ -746,6 +746,21 @@ export class SolicitacaoService {
       }
     }
 
+    let pixQrImage: string | undefined;
+    if (
+      pagamento &&
+      pagamento.metodo === 'PIX' &&
+      (pagamento.status === 'PENDING' || pagamento.status === 'OVERDUE')
+    ) {
+      try {
+        const pix = await pagamentosService.obterDadosExibicaoPix(pagamento);
+        if (pix.pixCode) pagamento = { ...pagamento, pixCode: pix.pixCode };
+        pixQrImage = pix.pixQrImage;
+      } catch {
+        /* exibe o que já tiver salvo */
+      }
+    }
+
     return {
       solicitacaoId: sol.id,
       status: sol.status,
@@ -758,6 +773,7 @@ export class SolicitacaoService {
             metodo: pagamento.metodo,
             invoiceUrl: pagamento.invoiceUrl,
             pixCode: pagamento.pixCode,
+            pixQrImage,
           }
         : null,
       podeAgendar: sol.status === 'pago' || pagamento?.status === 'RECEIVED',

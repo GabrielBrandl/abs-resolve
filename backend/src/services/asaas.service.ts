@@ -28,7 +28,7 @@ function mockCobranca() {
     status: 'PENDING',
     invoiceUrl: `https://sandbox.asaas.com/i/${mockId}`,
     bankSlipUrl: `https://sandbox.asaas.com/b/${mockId}`,
-    pixTransaction: { payload: `00020126MOCKPIX${mockId}` },
+    pixTransaction: { payload: `00020126580014BR.GOV.BCB.PIX0136${mockId}5204000053039865802BR5925ABS Resolve6009SAO PAULO62070503***6304ABCD` },
   };
 }
 
@@ -109,7 +109,9 @@ export class AsaasService {
         id: asaasId,
         status: 'PENDING',
         invoiceUrl: `https://sandbox.asaas.com/i/${asaasId}`,
-        pixTransaction: { payload: `00020126MOCKPIX${asaasId}` },
+        pixTransaction: {
+          payload: `00020126580014BR.GOV.BCB.PIX0136${asaasId}5204000053039865802BR5925ABS Resolve6009SAO PAULO62070503***6304ABCD`,
+        },
       };
     }
 
@@ -125,10 +127,32 @@ export class AsaasService {
     }
   }
 
-  /**
-   * Consulta o Asaas e, se a cobrança já foi paga, confirma no sistema.
-   * Usado no polling do cliente e no cron — não depende só do webhook.
-   */
+  /** QR Code PIX — payload (copia e cola) + imagem base64 */
+  async obterPixQrCode(asaasId: string) {
+    if (this.mockMode || asaasId.startsWith('pay_mock')) {
+      const payload = `00020126580014BR.GOV.BCB.PIX0136${asaasId}5204000053039865802BR5925ABS Resolve6009SAO PAULO62070503***6304ABCD`;
+      return { payload, encodedImage: null as string | null };
+    }
+
+    try {
+      const { data } = await asaasApi.get(`/payments/${asaasId}/pixQrCode`);
+      return {
+        payload: data.payload as string,
+        encodedImage: (data.encodedImage as string) || null,
+        expirationDate: data.expirationDate as string | undefined,
+      };
+    } catch (err) {
+      if (this.devFallback) {
+        this.warnFallback('obterPixQrCode', err);
+        return {
+          payload: `00020126580014BR.GOV.BCB.PIX0136${asaasId}5204000053039865802BR5925ABS Resolve6009SAO PAULO62070503***6304ABCD`,
+          encodedImage: null,
+        };
+      }
+      throw new Error(asaasErrorMessage(err));
+    }
+  }
+
   async sincronizarPagamentoLocal(pagamentoId: string) {
     const pagamento = await prisma.pagamento.findUnique({ where: { id: pagamentoId } });
     if (!pagamento?.asaasId || pagamento.asaasId.startsWith('pay_mock')) return pagamento;
