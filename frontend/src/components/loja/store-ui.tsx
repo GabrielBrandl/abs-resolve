@@ -20,9 +20,6 @@ export function AbsBrand() {
         height={44}
         decoding="async"
       />
-      <span className="hidden max-w-[8.2rem] text-[11px] font-semibold leading-tight text-[#002d62] sm:block">
-        Chamou. Confiou. Resolveu.
-      </span>
     </Link>
   );
 }
