@@ -149,7 +149,7 @@ export function LoginPage() {
                 </Link>
               </p>
               <p className="mt-2 text-center text-xs text-emerald-700">
-                Pagamento no PIX: 5% de desconto automático em todos os serviços.
+                Cashback em todos os serviços. Na 2ª compra: 30% de desconto.
               </p>
             </>
           )}

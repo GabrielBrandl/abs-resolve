@@ -27,8 +27,9 @@ import { storageService } from './storage.service.js';
 import { pagamentosService } from './pagamentos.service.js';
 
 function descontoPixPercent(): number {
-  const raw = Number(process.env.DESCONTO_PIX_PERCENT || 5);
-  return Number.isFinite(raw) && raw > 0 ? raw : 5;
+  // Desconto automático no PIX desativado — permanece cashback / fidelidade 2ª compra.
+  const raw = Number(process.env.DESCONTO_PIX_PERCENT ?? 0);
+  return Number.isFinite(raw) && raw > 0 ? raw : 0;
 }
 
 /** Desconto a partir da 2ª compra paga do cliente. */
@@ -415,15 +416,11 @@ export class SolicitacaoService {
       percentual: fidelidade ? percentualFidelidade : percentualPix,
       percentualFidelidade,
       percentualPix,
-      somentePix: !fidelidade,
+      somentePix: !fidelidade && percentualPix > 0,
       comprasAnteriores,
       mensagem: fidelidade
-        ? `${percentualFidelidade}% de desconto exclusivo na sua 2ª compra.${
-            percentualPix > 0 ? ` No PIX, mais ${percentualPix}% sobre o valor com desconto.` : ''
-          }`
-        : comprasAnteriores === 0
-          ? `${percentualPix}% de desconto exclusivo no pagamento via PIX. Na 2ª compra: ${percentualFidelidade}% off.`
-          : `${percentualPix}% de desconto exclusivo no pagamento via PIX.`,
+        ? `${percentualFidelidade}% de desconto exclusivo na sua 2ª compra.`
+        : 'Receba cashback em todos os serviços. Na 2ª compra: 30% de desconto.',
     };
   }
 
@@ -461,7 +458,7 @@ export class SolicitacaoService {
   /**
    * Aplica descontos no pagamento:
    * - Fidelidade 30% somente na 2ª compra (qualquer método)
-   * - PIX 5% sobre o valor restante
+   * - PIX automático desativado por padrão (DESCONTO_PIX_PERCENT=0)
    */
   async aplicarDescontoPixNoPagamento(
     id: string,

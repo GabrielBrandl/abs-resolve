@@ -218,7 +218,7 @@ export function AgendarServicoPage() {
   const [aguardandoPagamento, setAguardandoPagamento] = useState(false);
   const [orcamentoModal, setOrcamentoModal] = useState<ServicoCatalogo | null>(null);
   const [orcamentoDesc, setOrcamentoDesc] = useState('');
-  const [descontoPixPercent, setDescontoPixPercent] = useState(5);
+  const [descontoPixPercent, setDescontoPixPercent] = useState(0);
   const [descontoFidelidadePercent, setDescontoFidelidadePercent] = useState(30);
   const [elegivelFidelidade, setElegivelFidelidade] = useState(false);
   const [valorDescontoAplicado, setValorDescontoAplicado] = useState(0);
@@ -1274,19 +1274,13 @@ export function AgendarServicoPage() {
 
           {elegivelFidelidade && (
             <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
-              2ª compra: {descontoFidelidadePercent}% de desconto exclusivo
-              {metodoPagamento === 'PIX' ? ` + ${descontoPixPercent}% no PIX` : ''}.
+              2ª compra: {descontoFidelidadePercent}% de desconto exclusivo nesta contratação.
             </p>
           )}
-          {!elegivelFidelidade && metodoPagamento === 'PIX' && (
-            <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
-              Pagando com PIX você ganha {descontoPixPercent}% de desconto automático. Na contratação do
-              2º serviço: {descontoFidelidadePercent}% off.
-            </p>
-          )}
-          {!elegivelFidelidade && metodoPagamento !== 'PIX' && (
-            <p className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
-              Na contratação do 2º serviço você ganha {descontoFidelidadePercent}% de desconto.
+          {!elegivelFidelidade && (
+            <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+              Cashback em todos os serviços. Na contratação do 2º serviço você ganha{' '}
+              {descontoFidelidadePercent}% de desconto. Não há desconto automático no PIX.
             </p>
           )}
 
@@ -1305,8 +1299,8 @@ export function AgendarServicoPage() {
                   : `Pagar ${parcelas}x (${formatCurrency(parcelaSelecionada.total)})`
                 : metodoPagamento === 'PIX'
                   ? elegivelFidelidade
-                    ? `Gerar PIX com ${descontoFidelidadePercent}% + ${descontoPixPercent}% off`
-                    : `Gerar PIX com ${descontoPixPercent}% off`
+                    ? `Gerar PIX com ${descontoFidelidadePercent}% off`
+                    : 'Gerar PIX'
                   : 'Escolha a forma de pagamento'}
           </Button>
         </Card>
