@@ -204,15 +204,15 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
     slug: 'instalacao-chuveiro',
     nome: nomeServico('instalacao-chuveiro'),
     perguntas: [
+      pergunta('chuveiroComprado', 'Você já possui o chuveiro?', [
+        opcao('sim', 'Sim, já tenho'),
+        opcao('nao-abs', 'Não, quero comprar com a ABS'),
+      ]),
       pergunta('tipoServicoChuveiro', 'O que deseja?', [
         opcao('instalar-comum', 'Instalar chuveiro comum'),
         opcao('instalar-eletronico', 'Instalar chuveiro eletrônico'),
         opcao('trocar-resistencia', 'Trocar resistência'),
         opcao('instalar-com-revisao-eletrica', 'Instalar chuveiro + revisão elétrica'),
-      ]),
-      pergunta('chuveiroComprado', 'O chuveiro novo já foi comprado?', [
-        opcao('sim', 'Sim'),
-        opcao('nao-abs', 'Não, quero comprar pela ABS'),
       ]),
       pergunta('potenciaChuveiro', 'Potência', [
         opcao('ate-5500w', 'Até 5.500W'),
@@ -379,10 +379,14 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
     slug: 'troca-torneira',
     nome: nomeServico('troca-torneira'),
     perguntas: [
+      pergunta('torneiraComprada', 'Você já possui a torneira?', [
+        opcao('sim', 'Sim, já tenho'),
+        opcao('nao', 'Não, quero comprar com a ABS'),
+      ]),
       pergunta('tipoTorneira', 'Tipo de torneira', [
         opcao('convencional', 'Convencional'),
         opcao('gourmet', 'Gourmet'),
-        opcao('monocomando-misturador', 'Monocomando/misturador'),
+        opcao('monocomando-misturador', 'Monocomando/Misturador'),
         opcao('eletrica', 'Elétrica'),
       ]),
       pergunta('localInstalacao', 'Local', [
@@ -397,7 +401,6 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         opcao('3', '3'),
         opcao('4-ou-mais', '4 ou mais'),
       ]),
-      pergunta('torneiraComprada', 'Já comprou a torneira?', OPCOES_SIM_NAO),
       pergunta('registroFuncionando', 'Existe registro funcionando?', OPCOES_SIM_NAO_NAO_SEI),
       pergunta('temAguaQuente', 'Tem água quente?', OPCOES_SIM_NAO_NAO_SEI, {
         perguntaId: 'tipoTorneira',

@@ -1,6 +1,12 @@
 import { prisma } from '../utils/prisma.js';
 import { toNumber } from '../utils/helpers.js';
 import { PECAS_CATALOGO, isPecaSlug } from '../config/pecas-catalogo.js';
+import {
+  getMaterialConfig,
+  listarTodasVariantesMateriais,
+  findMaterialVariante,
+  isMaterialSku,
+} from '../config/materiais-catalogo.js';
 
 export type StatusEstoque = 'ok' | 'minimo' | 'critico' | 'ruptura';
 
@@ -29,6 +35,7 @@ export class EstoqueService {
     return {
       ...produto,
       precoUnitario: produto.precoUnitario ? toNumber(produto.precoUnitario) : null,
+      custo: produto.custo ? toNumber(produto.custo) : null,
       disponivel,
       status,
       valorEstoque: produto.precoUnitario ? toNumber(produto.precoUnitario) * produto.quantidade : null,
@@ -101,6 +108,12 @@ export class EstoqueService {
     critico?: number;
     servicoSlug?: string;
     precoUnitario?: number;
+    tipo?: string;
+    cor?: string;
+    imagemUrl?: string;
+    custo?: number;
+    ativo?: boolean;
+    modeloId?: string;
   }) {
     const sku = data.sku.trim().toLowerCase();
     if (!sku || !data.nome.trim()) throw new Error('SKU e nome são obrigatórios');
@@ -117,6 +130,12 @@ export class EstoqueService {
         critico: Math.max(0, data.critico ?? 2),
         servicoSlug: data.servicoSlug?.trim() || null,
         precoUnitario: data.precoUnitario ?? null,
+        tipo: data.tipo?.trim() || null,
+        cor: data.cor?.trim() || null,
+        imagemUrl: data.imagemUrl?.trim() || null,
+        custo: data.custo ?? null,
+        ativo: data.ativo ?? true,
+        modeloId: data.modeloId?.trim() || null,
       },
     });
 
@@ -142,6 +161,12 @@ export class EstoqueService {
       critico?: number;
       servicoSlug?: string | null;
       precoUnitario?: number | null;
+      tipo?: string | null;
+      cor?: string | null;
+      imagemUrl?: string | null;
+      custo?: number | null;
+      ativo?: boolean;
+      modeloId?: string | null;
     }
   ) {
     const produto = await prisma.produtoEstoque.update({
@@ -152,6 +177,12 @@ export class EstoqueService {
         ...(data.critico !== undefined && { critico: Math.max(0, data.critico) }),
         ...(data.servicoSlug !== undefined && { servicoSlug: data.servicoSlug || null }),
         ...(data.precoUnitario !== undefined && { precoUnitario: data.precoUnitario }),
+        ...(data.tipo !== undefined && { tipo: data.tipo || null }),
+        ...(data.cor !== undefined && { cor: data.cor || null }),
+        ...(data.imagemUrl !== undefined && { imagemUrl: data.imagemUrl || null }),
+        ...(data.custo !== undefined && { custo: data.custo }),
+        ...(data.ativo !== undefined && { ativo: data.ativo }),
+        ...(data.modeloId !== undefined && { modeloId: data.modeloId || null }),
       },
     });
     return this.enriquecer(produto);
@@ -258,6 +289,7 @@ export class EstoqueService {
             nome: peca.nome,
             servicoSlug: peca.servicoRelacionado,
             precoUnitario: peca.precoMinimo,
+            imagemUrl: peca.imagemUrl,
           },
         });
         atualizados += 1;
@@ -269,6 +301,43 @@ export class EstoqueService {
             quantidade: 0,
             servicoSlug: peca.servicoRelacionado,
             precoUnitario: peca.precoMinimo,
+            imagemUrl: peca.imagemUrl,
+            ativo: true,
+          },
+        });
+        criados += 1;
+      }
+    }
+
+    for (const mat of listarTodasVariantesMateriais()) {
+      const existente = await prisma.produtoEstoque.findUnique({ where: { sku: mat.sku } });
+      if (existente) {
+        await prisma.produtoEstoque.update({
+          where: { id: existente.id },
+          data: {
+            nome: mat.nome,
+            servicoSlug: mat.servicoSlug,
+            precoUnitario: mat.preco,
+            tipo: mat.tipo,
+            cor: mat.cor,
+            imagemUrl: mat.imagemUrl,
+            modeloId: mat.modeloId,
+          },
+        });
+        atualizados += 1;
+      } else {
+        await prisma.produtoEstoque.create({
+          data: {
+            sku: mat.sku,
+            nome: mat.nome,
+            quantidade: mat.estoqueInicial,
+            servicoSlug: mat.servicoSlug,
+            precoUnitario: mat.preco,
+            tipo: mat.tipo,
+            cor: mat.cor,
+            imagemUrl: mat.imagemUrl,
+            modeloId: mat.modeloId,
+            ativo: true,
           },
         });
         criados += 1;
@@ -287,13 +356,85 @@ export class EstoqueService {
       const existente = await prisma.produtoEstoque.findUnique({ where: { sku: s.sku } });
       if (!existente) {
         await prisma.produtoEstoque.create({
-          data: { sku: s.sku, nome: s.nome, quantidade: 20, servicoSlug: s.servicoSlug },
+          data: { sku: s.sku, nome: s.nome, quantidade: 20, servicoSlug: s.servicoSlug, ativo: true },
         });
         criados += 1;
       }
     }
 
-    return { criados, atualizados, total: PECAS_CATALOGO.length + servicosPadrao.length };
+    const materiaisCount = listarTodasVariantesMateriais().length;
+    return { criados, atualizados, total: PECAS_CATALOGO.length + servicosPadrao.length + materiaisCount };
+  }
+
+  async listarMateriaisVitrine(servicoSlug: string, tipo?: string) {
+    const cfg = getMaterialConfig(servicoSlug);
+    if (!cfg) return null;
+
+    const skus = cfg.modelos.flatMap((m) => m.variantes.map((v) => v.sku));
+    const estoques = await prisma.produtoEstoque.findMany({
+      where: { sku: { in: skus } },
+    });
+    const bySku = new Map(estoques.map((e) => [e.sku, e]));
+
+    const modelos = cfg.modelos
+      .filter((m) => !tipo || m.tipo === tipo)
+      .map((modelo) => {
+        const variantes = modelo.variantes.map((v) => {
+          const est = bySku.get(v.sku);
+          const disponivel = est ? this.disponivel(est) : v.estoqueInicial ?? 0;
+          const ativo = est?.ativo ?? true;
+          const preco = est?.precoUnitario != null ? toNumber(est.precoUnitario) : v.preco;
+          return {
+            sku: v.sku,
+            cor: v.cor,
+            labelCor: v.labelCor,
+            preco,
+            imagemUrl: est?.imagemUrl || v.imagemUrl,
+            disponivel,
+            ativo,
+            disponivelParaCompra: ativo && disponivel > 0,
+          };
+        });
+        return {
+          id: modelo.id,
+          tipo: modelo.tipo,
+          nome: modelo.nome,
+          detalhe: modelo.detalhe || null,
+          variantes,
+          disponivelParaCompra: variantes.some((v) => v.disponivelParaCompra),
+        };
+      });
+
+    return {
+      servicoSlug: cfg.servicoSlug,
+      perguntaPossuiId: cfg.perguntaPossuiId,
+      opcoesComprarAbs: cfg.opcoesComprarAbs,
+      perguntaTipoId: cfg.perguntaTipoId || null,
+      labelProduto: cfg.labelProduto,
+      tipos: cfg.tipos,
+      modelos,
+    };
+  }
+
+  async precoMaterialSku(sku: string) {
+    const found = findMaterialVariante(sku);
+    if (!found) return null;
+    const est = await prisma.produtoEstoque.findUnique({ where: { sku: found.variante.sku } });
+    if (est && (!est.ativo || this.disponivel(est) <= 0)) {
+      throw new Error(`${found.nome} está indisponível no estoque.`);
+    }
+    return {
+      nome: found.nome,
+      preco: est?.precoUnitario != null ? toNumber(est.precoUnitario) : found.variante.preco,
+      imagemUrl: est?.imagemUrl || found.variante.imagemUrl,
+      cor: found.variante.labelCor,
+      corId: found.variante.cor,
+      modeloId: found.modelo.id,
+      modeloNome: found.modelo.nome,
+      detalhe: found.modelo.detalhe || null,
+      servicoSlug: found.servicoSlug,
+      sku: found.variante.sku,
+    };
   }
 
   private async registrarMovimentacao(data: {
@@ -321,7 +462,7 @@ export class EstoqueService {
   private async localizarProduto(slug: string, chave?: string) {
     const skuChave = chave ? `${slug}_${chave}` : slug;
 
-    if (isPecaSlug(slug)) {
+    if (isPecaSlug(slug) || isMaterialSku(slug)) {
       return prisma.produtoEstoque.findFirst({
         where: { OR: [{ sku: slug }, { servicoSlug: slug }] },
       });

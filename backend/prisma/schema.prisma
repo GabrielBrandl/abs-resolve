@@ -419,6 +419,14 @@ model ProdutoEstoque {
   critico       Int      @default(2)
   servicoSlug   String?  @map("servico_slug")
   precoUnitario Decimal? @map("preco_unitario") @db.Decimal(12, 2)
+  /** Tipo/categoria do material (gourmet, convencional, etc.) */
+  tipo          String?
+  /** Cor/acabamento */
+  cor           String?
+  imagemUrl     String?  @map("imagem_url")
+  custo         Decimal? @db.Decimal(12, 2)
+  ativo         Boolean  @default(true)
+  modeloId      String?  @map("modelo_id")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("produto_estoque")

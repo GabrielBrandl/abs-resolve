@@ -267,6 +267,34 @@ export const solicitacaoApi = {
       }>;
       fotosObrigatorias: string[];
     }>(`/solicitacao/fluxo/${slug}`),
+  materiais: (slug: string, tipo?: string) => {
+    const qs = tipo ? `?tipo=${encodeURIComponent(tipo)}` : '';
+    return get<{
+      servicoSlug: string;
+      perguntaPossuiId: string;
+      opcoesComprarAbs: string[];
+      perguntaTipoId: string | null;
+      labelProduto: string;
+      tipos: Array<{ id: string; label: string }>;
+      modelos: Array<{
+        id: string;
+        tipo: string;
+        nome: string;
+        detalhe: string | null;
+        disponivelParaCompra: boolean;
+        variantes: Array<{
+          sku: string;
+          cor: string;
+          labelCor: string;
+          preco: number;
+          imagemUrl: string;
+          disponivel: number;
+          ativo: boolean;
+          disponivelParaCompra: boolean;
+        }>;
+      }>;
+    } | null>(`/solicitacao/materiais/${slug}${qs}`);
+  },
   calcularPreco: (body: { slug: string; respostas: Record<string, string>; quantidade?: number }) =>
     post<{
       preco: number;
@@ -544,6 +572,12 @@ export const estoqueAdminApi = {
     critico?: number;
     servicoSlug?: string;
     precoUnitario?: number;
+    tipo?: string;
+    cor?: string;
+    imagemUrl?: string;
+    custo?: number;
+    ativo?: boolean;
+    modeloId?: string;
   }) => post<ProdutoEstoque>('/admin/estoque', body),
   atualizar: (id: string, body: {
     nome?: string;
@@ -551,6 +585,12 @@ export const estoqueAdminApi = {
     critico?: number;
     servicoSlug?: string | null;
     precoUnitario?: number | null;
+    tipo?: string | null;
+    cor?: string | null;
+    imagemUrl?: string | null;
+    custo?: number | null;
+    ativo?: boolean;
+    modeloId?: string | null;
   }) => patch<ProdutoEstoque>(`/admin/estoque/${id}`, body),
   movimentar: (id: string, body: {
     tipo: 'entrada' | 'saida' | 'ajuste';

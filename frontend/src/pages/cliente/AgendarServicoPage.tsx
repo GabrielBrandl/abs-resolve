@@ -639,6 +639,9 @@ export function AgendarServicoPage() {
         slug: i.slug,
         quantidade: i.quantidade,
         ...(i.respostas && Object.keys(i.respostas).length ? { respostas: i.respostas } : {}),
+        ...(i.materialSku ? { materialSku: i.materialSku } : {}),
+        ...(i.materialCor ? { materialCor: i.materialCor } : {}),
+        ...(i.materialModeloId ? { materialModeloId: i.materialModeloId } : {}),
       }));
       const sol = await solicitacaoApi.criarCarrinho({
         itens,
@@ -733,6 +736,9 @@ export function AgendarServicoPage() {
             slug: i.slug,
             quantidade: i.quantidade,
             ...(i.respostas && Object.keys(i.respostas).length ? { respostas: i.respostas } : {}),
+            ...(i.materialSku ? { materialSku: i.materialSku } : {}),
+            ...(i.materialCor ? { materialCor: i.materialCor } : {}),
+            ...(i.materialModeloId ? { materialModeloId: i.materialModeloId } : {}),
           }));
           const sol = await solicitacaoApi.criarCarrinho({ itens, express });
           idPagamento = sol.id;

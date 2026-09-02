@@ -513,6 +513,12 @@ export interface ProdutoEstoque {
   critico: number;
   servicoSlug?: string | null;
   precoUnitario?: number | null;
+  custo?: number | null;
+  tipo?: string | null;
+  cor?: string | null;
+  imagemUrl?: string | null;
+  ativo?: boolean;
+  modeloId?: string | null;
   valorEstoque?: number | null;
   status: StatusEstoque;
   updatedAt?: string;

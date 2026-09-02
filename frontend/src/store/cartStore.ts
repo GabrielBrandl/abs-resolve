@@ -13,17 +13,26 @@ export interface CartItem {
   tipo?: 'servico' | 'peca';
   servicoRelacionado?: string;
   respostas?: Record<string, string>;
+  /** Identidade única no carrinho (ex.: mat:sku) — evita colisão entre variantes */
+  cartKey?: string;
+  materialSku?: string;
+  materialCor?: string;
+  materialModeloId?: string;
 }
 
 type CartState = {
   items: CartItem[];
   add: (item: Omit<CartItem, 'quantidade'>, qty?: number) => CartItem[];
-  remove: (slug: string) => void;
-  setQty: (slug: string, qty: number) => void;
+  remove: (slugOrKey: string) => void;
+  setQty: (slugOrKey: string, qty: number) => void;
   clear: () => void;
   count: () => number;
   total: () => number;
 };
+
+function itemKey(item: Pick<CartItem, 'slug' | 'cartKey' | 'materialSku'>) {
+  return item.cartKey || (item.materialSku ? `mat:${item.materialSku}` : item.slug);
+}
 
 export const useCartStore = create<CartState>()(
   persist(
@@ -31,27 +40,33 @@ export const useCartStore = create<CartState>()(
       items: [],
       add: (item, qty = 1) => {
         const amount = Math.max(1, Number(qty) || 1);
+        const key = itemKey(item);
         const next = (() => {
           const current = get().items;
-          const existing = current.find((i) => i.slug === item.slug);
+          const existing = current.find((i) => itemKey(i) === key);
           if (existing) {
             return current.map((i) =>
-              i.slug === item.slug ? { ...i, quantidade: i.quantidade + amount, ...item } : i
+              itemKey(i) === key ? { ...i, quantidade: i.quantidade + amount, ...item, cartKey: key } : i
             );
           }
-          return [...current, { ...item, quantidade: amount }];
+          return [...current, { ...item, quantidade: amount, cartKey: key }];
         })();
         set({ items: next });
         return next;
       },
-      remove: (slug) => set({ items: get().items.filter((i) => i.slug !== slug) }),
-      setQty: (slug, qty) => {
+      remove: (slugOrKey) =>
+        set({
+          items: get().items.filter((i) => itemKey(i) !== slugOrKey && i.slug !== slugOrKey),
+        }),
+      setQty: (slugOrKey, qty) => {
         if (qty <= 0) {
-          get().remove(slug);
+          get().remove(slugOrKey);
           return;
         }
         set({
-          items: get().items.map((i) => (i.slug === slug ? { ...i, quantidade: qty } : i)),
+          items: get().items.map((i) =>
+            itemKey(i) === slugOrKey || i.slug === slugOrKey ? { ...i, quantidade: qty } : i
+          ),
         });
       },
       clear: () => set({ items: [] }),

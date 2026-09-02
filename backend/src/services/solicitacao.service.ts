@@ -12,6 +12,8 @@ import { PECAS_CATALOGO, findPeca, isPecaSlug } from '../config/pecas-catalogo.j
 import { type FluxoServico, type RespostasFluxo } from '../config/fluxo-servicos.js';
 import { fluxoConfigService } from './fluxo-config.service.js';
 import { calcularPrecoFluxo } from '../config/tabela-precos-fluxo.js';
+import { isMaterialSku } from '../config/materiais-catalogo.js';
+import { estoqueService } from './estoque.service.js';
 import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from '../engines/pricing.engine.js';
 import {
   MINIMO_CARRINHO_SERVICO,
@@ -203,6 +205,10 @@ export class SolicitacaoService {
     return fluxo;
   }
 
+  async obterMateriaisServico(slug: string, tipo?: string) {
+    return estoqueService.listarMateriaisVitrine(slug, tipo);
+  }
+
   calcularPrecoServico(slug: string, respostas: RespostasFluxo = {}, quantidade = 1) {
     validarRespostasFluxo(slug, respostas);
     return calcularPrecoFluxo(slug, respostas, quantidade);
@@ -210,7 +216,15 @@ export class SolicitacaoService {
 
   async criarCarrinho(
     clienteId: string,
-    itens: Array<{ slug: string; quantidade: number; respostas?: RespostasFluxo; fotos?: string[] }>,
+    itens: Array<{
+      slug: string;
+      quantidade: number;
+      respostas?: RespostasFluxo;
+      fotos?: string[];
+      materialSku?: string;
+      materialCor?: string;
+      materialModeloId?: string;
+    }>,
     express = false,
     aceiteIaDiagnostico = false
   ) {
@@ -231,6 +245,11 @@ export class SolicitacaoService {
       fotos?: string[];
       tipo?: 'servico' | 'peca';
       imagemUrl?: string | null;
+      sku?: string;
+      cor?: string;
+      modeloId?: string;
+      valorServico?: number;
+      valorPeca?: number;
     }> = [];
 
     let precoSubtotal = 0;
@@ -238,6 +257,38 @@ export class SolicitacaoService {
     let requerValidacaoTecnica = false;
 
     for (const item of itens) {
+      if (isMaterialSku(item.slug) || (item.materialSku && isMaterialSku(item.materialSku))) {
+        const sku = (item.materialSku || item.slug).toLowerCase();
+        const mat = await estoqueService.precoMaterialSku(sku);
+        if (!mat) throw new Error(`Material "${sku}" não encontrado`);
+        if (item.quantidade < 1) continue;
+        const subtotal = mat.preco * item.quantidade;
+        precoSubtotal += subtotal;
+        detalhes.push({
+          slug: sku,
+          nome: mat.nome,
+          categoria: 'material',
+          quantidade: item.quantidade,
+          precoUnitario: mat.preco,
+          precoTexto: `R$ ${mat.preco.toFixed(2).replace('.', ',')}`,
+          subtotal,
+          tipo: 'peca',
+          imagemUrl: mat.imagemUrl,
+          sku,
+          cor: mat.cor,
+          modeloId: mat.modeloId,
+          valorPeca: mat.preco,
+          respostas: {
+            materialSku: sku,
+            materialCor: mat.cor,
+            materialModeloId: mat.modeloId,
+            materialModeloNome: mat.modeloNome,
+            ...(item.respostas || {}),
+          },
+        });
+        continue;
+      }
+
       if (isPecaSlug(item.slug)) {
         const peca = findPeca(item.slug);
         if (!peca) throw new Error(`Peça "${item.slug}" não encontrada`);
@@ -307,6 +358,7 @@ export class SolicitacaoService {
         ...(item.fotos?.length ? { fotos: item.fotos } : {}),
         tipo: 'servico',
         imagemUrl: servico.imagemUrl,
+        valorServico: precoUnit,
       });
     }
 

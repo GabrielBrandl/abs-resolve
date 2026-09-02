@@ -56,7 +56,18 @@ export function EstoqueAdminPage() {
 
   const [novo, setNovo] = useState({ ...EMPTY_PRODUTO });
   const [mov, setMov] = useState({ tipo: 'entrada' as 'entrada' | 'saida' | 'ajuste', quantidade: 1, motivo: '' });
-  const [config, setConfig] = useState({ nome: '', minimo: 5, critico: 2, servicoSlug: '', precoUnitario: '' });
+  const [config, setConfig] = useState({
+    nome: '',
+    minimo: 5,
+    critico: 2,
+    servicoSlug: '',
+    precoUnitario: '',
+    tipo: '',
+    cor: '',
+    imagemUrl: '',
+    custo: '',
+    ativo: true,
+  });
 
   const carregar = useCallback(() => {
     setLoading(true);
@@ -132,6 +143,11 @@ export function EstoqueAdminPage() {
         critico: config.critico,
         servicoSlug: config.servicoSlug || null,
         precoUnitario: config.precoUnitario ? parseFloat(config.precoUnitario) : null,
+        tipo: config.tipo || null,
+        cor: config.cor || null,
+        imagemUrl: config.imagemUrl || null,
+        custo: config.custo ? parseFloat(config.custo) : null,
+        ativo: config.ativo,
       });
       toast('Produto atualizado!', 'success');
       setModalConfig(null);
@@ -176,6 +192,11 @@ export function EstoqueAdminPage() {
       critico: p.critico,
       servicoSlug: p.servicoSlug || '',
       precoUnitario: p.precoUnitario != null ? String(p.precoUnitario) : '',
+      tipo: p.tipo || '',
+      cor: p.cor || '',
+      imagemUrl: p.imagemUrl || '',
+      custo: p.custo != null ? String(p.custo) : '',
+      ativo: p.ativo !== false,
     });
   };
 
@@ -354,7 +375,26 @@ export function EstoqueAdminPage() {
           <Input label="Crítico" type="number" value={config.critico} onChange={(e) => setConfig({ ...config, critico: Number(e.target.value) })} />
         </div>
         <Input label="Serviço vinculado" value={config.servicoSlug} onChange={(e) => setConfig({ ...config, servicoSlug: e.target.value })} />
-        <Input label="Preço unitário (R$)" type="number" step="0.01" value={config.precoUnitario} onChange={(e) => setConfig({ ...config, precoUnitario: e.target.value })} />
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Tipo / categoria" value={config.tipo} onChange={(e) => setConfig({ ...config, tipo: e.target.value })} placeholder="gourmet" />
+          <Input label="Cor / acabamento" value={config.cor} onChange={(e) => setConfig({ ...config, cor: e.target.value })} placeholder="preto" />
+        </div>
+        <Input label="URL da foto" value={config.imagemUrl} onChange={(e) => setConfig({ ...config, imagemUrl: e.target.value })} />
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Custo (R$)" type="number" step="0.01" value={config.custo} onChange={(e) => setConfig({ ...config, custo: e.target.value })} />
+          <Input label="Preço de venda (R$)" type="number" step="0.01" value={config.precoUnitario} onChange={(e) => setConfig({ ...config, precoUnitario: e.target.value })} />
+        </div>
+        <label className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-700">
+          <input
+            type="checkbox"
+            checked={config.ativo}
+            onChange={(e) => setConfig({ ...config, ativo: e.target.checked })}
+          />
+          Ativo na vitrine
+        </label>
+        {modalConfig && (
+          <p className="mb-2 text-xs text-slate-500">SKU: {modalConfig.sku} · Estoque: {modalConfig.quantidade} (use Movimentar para alterar saldo)</p>
+        )}
         <div className="flex gap-2">
           <Button variant="cta" onClick={salvarConfig}>Salvar</Button>
           <Button variant="secondary" onClick={() => setModalConfig(null)}>Cancelar</Button>

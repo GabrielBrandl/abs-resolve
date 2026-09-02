@@ -29,6 +29,18 @@ export class SolicitacaoController {
     }
   }
 
+  async materiaisServico(req: Request, res: Response) {
+    try {
+      const slug = typeof req.params.slug === 'string' ? req.params.slug : req.params.slug[0];
+      const tipo = typeof req.query.tipo === 'string' ? req.query.tipo : undefined;
+      const data = await solicitacaoService.obterMateriaisServico(slug, tipo);
+      if (!data) return success(res, null);
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async calcularPreco(req: Request, res: Response) {
     try {
       const { slug, respostas, quantidade } = req.body as {
