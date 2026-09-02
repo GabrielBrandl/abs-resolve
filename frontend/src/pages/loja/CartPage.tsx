@@ -6,6 +6,7 @@ import { TrustRow, YellowButton } from '../../components/loja/store-ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { useCatalog } from '../../hooks/useCatalog';
 import { isClienteRole } from '../../utils/auth-routes';
+import { funil } from '../../utils/gtm';
 import { IconLock, IconShield, IconVerified } from '../../components/loja/icons';
 
 export function CartPage() {
@@ -19,6 +20,11 @@ export function CartPage() {
   const logadoCliente = Boolean(user && isClienteRole(user.role));
 
   const checkout = () => {
+    funil.iniciouCheckout({
+      origem: 'carrinho',
+      qtd_itens: items.length,
+      valor: total,
+    });
     navigate('/agendar');
   };
 

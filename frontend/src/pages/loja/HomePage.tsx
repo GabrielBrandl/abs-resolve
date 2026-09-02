@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { ServiceCard } from '../../components/loja/ServiceCard';
 import { ProductCarousel, ProductCarouselItem } from '../../components/loja/ProductCarousel';
-import { CashbackPromoBanner, YellowButton } from '../../components/loja/store-ui';
+import { CashbackPromoBanner } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { flattenServices } from '../../storefront/catalog';
 import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
@@ -10,7 +10,6 @@ import { BrandMarquee } from '../../components/loja/BrandMarquee';
 import {
   IconCalendar,
   IconCard,
-  IconCheck,
   IconPeople,
   IconPin,
   IconShield,
@@ -21,13 +20,6 @@ import {
   IconInstall,
   IconParcelas,
 } from '../../components/loja/icons';
-
-const HERO_CHECKS = [
-  'Preço antes da visita',
-  'Agendamento em minutos',
-  'Pagamento 100% seguro',
-  'Garantia de até 90 dias',
-];
 
 const FEATURES = [
   { Icon: IconVerified, title: 'Profissionais verificados' },
@@ -47,7 +39,7 @@ const TRUST_LINE = [
 ];
 
 export function HomePage() {
-  const { cashbackPercent, garantiaPadraoDias } = useStoreConfig();
+  const { cashbackPercent } = useStoreConfig();
   const { categorias, loading } = useCatalog();
   const servicos = flattenServices(categorias).filter((s) => s.tipo !== 'peca' && !s.slug.startsWith('peca-'));
   const destaques = servicos.slice(0, 5);
@@ -58,53 +50,21 @@ export function HomePage() {
   return (
     <div className="space-y-6">
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16.5rem]">
-        <div className="overflow-hidden rounded-[14px] shadow-[0_10px_30px_rgba(0,45,98,0.18)] lg:grid lg:grid-cols-2">
-          <div className="bg-[#002d62] p-6 text-white sm:p-7 md:p-8">
-            <div className="flex min-h-full flex-col justify-between lg:min-h-[340px]">
-              <div>
-                <h1 className="max-w-[20rem] text-[30px] font-black leading-[1.12] md:text-[36px]">
-                  Resolva seu problema{' '}
-                  <span className="text-[#ffb800]">hoje.</span>
-                </h1>
-                <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-white/80">
-                  Serviços para casa e empresa com preço definido, agendamento rápido e garantia
-                  {garantiaPadraoDias ? ` de até ${garantiaPadraoDias} dias.` : '.'}
-                </p>
-                <ul className="mt-5 grid gap-2 sm:grid-cols-2">
-                  {HERO_CHECKS.map((item) => (
-                    <li key={item} className="flex items-center gap-2 text-[11px] font-semibold leading-snug sm:text-[12px]">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#ffb800] text-[#002d62]">
-                        <IconCheck className="h-3 w-3" />
-                      </span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <Link to="/busca" className="mt-7 inline-block">
-                <YellowButton className="px-7 py-3.5 text-[13px] uppercase tracking-wide">
-                  Ver serviços e agendar →
-                </YellowButton>
-              </Link>
-            </div>
-          </div>
-
-          <div className="relative min-h-[220px] sm:min-h-[280px] lg:min-h-[340px]">
-            <img
-              src="/hero-abs.webp"
-              alt="Técnico da ABS Resolve em atendimento"
-              width={800}
-              height={480}
-              fetchPriority="high"
-              decoding="async"
-              className="h-full w-full object-cover object-[center_20%]"
-            />
-            <div className="absolute right-3 top-3 rounded-lg bg-[#0b1220]/92 px-2.5 py-1.5 text-xs font-semibold shadow-lg sm:right-4 sm:top-4 sm:px-3 sm:py-2 sm:text-sm">
-              <span className="text-[#ffb800]">★ 4,8</span>
-              <span className="ml-1 text-white/90 sm:ml-1.5">+2.000 avaliações</span>
-            </div>
-          </div>
-        </div>
+        <Link
+          to="/agendar"
+          className="block overflow-hidden rounded-[14px] shadow-[0_10px_30px_rgba(0,45,98,0.18)] transition hover:opacity-[0.98]"
+          aria-label="Programa de Cashback ABS Resolve — agendar agora"
+        >
+          <img
+            src="/hero-cashback.jpg"
+            alt="Programa de Cashback ABS Resolve — até 7% de cashback em serviços"
+            width={1200}
+            height={520}
+            fetchPriority="high"
+            decoding="async"
+            className="h-auto w-full object-cover"
+          />
+        </Link>
 
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none lg:mx-0 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:overflow-visible lg:px-0">
           {FEATURES.map((f) => (

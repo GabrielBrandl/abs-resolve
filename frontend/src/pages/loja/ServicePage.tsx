@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
 import { Breadcrumb, Stars, TrustStrip, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { addToCart } from '../../store/cartStore';
+import { funil } from '../../utils/gtm';
 import {
   findService,
   frequentlyTogether,
@@ -27,6 +28,15 @@ export function ServicePage() {
   const sameCategory = useMemo(() => relatedSameCategory(categorias, slug, 4), [categorias, slug]);
 
   const pecas = useMemo(() => pecasDoServico(slug).slice(0, 4), [slug]);
+
+  useEffect(() => {
+    if (!servico) return;
+    funil.visualizouServico({
+      slug: servico.slug,
+      nome: servico.nome,
+      categoria: servico.categoria,
+    });
+  }, [servico?.slug]);
 
   if (loading) return <Loading />;
   if (isPecaSlug(slug)) return <Navigate to={`/p/${slug}`} replace />;
@@ -52,6 +62,12 @@ export function ServicePage() {
   const putInCart = () => addToCart(payload, qty);
 
   const goCart = () => {
+    funil.clicouComprarAgendar({
+      slug: servico.slug,
+      nome: servico.nome,
+      origem: 'pagina_servico',
+      valor: price ? price * qty : undefined,
+    });
     putInCart();
     navigate('/carrinho');
   };

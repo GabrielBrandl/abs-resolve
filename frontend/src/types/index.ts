@@ -345,6 +345,7 @@ export interface SolicitacaoStatus {
     id: string;
     status: string;
     metodo: string;
+    valor?: number;
     invoiceUrl?: string;
     pixCode?: string;
     pixQrImage?: string;

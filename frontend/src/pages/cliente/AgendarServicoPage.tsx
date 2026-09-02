@@ -12,7 +12,7 @@ import { RelatedRail } from '../../components/loja/RelatedRail';
 import { relatedForCart, type CategoriaLoja } from '../../storefront/catalog';
 import { normalizeSearch } from '../../storefront/search';
 import { useToast } from '../../components/Toast';
-import { gtmEtapaAgendar, gtmPush } from '../../utils/gtm';
+import { gtmConversaoCompra, gtmEtapaAgendar, funil, gtmPush } from '../../utils/gtm';
 import { isClienteRole } from '../../utils/auth-routes';
 import { normalizeUser } from '../../utils/normalize-user';
 import {
@@ -231,6 +231,7 @@ export function AgendarServicoPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retomouAgendamento = useRef(false);
   const assistenteImportado = useRef(false);
+  const checkoutIniciado = useRef(false);
 
   useEffect(() => {
     Promise.all([
@@ -334,6 +335,17 @@ export function AgendarServicoPage() {
   }, [loading, searchParams, setSearchParams, toast, cart]);
 
   useEffect(() => {
+    if (loading || checkoutIniciado.current || cart.count() === 0) return;
+    checkoutIniciado.current = true;
+    const total = cart.items.reduce((sum, i) => sum + (Number(i.precoMinimo) || 0) * i.quantidade, 0);
+    funil.iniciouCheckout({
+      origem: 'agendar',
+      qtd_itens: cart.count(),
+      valor: total,
+    });
+  }, [loading, cart]);
+
+  useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
@@ -388,11 +400,15 @@ export function AgendarServicoPage() {
           if (pollRef.current) clearInterval(pollRef.current);
           setAguardandoPagamento(false);
           cart.clear();
-          gtmPush('agendar_pagamento_confirmado', {
-            solicitacao_id: solId,
-            pedido_id: status.pedidoId,
-            pedido_numero: status.pedidoNumero,
-          });
+          if (status.pedidoNumero) {
+            gtmConversaoCompra({
+              transaction_id: status.pedidoNumero,
+              value: Number(status.pagamento?.valor ?? preco),
+              solicitacao_id: solId,
+              pedido_id: status.pedidoId,
+              metodo: status.pagamento?.metodo || metodoPagamento || undefined,
+            });
+          }
           toast('Pagamento confirmado! Escolha o horário de atendimento.', 'success');
           setStep('horario');
         }
@@ -533,6 +549,12 @@ export function AgendarServicoPage() {
         solicitacao_id: solicitacaoId,
         metodo,
         valor: preco,
+        parcelas: installmentCount || 1,
+      });
+      funil.iniciouPagamento({
+        solicitacao_id: solicitacaoId,
+        metodo,
+        valor: metodo === 'PIX' ? totalComPix : preco,
         parcelas: installmentCount || 1,
       });
       const res = (await solicitacaoApi.pagar(solicitacaoId, metodo, installmentCount)) as {
@@ -1054,6 +1076,11 @@ export function AgendarServicoPage() {
                   type="button"
                   onClick={() => {
                     setSlotSel({ data: s.data, horarioInicio: s.horarioInicio, horarioFim: s.horarioFim });
+                    funil.selecionouHorario({
+                      solicitacao_id: solicitacaoId,
+                      data: s.data,
+                      horario_inicio: s.horarioInicio,
+                    });
                     gtmPush('agendar_horario_selecionado', {
                       solicitacao_id: solicitacaoId,
                       data: s.data,

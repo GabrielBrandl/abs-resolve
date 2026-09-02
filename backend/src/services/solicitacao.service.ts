@@ -771,6 +771,7 @@ export class SolicitacaoService {
             id: pagamento.id,
             status: pagamento.status,
             metodo: pagamento.metodo,
+            valor: Number(pagamento.valor),
             invoiceUrl: pagamento.invoiceUrl,
             pixCode: pagamento.pixCode,
             pixQrImage,
