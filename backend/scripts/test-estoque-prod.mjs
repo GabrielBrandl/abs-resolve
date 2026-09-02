@@ -2,7 +2,7 @@
  * Testa endpoints de estoque em produção (ou API_URL).
  * Uso: node scripts/test-estoque-prod.mjs
  */
-const API = process.env.API_URL || 'https://app.absresolve.com.br/api';
+const API = process.env.API_URL || 'https://absresolve.com.br/api';
 const EMAIL = process.env.TEST_ADMIN_EMAIL || 'admin@absresolve.com.br';
 const SENHA = process.env.TEST_ADMIN_SENHA || 'admin123';
 

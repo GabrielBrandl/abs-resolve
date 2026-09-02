@@ -22,7 +22,7 @@ function formatarMoeda(valor: number) {
 }
 
 export function urlPublicaSite() {
-  return (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://app.absresolve.com.br').replace(/\/$/, '');
+  return (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://absresolve.com.br').replace(/\/$/, '');
 }
 
 export function urlImagemServico(slug?: string, imagemUrl?: string | null) {

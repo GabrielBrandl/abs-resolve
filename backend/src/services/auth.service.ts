@@ -426,7 +426,7 @@ export class AuthService {
       data: { userId: cliente.user.id, token, expiresAt },
     });
 
-    const base = (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://app.absresolve.com.br').replace(/\/$/, '');
+    const base = (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://absresolve.com.br').replace(/\/$/, '');
     const link = `${base}/redefinir-senha?token=${token}`;
 
     await notificacaoService.enviarResetSenha({

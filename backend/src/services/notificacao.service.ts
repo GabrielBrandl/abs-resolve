@@ -54,7 +54,7 @@ function formatarHorario(data: string, inicio: string, fim: string) {
 
 export class NotificacaoService {
   private logoUrl() {
-    const base = (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://app.absresolve.com.br').replace(/\/$/, '');
+    const base = (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://absresolve.com.br').replace(/\/$/, '');
     return `${base}/logo.png`;
   }
 
@@ -76,7 +76,7 @@ export class NotificacaoService {
   }
 
   private portalUrl() {
-    return (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://app.absresolve.com.br').replace(/\/$/, '');
+    return (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://absresolve.com.br').replace(/\/$/, '');
   }
 
   /** E-mail transacional no estilo Amazon: pedido solicitado / pagamento confirmado */

@@ -10,7 +10,7 @@ Guia completo para subir o sistema em produção. O repositório já inclui `doc
 | Repositório GitHub `GabrielBrandl/abs-resolve` | Conectado ao EasyPanel |
 | Supabase (Postgres + Storage bucket `documentos`) | Já configurado |
 | Asaas (produção) | API key configurada |
-| Domínio (ex.: `app.absresolve.com.br`) | Apontando para o IP da VPS |
+| Domínio (ex.: `absresolve.com.br`) | Apontando para o IP da VPS |
 
 ### Antes do deploy — checklist local
 
@@ -53,7 +53,7 @@ O erro `DATABASE_URL não está definida` acontece quando o `.env` do Compose **
 
 > **ASAAS:** `ASAAS_API_KEY=$$aact_prod_...` (dois `$`)
 
-> **URLs:** `FRONTEND_URL=https://app.absresolve.com.br`
+> **URLs:** `FRONTEND_URL=https://absresolve.com.br`
 
 #### Alternativa — Mount no serviço backend
 
@@ -68,7 +68,7 @@ Se o toggle não aparecer ou não funcionar:
 
 1. No projeto, abra o serviço **`web`** (nginx + frontend)
 2. Aba **Domains** → **Add domain**
-3. Informe seu domínio (ex.: `app.absresolve.com.br`)
+3. Informe seu domínio (ex.: `absresolve.com.br`)
 4. **Proxy port:** `80`
 5. Ative **SSL** (Let's Encrypt — automático)
 6. No DNS do seu provedor, crie um registro **A** apontando o domínio para o **IP da VPS**

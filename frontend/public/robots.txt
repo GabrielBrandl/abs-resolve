@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://app.absresolve.com.br/sitemap.xml
+Sitemap: https://absresolve.com.br/sitemap.xml

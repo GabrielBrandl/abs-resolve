@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://app.absresolve.com.br/</loc>
+    <loc>https://absresolve.com.br/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://app.absresolve.com.br/c/eletricista</loc>
+    <loc>https://absresolve.com.br/c/eletricista</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://app.absresolve.com.br/c/hidraulica</loc>
+    <loc>https://absresolve.com.br/c/hidraulica</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://app.absresolve.com.br/c/ar-condicionado</loc>
+    <loc>https://absresolve.com.br/c/ar-condicionado</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://app.absresolve.com.br/login</loc>
+    <loc>https://absresolve.com.br/login</loc>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>

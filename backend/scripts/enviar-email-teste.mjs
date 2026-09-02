@@ -5,9 +5,9 @@ import path from 'path';
 
 const TO = process.argv[2] || 'gabrielpaivabarbosa@gmail.com';
 const logo =
-  (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://app.absresolve.com.br').replace(/\/$/, '') +
+  (process.env.FRONTEND_URL || process.env.API_PUBLIC_URL || 'https://absresolve.com.br').replace(/\/$/, '') +
   '/logo.png';
-const portal = (process.env.FRONTEND_URL || 'https://app.absresolve.com.br').replace(/\/$/, '') + '/conta/servicos';
+const portal = (process.env.FRONTEND_URL || 'https://absresolve.com.br').replace(/\/$/, '') + '/conta/servicos';
 
 function emailPedidoAmazon(opts) {
   const primeiroNome = opts.clienteNome.split(' ')[0] || opts.clienteNome;
