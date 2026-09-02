@@ -754,51 +754,97 @@ export class SolicitacaoService {
     cartao?: import('./asaas.service.js').CartaoCreditoInput,
     remoteIp?: string
   ) {
-    let sol = await prisma.solicitacaoServico.findFirst({
+    const sol = await prisma.solicitacaoServico.findFirst({
       where: { id, clienteId },
-      include: { servico: true, cliente: true, agendamento: true },
+      include: {
+        servico: true,
+        cliente: true,
+        agendamento: true,
+        pedido: { include: { pagamentos: { orderBy: { createdAt: 'desc' }, take: 3 } } },
+      },
     });
     if (!sol) throw new Error('Solicitação não encontrada');
-    if (!['checkout', 'aprovado', 'orcamento'].includes(sol.status)) {
+
+    const statusOk = ['checkout', 'aprovado', 'orcamento', 'aguardando_pagamento'];
+    if (!statusOk.includes(sol.status)) {
+      if (sol.status === 'pago') throw new Error('Este pedido já foi pago. Escolha o horário do atendimento.');
       throw new Error('Checkout inválido para pagamento');
     }
 
-    sol = await this.aplicarDescontoPixNoPagamento(id, clienteId, metodo);
-    const valor = toNumber(sol.precoFinal || 0);
-    const numero = `ABS-${Date.now().toString().slice(-8)}`;
+    const pagamentoRecebido = sol.pedido?.pagamentos?.find((p) => p.status === 'RECEIVED');
+    if (pagamentoRecebido) {
+      throw new Error('Este pedido já foi pago. Escolha o horário do atendimento.');
+    }
 
-    const pedido = await prisma.pedido.create({
-      data: {
-        numero,
-        clienteId,
-        valor,
-        responsavel: 'Automático',
-        status: 'aguardando_pagamento',
-        descricao: descricaoPedido(sol),
-      },
-    });
+    const statusAntes = sol.status;
+    let pedidoId = sol.pedidoId || undefined;
+    let pedidoNumero: string | undefined = sol.pedido?.numero;
 
-    await prisma.solicitacaoServico.update({
-      where: { id },
-      data: { pedidoId: pedido.id, status: 'aguardando_pagamento' },
-    });
-
+    const solComDesconto = await this.aplicarDescontoPixNoPagamento(id, clienteId, metodo);
+    const valor = toNumber(solComDesconto.precoFinal || 0);
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 3);
 
-    const pagamento = await pagamentosService.criarCobranca({
-      clienteId,
-      pedidoId: pedido.id,
-      valor,
-      metodo,
-      dueDate: dueDate.toISOString().split('T')[0],
-      solicitacaoId: id,
-      installmentCount: metodo === 'CARTAO' ? installmentCount : undefined,
-      cartao: metodo === 'CARTAO' ? cartao : undefined,
-      remoteIp,
+    // Reutiliza pedido pendente em retentativa; só cria um novo no primeiro pagamento
+    if (!pedidoId) {
+      const numero = `ABS-${Date.now().toString().slice(-8)}`;
+      const pedido = await prisma.pedido.create({
+        data: {
+          numero,
+          clienteId,
+          valor,
+          responsavel: 'Automático',
+          status: 'aguardando_pagamento',
+          descricao: descricaoPedido(solComDesconto),
+        },
+      });
+      pedidoId = pedido.id;
+      pedidoNumero = pedido.numero;
+      await prisma.solicitacaoServico.update({
+        where: { id },
+        data: { pedidoId: pedido.id },
+      });
+    } else {
+      await prisma.pedido.update({
+        where: { id: pedidoId },
+        data: { valor, status: 'aguardando_pagamento' },
+      });
+    }
+
+    let pagamento;
+    try {
+      pagamento = await pagamentosService.criarCobranca({
+        clienteId,
+        pedidoId,
+        valor,
+        metodo,
+        dueDate: dueDate.toISOString().split('T')[0],
+        solicitacaoId: id,
+        installmentCount: metodo === 'CARTAO' ? installmentCount : undefined,
+        cartao: metodo === 'CARTAO' ? cartao : undefined,
+        remoteIp,
+      });
+    } catch (err) {
+      // Mantém status retentável se a cobrança/cartão falhar
+      if (statusAntes !== 'aguardando_pagamento') {
+        await prisma.solicitacaoServico.update({
+          where: { id },
+          data: { status: 'checkout' },
+        });
+      }
+      throw err;
+    }
+
+    await prisma.solicitacaoServico.update({
+      where: { id },
+      data: { status: 'aguardando_pagamento', pedidoId },
     });
 
-    return { pedido, pagamento, solicitacao: { ...sol, status: 'aguardando_pagamento', pedidoId: pedido.id } };
+    return {
+      pedido: { id: pedidoId, numero: pedidoNumero },
+      pagamento,
+      solicitacao: { ...solComDesconto, status: 'aguardando_pagamento', pedidoId },
+    };
   }
 
   async statusPagamento(id: string, clienteId: string) {

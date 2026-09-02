@@ -689,6 +689,12 @@ export function AgendarServicoPage() {
     if (metodo === 'CARTAO' && !validarCartaoForm()) return;
     setSubmitting(true);
     try {
+      let idPagamento = solicitacaoId;
+      if (!idPagamento) {
+        toast('Pedido não encontrado. Volte ao carrinho e tente novamente.', 'error');
+        return;
+      }
+
       const installmentCount = metodo === 'CARTAO' ? parcelas : undefined;
       const cartaoPayload =
         metodo === 'CARTAO'
@@ -701,21 +707,43 @@ export function AgendarServicoPage() {
             }
           : undefined;
       gtmPush('agendar_pagamento_iniciado', {
-        solicitacao_id: solicitacaoId,
+        solicitacao_id: idPagamento,
         metodo,
         valor: preco,
         parcelas: installmentCount || 1,
       });
       funil.iniciouPagamento({
-        solicitacao_id: solicitacaoId,
+        solicitacao_id: idPagamento,
         metodo,
         valor: metodo === 'PIX' ? totalComDescontos : elegivelFidelidade ? baseAposFidelidade : preco,
         parcelas: installmentCount || 1,
       });
-      const res = (await solicitacaoApi.pagar(solicitacaoId, metodo, installmentCount, cartaoPayload)) as {
+
+      let res: {
         pagamento: { id?: string; invoiceUrl?: string; pixCode?: string; pixQrImage?: string; status?: string };
         solicitacao?: { precoFinal?: number; opcoes?: { valorDesconto?: number; descontoPix?: number } };
       };
+      try {
+        res = (await solicitacaoApi.pagar(idPagamento, metodo, installmentCount, cartaoPayload)) as typeof res;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '';
+        // Pedido antigo/travado: recria o carrinho e tenta pagar de novo uma vez
+        if (/checkout inválido|não encontrada/i.test(msg) && cart.items.length > 0) {
+          const itens = cart.items.map((i) => ({
+            slug: i.slug,
+            quantidade: i.quantidade,
+            ...(i.respostas && Object.keys(i.respostas).length ? { respostas: i.respostas } : {}),
+          }));
+          const sol = await solicitacaoApi.criarCarrinho({ itens, express });
+          idPagamento = sol.id;
+          setSolicitacaoId(sol.id);
+          setPreco(Number(sol.precoFinal));
+          res = (await solicitacaoApi.pagar(idPagamento, metodo, installmentCount, cartaoPayload)) as typeof res;
+        } else {
+          throw err;
+        }
+      }
+
       setPagamento(res.pagamento);
       if (metodo === 'CARTAO') setCartaoProcessado(true);
       if (res.solicitacao?.precoFinal != null) setPreco(Number(res.solicitacao.precoFinal));
@@ -727,7 +755,7 @@ export function AgendarServicoPage() {
       }
       cart.clear();
       gtmPush(metodo === 'PIX' ? 'agendar_pagamento_pix_gerado' : 'agendar_pagamento_cartao_gerado', {
-        solicitacao_id: solicitacaoId,
+        solicitacao_id: idPagamento,
         metodo,
         valor: Number(res.solicitacao?.precoFinal ?? preco),
         parcelas: installmentCount || 1,
@@ -735,7 +763,7 @@ export function AgendarServicoPage() {
         tem_pix: Boolean(res.pagamento?.pixCode),
       });
       setStep('aguardando');
-      iniciarPolling(solicitacaoId);
+      iniciarPolling(idPagamento);
       toast(
         metodo === 'PIX'
           ? 'PIX gerado! Escaneie o QR Code ou copie o código abaixo.'
