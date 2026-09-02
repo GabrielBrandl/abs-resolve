@@ -498,6 +498,10 @@ export function AgendarServicoPage() {
 
   const enviarDadosConvidado = async (e: FormEvent) => {
     e.preventDefault();
+    if (!guestForm.nome.trim() || guestForm.nome.trim().length < 3) {
+      toast('Informe o nome completo', 'error');
+      return;
+    }
     if (!cpf.isValid(guestForm.cpf.replace(/\D/g, ''))) {
       toast('CPF inválido', 'error');
       return;

@@ -14,6 +14,21 @@ import { limparClienteOrfaoPorDocumento } from '../utils/cliente-cascade.js';
 import { notificacaoService } from './notificacao.service.js';
 import { validarCpf } from '../utils/validators.js';
 
+function cpfFormatado(doc: string) {
+  const d = doc.replace(/\D/g, '');
+  if (d.length !== 11) return doc;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+async function buscarClientePorDocumento(doc: string) {
+  return prisma.cliente.findFirst({
+    where: {
+      OR: [{ cpf: doc }, { cpf: cpfFormatado(doc) }, { cnpj: doc }],
+    },
+    include: { user: true },
+  });
+}
+
 async function dummyPasswordCheck() {
   await bcrypt.hash('timing-safe-dummy', 4);
 }
@@ -39,6 +54,39 @@ export class AuthService {
       refreshToken: refreshTokenJwt,
       refreshTokenValue,
     };
+  }
+
+  private async retomarCheckoutConvidado(
+    user: User,
+    data: {
+      nome: string;
+      email: string;
+      telefone: string;
+      endereco: Record<string, string | undefined>;
+      parceiroId?: string;
+    }
+  ) {
+    if (!user.clienteId || user.role !== 'cliente' || user.ativo === false) {
+      throw new Error('Este CPF já tem conta. Entre com login ou use "Esqueci a senha".');
+    }
+
+    await prisma.cliente.update({
+      where: { id: user.clienteId },
+      data: {
+        nome: data.nome,
+        email: data.email,
+        telefone: data.telefone,
+        whatsapp: data.telefone,
+        endereco: data.endereco,
+        consentimentoLgpd: true,
+        dataAceite: new Date(),
+        ...(data.parceiroId ? { parceiroId: data.parceiroId } : {}),
+      },
+    });
+
+    const atualizado = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!atualizado) throw new Error('Erro ao retomar checkout');
+    return this.issueSession(atualizado);
   }
 
   async login(email: string, senha: string) {
@@ -274,27 +322,35 @@ export class AuthService {
 
     await limparClienteOrfaoPorDocumento(doc, email);
 
-    const existingByCpf = await prisma.cliente.findUnique({
-      where: { cpf: doc },
-      include: { user: true },
-    });
-    if (existingByCpf?.user) {
-      throw new Error('Este CPF já tem conta. Entre com login ou use "Esqueci a senha".');
-    }
-
-    const existingUser = await prisma.user.findFirst({
-      where: { email: { equals: email, mode: 'insensitive' } },
-    });
-    if (existingUser) {
-      throw new Error('Este e-mail já tem conta. Entre com login ou use "Esqueci a senha".');
-    }
-
     let parceiroId: string | undefined;
     if (data.ref) {
       const parceiro = await prisma.parceiro.findFirst({
         where: { codigo: data.ref.trim().toUpperCase(), ativo: true },
       });
       if (parceiro) parceiroId = parceiro.id;
+    }
+
+    const retomarPayload = { nome, email, telefone, endereco, parceiroId };
+
+    const existingByCpf = await buscarClientePorDocumento(doc);
+    if (existingByCpf?.user) {
+      const emailConta = existingByCpf.user.email.trim().toLowerCase();
+      if (emailConta === email) {
+        return this.retomarCheckoutConvidado(existingByCpf.user, retomarPayload);
+      }
+      throw new Error('Este CPF já tem conta. Entre com login ou use "Esqueci a senha".');
+    }
+
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      include: { cliente: true },
+    });
+    if (existingUser) {
+      const cpfConta = (existingUser.cliente?.cpf || existingUser.cliente?.cnpj || '').replace(/\D/g, '');
+      if (existingUser.role === 'cliente' && cpfConta === doc) {
+        return this.retomarCheckoutConvidado(existingUser, retomarPayload);
+      }
+      throw new Error('Este e-mail já tem conta. Entre com login ou use "Esqueci a senha".');
     }
 
     const senhaAleatoria = randomBytes(32).toString('hex');

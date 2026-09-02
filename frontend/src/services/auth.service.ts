@@ -1,19 +1,28 @@
 import { api, setAccessToken } from './api';
+import { mensagemErroApi } from '../utils/api-error';
 import type { ApiResponse, LoginResponse } from '../types';
+
+async function authPost(path: string, body?: unknown) {
+  try {
+    const { data } = await api.post<ApiResponse<LoginResponse>>(path, body);
+    if (!data.success || !data.data) throw new Error(data.error || 'Erro na requisição');
+    return data.data;
+  } catch (err) {
+    throw new Error(mensagemErroApi(err));
+  }
+}
 
 export const authService = {
   async login(email: string, senha: string) {
-    const { data } = await api.post<ApiResponse<LoginResponse>>('/auth/login', { email, senha });
-    if (!data.success || !data.data) throw new Error(data.error || 'Erro ao fazer login');
-    setAccessToken(data.data.accessToken);
-    return data.data;
+    const data = await authPost('/auth/login', { email, senha });
+    setAccessToken(data.accessToken);
+    return data;
   },
 
   async loginCliente(cpfCnpj: string, senha: string) {
-    const { data } = await api.post<ApiResponse<LoginResponse>>('/auth/login-cliente', { cpfCnpj, senha });
-    if (!data.success || !data.data) throw new Error(data.error || 'Erro ao fazer login');
-    setAccessToken(data.data.accessToken);
-    return data.data;
+    const data = await authPost('/auth/login-cliente', { cpfCnpj, senha });
+    setAccessToken(data.accessToken);
+    return data;
   },
 
   async logout() {
@@ -27,16 +36,14 @@ export const authService = {
   },
 
   async registrar(body: unknown) {
-    const { data } = await api.post<ApiResponse<LoginResponse>>('/auth/registrar', body);
-    if (!data.success || !data.data) throw new Error(data.error || 'Erro ao cadastrar');
-    setAccessToken(data.data.accessToken);
-    return data.data;
+    const data = await authPost('/auth/registrar', body);
+    setAccessToken(data.accessToken);
+    return data;
   },
 
   async checkoutConvidado(body: unknown) {
-    const { data } = await api.post<ApiResponse<LoginResponse>>('/auth/checkout-convidado', body);
-    if (!data.success || !data.data) throw new Error(data.error || 'Erro no checkout');
-    setAccessToken(data.data.accessToken);
-    return data.data;
+    const data = await authPost('/auth/checkout-convidado', body);
+    setAccessToken(data.accessToken);
+    return data;
   },
 };
