@@ -12,6 +12,7 @@ export interface CartItem {
   quantidade: number;
   tipo?: 'servico' | 'peca';
   servicoRelacionado?: string;
+  respostas?: Record<string, string>;
 }
 
 type CartState = {

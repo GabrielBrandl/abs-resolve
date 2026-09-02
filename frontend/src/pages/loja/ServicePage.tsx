@@ -5,6 +5,7 @@ import { RelatedRail } from '../../components/loja/RelatedRail';
 import { Breadcrumb, Stars, TrustStrip, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { addToCart } from '../../store/cartStore';
+import { solicitacaoApi } from '../../services/modules.service';
 import { funil } from '../../utils/gtm';
 import {
   findService,
@@ -16,17 +17,78 @@ import {
 import { WHATSAPP_LINK } from '../../storefront/constants';
 import { isPecaSlug, pecasDoServico } from '../../storefront/pecas';
 
+type FluxoPergunta = {
+  id: string;
+  titulo: string;
+  opcoes: Array<{ id: string; label: string }>;
+  showIf?: { perguntaId: string; opcaoIds: string[] };
+};
+
+type Fluxo = {
+  perguntas?: FluxoPergunta[];
+};
+
+function perguntasVisiveis(perguntas: FluxoPergunta[], respostas: Record<string, string>) {
+  return perguntas.filter((p) => {
+    if (!p.showIf) return true;
+    const val = respostas[p.showIf.perguntaId];
+    return val != null && p.showIf.opcaoIds.includes(val);
+  });
+}
+
+function quantidadeDaResposta(opcaoId: string) {
+  if (opcaoId === 'mais-4' || opcaoId === '4-ou-mais' || opcaoId === '3-ou-mais') return 5;
+  const n = Number(opcaoId);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
 export function ServicePage() {
   const { slug = '' } = useParams();
   const navigate = useNavigate();
   const { categorias, loading } = useCatalog();
   const servico = findService(categorias, slug);
+  const [fluxo, setFluxo] = useState<Fluxo | null>(null);
+  const [respostas, setRespostas] = useState<Record<string, string>>({});
   const [qty, setQty] = useState(1);
+  const [precoCalculado, setPrecoCalculado] = useState<number | null>(null);
+  const [erroPerguntas, setErroPerguntas] = useState('');
+
+  useEffect(() => {
+    if (!slug) return;
+    solicitacaoApi.fluxo(slug).then((d) => setFluxo(d as Fluxo)).catch(() => setFluxo(null));
+  }, [slug]);
+
+  const perguntasBasicas = useMemo(() => (fluxo?.perguntas || []).slice(0, 5), [fluxo?.perguntas]);
+  const visiveis = useMemo(
+    () => perguntasVisiveis(perguntasBasicas, respostas),
+    [perguntasBasicas, respostas]
+  );
+  const todasRespondidas =
+    visiveis.length === 0 || visiveis.every((p) => Boolean(respostas[p.id]));
+
+  useEffect(() => {
+    if (!slug || !todasRespondidas || visiveis.length === 0) {
+      setPrecoCalculado(null);
+      return;
+    }
+    let cancelled = false;
+    solicitacaoApi
+      .calcularPreco({ slug, respostas, quantidade: qty })
+      .then((r) => {
+        if (!cancelled) setPrecoCalculado(Number(r.preco));
+      })
+      .catch(() => {
+        if (!cancelled) setPrecoCalculado(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, respostas, qty, todasRespondidas, visiveis.length]);
 
   const price = servico?.precoMinimo || 0;
+  const precoUnitario = precoCalculado ?? price;
   const together = useMemo(() => frequentlyTogether(categorias, slug, 4), [categorias, slug]);
   const sameCategory = useMemo(() => relatedSameCategory(categorias, slug, 4), [categorias, slug]);
-
   const pecas = useMemo(() => pecasDoServico(slug).slice(0, 4), [slug]);
 
   useEffect(() => {
@@ -53,22 +115,45 @@ export function ServicePage() {
     slug: servico.slug,
     nome: servico.nome,
     categoria: servico.categoria,
-    precoMinimo: servico.precoMinimo,
+    precoMinimo: precoUnitario,
     precoTexto: servico.precoTexto || '',
     tipoPreco: servico.tipoPreco || 'fixo',
     imagemUrl: servico.imagemUrl,
+    ...(visiveis.length > 0 ? { respostas } : {}),
   };
 
-  const putInCart = () => addToCart(payload, qty);
+  const escolherResposta = (perguntaId: string, opcaoId: string) => {
+    setErroPerguntas('');
+    setRespostas((r) => ({ ...r, [perguntaId]: opcaoId }));
+    if (perguntaId === 'quantidade') {
+      setQty(quantidadeDaResposta(opcaoId));
+    }
+  };
+
+  const validarPerguntas = () => {
+    if (visiveis.length === 0) return true;
+    const faltando = visiveis.find((p) => !respostas[p.id]);
+    if (faltando) {
+      setErroPerguntas(`Responda: ${faltando.titulo}`);
+      return false;
+    }
+    return true;
+  };
+
+  const putInCart = () => {
+    if (!validarPerguntas()) return;
+    addToCart(payload, qty);
+  };
 
   const goCart = () => {
+    if (!validarPerguntas()) return;
     funil.clicouComprarAgendar({
       slug: servico.slug,
       nome: servico.nome,
       origem: 'pagina_servico',
-      valor: price ? price * qty : undefined,
+      valor: precoUnitario ? precoUnitario * qty : undefined,
     });
-    putInCart();
+    addToCart(payload, qty);
     navigate('/carrinho');
   };
 
@@ -97,27 +182,68 @@ export function ServicePage() {
           <h1 className="mt-1 text-[28px] font-black leading-tight text-[#111827]">{servico.nome}</h1>
           <Stars value={4.9} count={186} />
           <div className="mt-4 rounded-[10px] border border-[#e6e8ee] bg-[#f8fafc] p-4">
-            <p className="text-xs text-slate-500">Preço fixo</p>
+            <p className="text-xs text-slate-500">{visiveis.length > 0 ? 'A partir de' : 'Preço fixo'}</p>
             <div className="flex flex-wrap items-end gap-3">
-              <p className="text-[32px] font-black text-[#002d62]">{price ? money(price) : servico.precoTexto}</p>
+              <p className="text-[32px] font-black text-[#002d62]">
+                {precoUnitario ? money(precoUnitario) : servico.precoTexto}
+              </p>
             </div>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">{servico.descricao}</p>
 
-          <div className="mt-6">
-            <p className="mb-2 text-sm font-bold">Quantidade</p>
-            <div className="flex w-fit items-center overflow-hidden rounded-md border border-[#d5d9e2]">
-              <button type="button" className="h-9 w-9" onClick={() => setQty((n) => Math.max(1, n - 1))}>−</button>
-              <span className="w-8 text-center font-black">{qty}</span>
-              <button type="button" className="h-9 w-9" onClick={() => setQty((n) => n + 1)}>+</button>
-            </div>
+          <div className="mt-6 space-y-4">
+            {visiveis.map((p, idx) => (
+              <div key={p.id}>
+                <p className="mb-2 text-sm font-bold text-[#002d62]">
+                  {idx + 1}. {p.titulo}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {p.opcoes.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onClick={() => escolherResposta(p.id, o.id)}
+                      className={`min-w-[7rem] rounded-lg border px-3 py-3 text-left text-sm font-semibold ${
+                        respostas[p.id] === o.id
+                          ? 'border-[#002d62] bg-[#e8f0ff] text-[#002d62]'
+                          : 'border-slate-200 bg-white hover:border-[#002d62]/40'
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {visiveis.length === 0 && (
+              <div>
+                <p className="mb-2 text-sm font-bold">Quantidade</p>
+                <div className="flex w-fit items-center overflow-hidden rounded-md border border-[#d5d9e2]">
+                  <button type="button" className="h-9 w-9" onClick={() => setQty((n) => Math.max(1, n - 1))}>−</button>
+                  <span className="w-8 text-center font-black">{qty}</span>
+                  <button type="button" className="h-9 w-9" onClick={() => setQty((n) => n + 1)}>+</button>
+                </div>
+              </div>
+            )}
+            {erroPerguntas && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{erroPerguntas}</p>
+            )}
           </div>
         </div>
 
         <aside className="h-fit rounded-[12px] border border-[#e6e8ee] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
-          <p className="text-sm font-black text-[#002d62]">Resumo do serviço</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-black text-[#002d62]">Resumo do serviço</p>
+            {visiveis.length > 0 && (
+              <button type="button" className="text-xs font-bold text-[#1d4ed8]" onClick={() => { setRespostas({}); setErroPerguntas(''); }}>
+                Limpar
+              </button>
+            )}
+          </div>
           <p className="mt-2 font-bold text-[#111827]">{servico.nome}</p>
-          <p className="mt-3 text-[30px] font-black text-[#002d62]">{price ? money(price * qty) : servico.precoTexto}</p>
+          <p className="mt-3 text-[30px] font-black text-[#002d62]">
+            {precoUnitario ? money(precoUnitario * qty) : servico.precoTexto}
+          </p>
           <YellowButton className="mt-4 w-full" onClick={goCart}>
             Comprar e agendar
           </YellowButton>
@@ -158,7 +284,7 @@ export function ServicePage() {
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white p-3 shadow-2xl lg:hidden">
         <YellowButton className="w-full" onClick={goCart}>
-          Adicionar ao carrinho {price ? money(price * qty) : ''}
+          Adicionar ao carrinho {precoUnitario ? money(precoUnitario * qty) : ''}
         </YellowButton>
       </div>
     </div>

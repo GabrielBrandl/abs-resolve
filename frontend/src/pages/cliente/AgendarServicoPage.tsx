@@ -557,6 +557,7 @@ export function AgendarServicoPage() {
       const itens = cart.items.map((i) => ({
         slug: i.slug,
         quantidade: i.quantidade,
+        ...(i.respostas && Object.keys(i.respostas).length ? { respostas: i.respostas } : {}),
       }));
       const sol = await solicitacaoApi.criarCarrinho({
         itens,
