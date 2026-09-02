@@ -170,6 +170,8 @@ export function TextoComMarca({ texto, logoClassName = 'h-4' }: { texto: string;
   );
 }
 
+const LOGO_SRC = '/logo-abs-resolve.png';
+
 export function Logo({
   className = 'h-16',
   variant = 'default',
@@ -188,7 +190,7 @@ export function Logo({
   if (resolved === 'inline') {
     return (
       <img
-        src="/logo.png"
+        src={LOGO_SRC}
         alt=""
         aria-hidden
         className={`inline-block align-middle object-contain ${className || 'h-5'}`}
@@ -208,7 +210,7 @@ export function Logo({
   return (
     <span className={frame[resolved]} role="img" aria-label="ABS Resolve">
       <img
-        src="/logo.png"
+        src={LOGO_SRC}
         alt=""
         className={`${className} w-auto max-w-[min(100%,320px)] object-contain`}
         width={320}

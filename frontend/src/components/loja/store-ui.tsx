@@ -12,11 +12,14 @@ const TRUST_ICONS = {
 export function AbsBrand() {
   return (
     <Link to="/" className="flex min-w-0 items-center gap-3">
-      <span className="relative leading-none">
-        <span className="absolute left-[3px] top-[-6px] h-[7px] w-[46px] rounded-full bg-[#ffb800]" />
-        <span className="block text-[26px] font-black tracking-tight text-[#002d62] sm:text-[28px]">ABS</span>
-        <span className="mt-[-1px] block text-[9px] font-extrabold tracking-[0.22em] text-[#002d62]">RESOLVE</span>
-      </span>
+      <img
+        src="/logo-abs-resolve.png"
+        alt="ABS Resolve"
+        className="h-11 w-auto max-w-[148px] object-contain object-left"
+        width={148}
+        height={44}
+        decoding="async"
+      />
       <span className="hidden max-w-[8.2rem] text-[11px] font-semibold leading-tight text-[#002d62] sm:block">
         Chamou. Confiou. Resolveu.
       </span>
