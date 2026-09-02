@@ -177,6 +177,17 @@ export class TecnicoService {
       data: { status: 'em_execucao' },
     });
 
+    if (ag.pedidoId) {
+      await prisma.pedido.update({
+        where: { id: ag.pedidoId },
+        data: { status: 'em_execucao' },
+      });
+      await prisma.ordemServico.updateMany({
+        where: { pedidoId: ag.pedidoId },
+        data: { etapa: 'execucao' },
+      });
+    }
+
     notificacaoService
       .notificarTecnicoChegou({
         email: ag.cliente.email,

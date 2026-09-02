@@ -126,8 +126,8 @@ export class AgendamentoService {
     });
     if (!ag) throw new Error('Agendamento não elegível para reagendamento');
 
-    const { reservarCapacidade } = await import('../engines/capacity.engine.js');
-    const dataAgenda = new Date(data.data + 'T12:00:00');
+    const { reservarCapacidade, assertSlotNaoRetroativo } = await import('../engines/capacity.engine.js');
+    assertSlotNaoRetroativo(data.data, data.horarioInicio);
 
     await prisma.agendamento.update({
       where: { id: agendamentoId },
@@ -135,13 +135,14 @@ export class AgendamentoService {
     });
 
     return reservarCapacidade(
-      dataAgenda,
+      data.data,
       ag.pontosUsados,
       clienteId,
       ag.solicitacaoId || '',
       data.horarioInicio,
       data.horarioFim,
-      ag.express
+      ag.express,
+      { pedidoId: ag.pedidoId }
     );
   }
 }

@@ -1,7 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { Prisma } from '@prisma/client';
 import { estoqueService } from './estoque.service.js';
-import { listarHorariosDisponiveis } from '../engines/capacity.engine.js';
+import { listarHorariosDisponiveis, assertSlotNaoRetroativo } from '../engines/capacity.engine.js';
 import { storageService } from './storage.service.js';
 import { CATEGORIAS } from '../config/catalogo-servicos.js';
 import { fluxoConfigService } from './fluxo-config.service.js';
@@ -409,6 +409,8 @@ export class CatalogoAdminService {
     const slotOk = HORARIOS_PADRAO.some((s) => s.inicio === horarioInicio && s.fim === horarioFim);
     if (!slotOk) throw new Error('Horário inválido. Use um dos turnos padrão da operação.');
 
+    assertSlotNaoRetroativo(data, horarioInicio);
+
     const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
     if (!cliente) throw new Error('Cliente não encontrado');
 
@@ -470,20 +472,25 @@ export class CatalogoAdminService {
         },
       });
 
-      const dataAgenda = new Date(`${data}T12:00:00`);
+      const [y, m, d] = data.split('-').map(Number);
+      const dataPersistida = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
       const capacidade = await tx.tecnico.findMany({ where: { ativo: true } });
       const capTotal = capacidade.reduce((s, t) => s + t.capacidadeDiaria, 0);
-      const inicioDia = new Date(dataAgenda);
-      inicioDia.setHours(0, 0, 0, 0);
-      const fimDia = new Date(inicioDia);
-      fimDia.setDate(fimDia.getDate() + 1);
+      const inicioBusca = new Date(Date.UTC(y, m - 1, d - 1, 0, 0, 0));
+      const fimBusca = new Date(Date.UTC(y, m - 1, d + 2, 0, 0, 0));
       const usadosAgg = await tx.agendamento.findMany({
         where: {
-          data: { gte: inicioDia, lt: fimDia },
+          data: { gte: inicioBusca, lt: fimBusca },
           status: { notIn: ['cancelado'] },
         },
       });
-      const usados = usadosAgg.reduce((s, a) => s + a.pontosUsados, 0);
+      const usados = usadosAgg
+        .filter((a) => {
+          const iso = a.data.toISOString().slice(0, 10);
+          // data persistida em UTC noon → dia UTC = dia do slot
+          return iso === data;
+        })
+        .reduce((s, a) => s + a.pontosUsados, 0);
       if (usados + pontos > capTotal) {
         throw new Error('Horário indisponível. Capacidade operacional atingida.');
       }
@@ -494,7 +501,7 @@ export class CatalogoAdminService {
           solicitacaoId: solicitacao.id,
           pedidoId: pedido.id,
           tecnicoId: tecnicoId || undefined,
-          data: inicioDia,
+          data: dataPersistida,
           horarioInicio,
           horarioFim,
           pontosUsados: pontos,
@@ -506,7 +513,7 @@ export class CatalogoAdminService {
       await tx.ordemServico.create({
         data: {
           pedidoId: pedido.id,
-          etapa: 'execucao',
+          etapa: 'aprovacao',
           tecnicoId: tecnicoId || undefined,
           observacoes: [oQueFazer, observacoes, materiais ? `Materiais: ${materiais}` : '', acesso ? `Acesso: ${acesso}` : '']
             .filter(Boolean)

@@ -11,33 +11,81 @@ export interface SlotDisponivel {
   escassez: EscassezNivel;
 }
 
-function startOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
+/** Fuso operacional ABS Resolve (Manaus). */
+export const TZ_OPERACAO = 'America/Manaus';
+
+function partsInTz(date: Date, timeZone = TZ_OPERACAO) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(date).map((p) => [p.type, p.value]));
+  return {
+    y: Number(parts.year),
+    m: Number(parts.month),
+    d: Number(parts.day),
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+  };
 }
 
-function addDays(d: Date, n: number) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
+/** YYYY-MM-DD no fuso de Manaus */
+export function dataLocalISO(date: Date = new Date(), timeZone = TZ_OPERACAO) {
+  const { y, m, d } = partsInTz(date, timeZone);
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-async function capacidadeTotalDia(data: Date): Promise<number> {
+function addDaysISO(dataISO: string, n: number) {
+  const [y, m, d] = dataISO.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + n));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+
+/** Interpreta data+hora no fuso de Manaus como instante UTC. */
+export function instanteManaus(dataISO: string, horarioHHMM: string) {
+  const [y, m, d] = dataISO.split('-').map(Number);
+  const [hh, mm] = horarioHHMM.split(':').map((v) => parseInt(v, 10) || 0);
+  // Manaus = UTC-4 o ano todo (sem DST)
+  return new Date(Date.UTC(y, m - 1, d, hh + 4, mm, 0));
+}
+
+export function assertSlotNaoRetroativo(dataISO: string, horarioInicio: string) {
+  const inicio = instanteManaus(dataISO, horarioInicio);
+  if (inicio.getTime() <= Date.now()) {
+    throw new Error('Não é possível agendar em data ou horário já passado. Escolha um horário futuro.');
+  }
+}
+
+function labelDia(offset: number, dataISO: string) {
+  if (offset === 0) return 'Hoje';
+  if (offset === 1) return 'Amanhã';
+  const [y, m, d] = dataISO.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0)).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+}
+
+async function capacidadeTotalDia(_dataISO: string): Promise<number> {
   const tecnicos = await prisma.tecnico.findMany({ where: { ativo: true } });
   return tecnicos.reduce((s, t) => s + t.capacidadeDiaria, 0);
 }
 
-async function pontosUsadosDia(data: Date): Promise<number> {
-  const inicio = startOfDay(data);
-  const fim = addDays(inicio, 1);
+async function pontosUsadosDia(dataISO: string): Promise<number> {
+  const [y, m, d] = dataISO.split('-').map(Number);
+  const inicio = new Date(Date.UTC(y, m - 1, d - 1, 0, 0, 0));
+  const fim = new Date(Date.UTC(y, m - 1, d + 2, 0, 0, 0));
   const agendamentos = await prisma.agendamento.findMany({
     where: {
       data: { gte: inicio, lt: fim },
       status: { notIn: ['cancelado'] },
     },
   });
-  return agendamentos.reduce((s, a) => s + a.pontosUsados, 0);
+  return agendamentos
+    .filter((a) => dataLocalISO(a.data) === dataISO)
+    .reduce((s, a) => s + a.pontosUsados, 0);
 }
 
 function escassezFromOcupacao(ratio: number): EscassezNivel {
@@ -52,40 +100,33 @@ export async function listarHorariosDisponiveis(pontosNecessarios: number, dias 
   proximaDisponibilidade: string | null;
 }> {
   const slots: SlotDisponivel[] = [];
-  const hoje = startOfDay(new Date());
+  const hojeISO = dataLocalISO(new Date());
   let proximaDisponibilidade: string | null = null;
+  const agora = Date.now();
 
   for (let d = 0; d < dias; d++) {
-    const data = addDays(hoje, d);
-    const capacidade = await capacidadeTotalDia(data);
+    const dataISO = addDaysISO(hojeISO, d);
+    const capacidade = await capacidadeTotalDia(dataISO);
     if (capacidade === 0) continue;
 
-    const usados = await pontosUsadosDia(data);
+    const usados = await pontosUsadosDia(dataISO);
     const restantes = capacidade - usados;
-    if (restantes < pontosNecessarios) {
-      if (!proximaDisponibilidade) continue;
-      continue;
-    }
-
-    const ratio = usados / capacidade;
+    if (restantes < pontosNecessarios) continue;
 
     for (const h of HORARIOS_PADRAO) {
+      const inicioMs = instanteManaus(dataISO, h.inicio).getTime();
+      if (inicioMs <= agora) continue; // sem horário retroativo / já passado
+
       const slotRatio = (usados + pontosNecessarios) / capacidade;
       if (slotRatio > 1) continue;
 
       const escassez = escassezFromOcupacao(slotRatio);
-      const dataStr = data.toISOString().split('T')[0];
-      const label = d === 0
-        ? `Hoje ${h.inicio} às ${h.fim}`
-        : d === 1
-          ? `Amanhã ${h.inicio} às ${h.fim}`
-          : `${data.toLocaleDateString('pt-BR')} ${h.inicio} às ${h.fim}`;
-
+      const prefix = labelDia(d, dataISO);
       slots.push({
-        data: dataStr,
+        data: dataISO,
         horarioInicio: h.inicio,
         horarioFim: h.fim,
-        label,
+        label: `${prefix} ${h.inicio} às ${h.fim}`,
         escassez,
       });
     }
@@ -97,11 +138,11 @@ export async function listarHorariosDisponiveis(pontosNecessarios: number, dias 
 
   if (slots.length === 0) {
     for (let d = dias; d < dias + 14; d++) {
-      const data = addDays(hoje, d);
-      const capacidade = await capacidadeTotalDia(data);
-      const usados = await pontosUsadosDia(data);
+      const dataISO = addDaysISO(hojeISO, d);
+      const capacidade = await capacidadeTotalDia(dataISO);
+      const usados = await pontosUsadosDia(dataISO);
       if (capacidade > 0 && capacidade - usados >= pontosNecessarios) {
-        proximaDisponibilidade = data.toLocaleDateString('pt-BR');
+        proximaDisponibilidade = labelDia(d, dataISO);
         break;
       }
     }
@@ -111,7 +152,7 @@ export async function listarHorariosDisponiveis(pontosNecessarios: number, dias 
 }
 
 export async function reservarCapacidade(
-  data: Date,
+  data: Date | string,
   pontos: number,
   clienteId: string,
   solicitacaoId: string | null,
@@ -120,11 +161,21 @@ export async function reservarCapacidade(
   express: boolean,
   extra?: { pedidoId?: string | null; tecnicoId?: string | null }
 ) {
-  const capacidade = await capacidadeTotalDia(data);
-  const usados = await pontosUsadosDia(data);
+  const dataStr =
+    typeof data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data)
+      ? data
+      : dataLocalISO(data instanceof Date ? data : new Date(data));
+
+  assertSlotNaoRetroativo(dataStr, horarioInicio);
+
+  const capacidade = await capacidadeTotalDia(dataStr);
+  const usados = await pontosUsadosDia(dataStr);
   if (usados + pontos > capacidade) {
     throw new Error('Horário indisponível. Capacidade operacional atingida.');
   }
+
+  const [y, m, d] = dataStr.split('-').map(Number);
+  const dataPersistida = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 
   return prisma.agendamento.create({
     data: {
@@ -132,7 +183,7 @@ export async function reservarCapacidade(
       solicitacaoId: solicitacaoId || undefined,
       pedidoId: extra?.pedidoId || undefined,
       tecnicoId: extra?.tecnicoId || undefined,
-      data: startOfDay(data),
+      data: dataPersistida,
       horarioInicio,
       horarioFim,
       pontosUsados: pontos,

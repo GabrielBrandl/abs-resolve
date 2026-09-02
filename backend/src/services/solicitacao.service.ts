@@ -18,7 +18,7 @@ import {
   MINIMO_PECAS_ISENTO_ENTREGA,
   calcularTaxaEntrega,
 } from '../utils/carrinho-regras.js';
-import { listarHorariosDisponiveis, reservarCapacidade } from '../engines/capacity.engine.js';
+import { listarHorariosDisponiveis, reservarCapacidade, assertSlotNaoRetroativo } from '../engines/capacity.engine.js';
 import { analisarFotos, custosParaServico } from '../services/ia-diagnostico.service.js';
 import { notificacaoService } from './notificacao.service.js';
 import { descricaoServicosDaSolicitacao } from '../utils/solicitacao-descricao.js';
@@ -101,13 +101,15 @@ function buildTimeline(
     {
       key: 'agendamento',
       label: agendamento ? `Agendado ${agendamento.horarioInicio}` : 'Aguardando agendamento',
-      done: !!agendamento && agendamento.status === 'confirmado',
+      done: !!agendamento && agendamento.status !== 'cancelado',
       date: agendamento?.data,
     },
     {
       key: 'execucao',
       label: 'Em execução',
-      done: ['em_execucao', 'finalizado'].includes(pedido.status) || pedido.ordemServico?.etapa === 'execucao',
+      done:
+        pedido.status === 'em_execucao' ||
+        ['a_caminho', 'em_execucao'].includes(String(agendamento?.status || '')),
     },
     {
       key: 'concluido',
@@ -707,7 +709,8 @@ export class SolicitacaoService {
     }
 
     const pontos = pontosSolicitacao(sol);
-    const dataAgenda = new Date(data.data + 'T12:00:00');
+    assertSlotNaoRetroativo(data.data, data.horarioInicio);
+    const dataAgenda = data.data;
 
     const agendamento = await reservarCapacidade(
       dataAgenda,
@@ -716,20 +719,28 @@ export class SolicitacaoService {
       id,
       data.horarioInicio,
       data.horarioFim,
-      sol.express
+      sol.express,
+      { pedidoId: sol.pedidoId }
     );
-
-    if (sol.pedidoId) {
-      await prisma.agendamento.update({
-        where: { id: agendamento.id },
-        data: { pedidoId: sol.pedidoId },
-      });
-    }
 
     await prisma.solicitacaoServico.update({
       where: { id },
       data: { status: 'agendado' },
     });
+
+    if (sol.pedidoId) {
+      await prisma.pedido.update({
+        where: { id: sol.pedidoId },
+        data: { status: 'em_processamento' },
+      });
+      const os = await prisma.ordemServico.findUnique({ where: { pedidoId: sol.pedidoId } });
+      if (os && os.etapa === 'solicitacao') {
+        await prisma.ordemServico.update({
+          where: { id: os.id },
+          data: { etapa: 'aprovacao' },
+        });
+      }
+    }
 
     await notificacaoService.notificarAgendamentoConfirmado({
       clienteNome: sol.cliente.nome,

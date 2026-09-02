@@ -290,7 +290,7 @@ export class PagamentosService {
 
     const jaRecebido = pedido.pagamentos.find((p) => p.status === 'RECEIVED');
     if (jaRecebido) {
-      await prisma.pedido.update({ where: { id: pedido.id }, data: { status: 'em_execucao' } });
+      await prisma.pedido.update({ where: { id: pedido.id }, data: { status: 'em_processamento' } });
       return confirmarPagamentoRecebido(jaRecebido.id);
     }
 
