@@ -1,25 +1,27 @@
 const BRANDS = [
-  { id: 'lorenzetti', label: 'Lorenzetti', color: '#E30613' },
-  { id: 'civitt', label: 'Civitt', color: '#003DA5' },
-  { id: 'tigre', label: 'Tigre', color: '#0066CC' },
-  { id: 'taschibra', label: 'Taschibra', color: '#C8102E' },
-  { id: 'deca', label: 'Deca', color: '#0054A6' },
-  { id: 'amanco', label: 'Amanco', color: '#00843D' },
-  { id: 'tramontina', label: 'Tramontina', color: '#E30613' },
+  { id: 'lorenzetti', label: 'Lorenzetti', src: '/marcas/lorenzetti.svg' },
+  { id: 'civitt', label: 'Civitt', src: '/marcas/civitt.png' },
+  { id: 'tigre', label: 'Tigre', src: '/marcas/tigre.png' },
+  { id: 'taschibra', label: 'Taschibra', src: '/marcas/taschibra.png' },
+  { id: 'deca', label: 'Deca', src: '/marcas/deca.png' },
+  { id: 'amanco', label: 'Amanco', src: '/marcas/amanco.png' },
+  { id: 'tramontina', label: 'Tramontina', src: '/marcas/tramontina.svg' },
 ] as const;
 
-function BrandLogo({ label, color }: { label: string; color: string }) {
+function BrandLogo({ label, src }: { label: string; src: string }) {
   return (
     <div
-      className="flex h-12 min-w-[9rem] shrink-0 items-center justify-center px-4"
+      className="flex h-16 min-w-[11rem] shrink-0 items-center justify-center px-6"
       aria-label={label}
     >
-      <span
-        className="select-none text-[1.35rem] font-black uppercase tracking-tight opacity-80"
-        style={{ color }}
-      >
-        {label}
-      </span>
+      <img
+        src={src}
+        alt={label}
+        className="max-h-11 w-auto max-w-[10rem] object-contain"
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+      />
     </div>
   );
 }
@@ -38,7 +40,7 @@ export function BrandMarquee() {
       <div className="brand-marquee-mask relative">
         <div className="brand-marquee-track flex w-max items-center">
           {track.map((brand, i) => (
-            <BrandLogo key={`${brand.id}-${i}`} label={brand.label} color={brand.color} />
+            <BrandLogo key={`${brand.id}-${i}`} label={brand.label} src={brand.src} />
           ))}
         </div>
       </div>
