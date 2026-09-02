@@ -4,6 +4,10 @@ import { solicitacaoService } from './solicitacao.service.js';
 import { pagamentosService } from './pagamentos.service.js';
 import { getConfigPrecificacao } from '../engines/pricing.engine.js';
 import { toNumber } from '../utils/helpers.js';
+import {
+  MINIMO_CARRINHO_SERVICO,
+  MINIMO_PECAS_ISENTO_ENTREGA,
+} from '../utils/carrinho-regras.js';
 
 export class ClientePortalService {
   async pedidosComTimeline(clienteId: string) {
@@ -67,6 +71,8 @@ export class ClientePortalService {
       expressValor: toNumber(config.expressValor),
       taxaCancelamento: toNumber(config.taxaCancelamento),
       taxaAusencia: toNumber(config.taxaAusencia),
+      minimoCarrinhoServico: MINIMO_CARRINHO_SERVICO,
+      minimoPecasIsentoEntrega: MINIMO_PECAS_ISENTO_ENTREGA,
       cashbackPercent: toNumber(config.cashbackPercent) || 0.1,
       bonusIndicacao: toNumber(config.bonusIndicacao) || 20,
       garantiaPadraoDias: Number(config.garantiaPadraoDias) || 90,

@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import { useCartStore } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
 import { money, relatedForCart } from '../../storefront/catalog';
@@ -8,22 +9,41 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { isClienteRole } from '../../utils/auth-routes';
 import { funil } from '../../utils/gtm';
 import { IconLock, IconShield, IconVerified } from '../../components/loja/icons';
+import { useToast } from '../../components/Toast';
+import { validarCarrinhoFrontend } from '../../utils/carrinho-regras';
 
 export function CartPage() {
   const cart = useCartStore();
   const items = useCartStore((s) => s.items);
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { categorias } = useCatalog();
-  const total = items.reduce((sum, i) => sum + (Number(i.precoMinimo) || 0) * i.quantidade, 0);
+  const resumo = useMemo(
+    () =>
+      validarCarrinhoFrontend(
+        items.map((i) => ({
+          slug: i.slug,
+          quantidade: i.quantidade,
+          tipo: i.tipo,
+          precoMinimo: i.precoMinimo,
+        }))
+      ),
+    [items]
+  );
+  const total = resumo.subtotal;
   const related = relatedForCart(categorias, items.map((i) => i.slug), 4);
   const logadoCliente = Boolean(user && isClienteRole(user.role));
 
   const checkout = () => {
+    if (!resumo.ok) {
+      toast(resumo.mensagem, 'error');
+      return;
+    }
     funil.iniciouCheckout({
       origem: 'carrinho',
       qtd_itens: items.length,
-      valor: total,
+      valor: resumo.total,
     });
     navigate('/agendar');
   };
@@ -77,16 +97,25 @@ export function CartPage() {
           <span>Subtotal</span>
           <span className="font-semibold">{money(total)}</span>
         </div>
+        {resumo.avisoServico && (
+          <p className="mt-2 text-xs text-amber-700">{resumo.avisoServico}</p>
+        )}
+        {resumo.avisoPecas && (
+          <p className="mt-2 text-xs text-slate-600">{resumo.avisoPecas}</p>
+        )}
+        {!resumo.ok && (
+          <p className="mt-2 text-xs font-semibold text-red-600">{resumo.mensagem}</p>
+        )}
         <div className="mt-4 flex items-end justify-between border-t border-[#eef0f4] pt-3">
           <span className="font-bold text-[#002d62]">Total</span>
-          <p className="text-[28px] font-black text-[#002d62]">{money(total)}</p>
+          <p className="text-[28px] font-black text-[#002d62]">{money(resumo.total)}</p>
         </div>
         <ul className="mt-4 space-y-2 text-[12px] font-semibold text-[#334155]">
           <li className="flex items-center gap-2"><IconShield className="h-4 w-4 text-[#002d62]" /> Garantia de até 90 dias</li>
           <li className="flex items-center gap-2"><IconVerified className="h-4 w-4 text-[#002d62]" /> Profissional verificado</li>
           <li className="flex items-center gap-2"><IconLock className="h-4 w-4 text-[#002d62]" /> Pagamento online 100% seguro</li>
         </ul>
-        <YellowButton className="mt-5 w-full" onClick={checkout}>
+        <YellowButton className="mt-5 w-full" onClick={checkout} disabled={!resumo.ok}>
           Continuar para pagamento →
         </YellowButton>
         {!logadoCliente && (

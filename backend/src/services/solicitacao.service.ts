@@ -13,6 +13,11 @@ import { type FluxoServico, type RespostasFluxo } from '../config/fluxo-servicos
 import { fluxoConfigService } from './fluxo-config.service.js';
 import { calcularPrecoFluxo } from '../config/tabela-precos-fluxo.js';
 import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from '../engines/pricing.engine.js';
+import {
+  MINIMO_CARRINHO_SERVICO,
+  MINIMO_PECAS_ISENTO_ENTREGA,
+  calcularTaxaEntrega,
+} from '../utils/carrinho-regras.js';
 import { listarHorariosDisponiveis, reservarCapacidade } from '../engines/capacity.engine.js';
 import { analisarFotos, custosParaServico } from '../services/ia-diagnostico.service.js';
 import { notificacaoService } from './notificacao.service.js';
@@ -302,11 +307,42 @@ export class SolicitacaoService {
       );
     }
 
+    const temServico = detalhes.some((d) => d.tipo !== 'peca');
+    const somentePecas = detalhes.length > 0 && detalhes.every((d) => d.tipo === 'peca');
+
+    if (temServico && precoSubtotal < MINIMO_CARRINHO_SERVICO) {
+      const falta = MINIMO_CARRINHO_SERVICO - precoSubtotal;
+      throw new Error(
+        `Pedidos com serviço exigem valor mínimo de R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}. ` +
+          `Faltam R$ ${falta.toFixed(2).replace('.', ',')}.`
+      );
+    }
+
+    let taxaEntrega = 0;
+    let taxaEntregaRegiao: string | undefined;
+    if (somentePecas && precoSubtotal < MINIMO_PECAS_ISENTO_ENTREGA) {
+      const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
+      const endereco = (cliente?.endereco || {}) as Record<string, string>;
+      if (!endereco.cep && !endereco.cidade) {
+        throw new Error(
+          'Informe CEP e cidade no cadastro para calcular a taxa de entrega das peças avulsas (pedidos abaixo de R$ 150,00).'
+        );
+      }
+      const entrega = calcularTaxaEntrega({
+        cep: endereco.cep,
+        cidade: endereco.cidade,
+        bairro: endereco.bairro,
+        uf: endereco.uf,
+      });
+      taxaEntrega = entrega.taxa;
+      taxaEntregaRegiao = entrega.regiao;
+    }
+
     const config = await getConfigPrecificacao();
     const expressValor = express ? toNumber(config.expressValor) : 0;
 
-    // Desconto de PIX é aplicado só na hora do pagamento (finalizarPagamento).
-    const precoFinal = precoSubtotal + expressValor;
+    const precoComTaxas = precoSubtotal + taxaEntrega;
+    const precoFinal = precoComTaxas + expressValor;
 
     const firstService = itens.find((i) => !isPecaSlug(i.slug));
     const anchorSlug = firstService?.slug || findPeca(itens[0].slug)?.servicoRelacionado || itens[0].slug;
@@ -325,12 +361,15 @@ export class SolicitacaoService {
         opcoes: {
           itens: detalhes,
           pontosTotal,
+          precoSubtotalItens: precoSubtotal,
+          taxaEntrega,
+          taxaEntregaRegiao,
           requerValidacaoTecnica: false,
           aceiteIaDiagnostico,
           aceiteIaEm: aceiteIaDiagnostico ? new Date().toISOString() : undefined,
         },
         fotos: fotosTodas,
-        precoBase: precoSubtotal,
+        precoBase: precoComTaxas,
         precoFinal,
         express,
         status: 'checkout',

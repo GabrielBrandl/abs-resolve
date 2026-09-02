@@ -235,6 +235,9 @@ export const solicitacaoApi = {
         descontoPix?: number;
         descontoPrimeiroServico?: number;
         elegivelPrimeiroServico?: boolean;
+        taxaEntrega?: number;
+        taxaEntregaRegiao?: string;
+        precoSubtotalItens?: number;
       };
     }>('/solicitacao/carrinho', body),
   descontoPrimeiroServico: () =>

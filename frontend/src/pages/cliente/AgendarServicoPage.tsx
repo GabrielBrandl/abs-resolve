@@ -20,6 +20,7 @@ import {
   PARCELAS_SEM_JUROS,
   TAXA_JUROS_MES_PERCENT_DEFAULT,
 } from '../../utils/parcelamento';
+import { validarCarrinhoFrontend } from '../../utils/carrinho-regras';
 
 type Step = 'catalogo' | 'carrinho' | 'dados' | 'pagamento' | 'aguardando' | 'horario' | 'concluido';
 
@@ -246,10 +247,34 @@ export function AgendarServicoPage() {
     ccv: '',
   });
   const [cartaoProcessado, setCartaoProcessado] = useState(false);
+  const [taxaEntrega, setTaxaEntrega] = useState(0);
+  const [taxaEntregaRegiao, setTaxaEntregaRegiao] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retomouAgendamento = useRef(false);
   const assistenteImportado = useRef(false);
   const checkoutIniciado = useRef(false);
+
+  const itensResumo = useMemo(
+    () =>
+      cart.items.map((i) => ({
+        slug: i.slug,
+        quantidade: i.quantidade,
+        tipo: i.tipo,
+        precoMinimo: i.precoMinimo,
+      })),
+    [cart.items]
+  );
+
+  const resumoCarrinho = useMemo(
+    () =>
+      validarCarrinhoFrontend(
+        itensResumo,
+        step === 'dados'
+          ? { cep: guestForm.cep, cidade: guestForm.cidade, uf: guestForm.uf }
+          : null
+      ),
+    [itensResumo, step, guestForm.cep, guestForm.cidade, guestForm.uf]
+  );
 
   useEffect(() => {
     Promise.all([
@@ -489,6 +514,11 @@ export function AgendarServicoPage() {
       toast('Adicione serviços ou peças ao carrinho', 'error');
       return;
     }
+    const resumo = validarCarrinhoFrontend(itensResumo);
+    if (!resumo.ok) {
+      toast(resumo.mensagem, 'error');
+      return;
+    }
     if (!logadoCliente) {
       setStep('dados');
       return;
@@ -508,6 +538,15 @@ export function AgendarServicoPage() {
     }
     if (!guestForm.consentimentoLgpd) {
       toast('Aceite os termos LGPD para continuar', 'error');
+      return;
+    }
+    const resumo = validarCarrinhoFrontend(itensResumo, {
+      cep: guestForm.cep,
+      cidade: guestForm.cidade,
+      uf: guestForm.uf,
+    });
+    if (!resumo.ok) {
+      toast(resumo.mensagem, 'error');
       return;
     }
     setSubmitting(true);
@@ -566,6 +605,8 @@ export function AgendarServicoPage() {
 
       setSolicitacaoId(sol.id);
       setPreco(Number(sol.precoFinal));
+      setTaxaEntrega(Number(sol.opcoes?.taxaEntrega || 0));
+      setTaxaEntregaRegiao(sol.opcoes?.taxaEntregaRegiao || null);
       setValorDescontoAplicado(Number(sol.opcoes?.valorDesconto || 0));
       setPctDescontoAplicado(Number(sol.opcoes?.descontoPix || sol.opcoes?.descontoPrimeiroServico || 0));
       gtmPush('agendar_pedido_criado', {
@@ -863,13 +904,22 @@ export function AgendarServicoPage() {
           <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div>
             <p className="text-xl font-bold text-primary-800">
-              Total: {formatCurrency(cart.total())}
+              Total: {formatCurrency(resumoCarrinho.total)}
             </p>
+            {resumoCarrinho.avisoServico && (
+              <p className="mt-1 text-xs text-amber-700">{resumoCarrinho.avisoServico}</p>
+            )}
+            {resumoCarrinho.avisoPecas && (
+              <p className="mt-1 text-xs text-slate-600">{resumoCarrinho.avisoPecas}</p>
+            )}
+            {!resumoCarrinho.ok && (
+              <p className="mt-1 text-xs font-semibold text-red-600">{resumoCarrinho.mensagem}</p>
+            )}
             <p className="text-xs text-slate-500">Preço fixo · pagamento na próxima etapa</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button onClick={() => setStep('catalogo')}>Continuar comprando</Button>
-              <Button variant="cta" onClick={irPagamento} disabled={!cart.count() || submitting}>
+              <Button variant="cta" onClick={irPagamento} disabled={!cart.count() || submitting || !resumoCarrinho.ok}>
                 {submitting ? 'Preparando pagamento...' : 'Comprar e agendar'}
               </Button>
             </div>
@@ -974,6 +1024,19 @@ export function AgendarServicoPage() {
                 required
               />
             </div>
+            {resumoCarrinho.somentePecas && resumoCarrinho.subtotal < 150 && (
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                {resumoCarrinho.taxaEntrega > 0 ? (
+                  <p>
+                    Taxa de entrega ({resumoCarrinho.taxaEntregaRegiao}):{' '}
+                    <strong>{formatCurrency(resumoCarrinho.taxaEntrega)}</strong> — incluída no total de{' '}
+                    <strong>{formatCurrency(resumoCarrinho.total)}</strong>
+                  </p>
+                ) : (
+                  <p>Peças abaixo de R$ 150,00: a taxa de entrega será calculada conforme seu CEP.</p>
+                )}
+              </div>
+            )}
             <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
@@ -1008,6 +1071,18 @@ export function AgendarServicoPage() {
               </li>
             ))}
           </ul>
+          {taxaEntrega > 0 && (
+            <>
+              <p className="mb-1 flex justify-between text-sm text-slate-600">
+                <span>Subtotal itens</span>
+                <span>{formatCurrency(preco - taxaEntrega)}</span>
+              </p>
+              <p className="mb-2 flex justify-between text-sm text-slate-700">
+                <span>Taxa de entrega{taxaEntregaRegiao ? ` (${taxaEntregaRegiao})` : ''}</span>
+                <span className="font-semibold">{formatCurrency(taxaEntrega)}</span>
+              </p>
+            </>
+          )}
           {metodoPagamento === 'PIX' && descontoPixEstimado > 0 && (
             <p className="mb-2 text-sm text-emerald-700">
               Desconto PIX ({descontoPixPercent}%): −{formatCurrency(descontoPixEstimado)}

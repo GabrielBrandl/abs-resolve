@@ -358,6 +358,8 @@ export interface SolicitacaoConfig {
   expressValor: number;
   taxaCancelamento: number;
   taxaAusencia: number;
+  minimoCarrinhoServico?: number;
+  minimoPecasIsentoEntrega?: number;
   cashbackPercent?: number;
   bonusIndicacao?: number;
   garantiaPadraoDias?: number;
