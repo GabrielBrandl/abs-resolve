@@ -67,15 +67,10 @@ export class SolicitacaoController {
     }
   }
 
-  async descontoPrimeiroServico(_req: Request, res: Response) {
+  async descontoPrimeiroServico(req: Request, res: Response) {
     try {
-      const percentual = solicitacaoService.descontoPixPercent();
-      return success(res, {
-        elegivel: true,
-        percentual,
-        somentePix: true,
-        mensagem: `${percentual}% de desconto exclusivo no pagamento via PIX.`,
-      });
+      const clienteId = await clienteIdFromReq(req);
+      return success(res, await solicitacaoService.elegibilidadeDescontos(clienteId));
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
     }

@@ -238,12 +238,23 @@ export const solicitacaoApi = {
         taxaEntrega?: number;
         taxaEntregaRegiao?: string;
         precoSubtotalItens?: number;
+        descontoFidelidade?: number;
+        valorDescontoFidelidade?: number;
+        valorDescontoPix?: number;
+        comprasAnteriores?: number;
       };
     }>('/solicitacao/carrinho', body),
   descontoPrimeiroServico: () =>
-    get<{ elegivel: boolean; percentual: number; somentePix?: boolean; mensagem: string }>(
-      '/solicitacao/desconto-primeiro-servico'
-    ),
+    get<{
+      elegivel: boolean;
+      fidelidade?: boolean;
+      percentual: number;
+      percentualFidelidade?: number;
+      percentualPix?: number;
+      somentePix?: boolean;
+      comprasAnteriores?: number;
+      mensagem: string;
+    }>('/solicitacao/desconto-primeiro-servico'),
   fluxo: (slug: string) =>
     get<{
       slug: string;

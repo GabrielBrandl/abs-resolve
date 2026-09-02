@@ -219,6 +219,8 @@ export function AgendarServicoPage() {
   const [orcamentoModal, setOrcamentoModal] = useState<ServicoCatalogo | null>(null);
   const [orcamentoDesc, setOrcamentoDesc] = useState('');
   const [descontoPixPercent, setDescontoPixPercent] = useState(5);
+  const [descontoFidelidadePercent, setDescontoFidelidadePercent] = useState(30);
+  const [elegivelFidelidade, setElegivelFidelidade] = useState(false);
   const [valorDescontoAplicado, setValorDescontoAplicado] = useState(0);
   const [pctDescontoAplicado, setPctDescontoAplicado] = useState(0);
   const [metodoPagamento, setMetodoPagamento] = useState<'PIX' | 'CARTAO' | null>(null);
@@ -280,19 +282,46 @@ export function AgendarServicoPage() {
     Promise.all([
       solicitacaoApi.catalogo(),
       solicitacaoApi.config(),
-      solicitacaoApi.descontoPrimeiroServico().catch(() => ({ elegivel: false, percentual: 10 })),
     ])
-      .then(([data, config, desc]) => {
+      .then(([data, config]) => {
         setCategorias(data.categorias || []);
         if (data.categorias?.[0]) setCatAtiva(data.categorias[0].slug);
         if (config.parcelamento) {
           setParcelasSemJuros(config.parcelamento.parcelasSemJuros);
           setTaxaJurosMes(config.parcelamento.taxaJurosMesPercent);
         }
-        if (Number(desc.percentual) > 0) setDescontoPixPercent(Number(desc.percentual));
+        if (Number(config.descontoFidelidadePercent) > 0) {
+          setDescontoFidelidadePercent(Number(config.descontoFidelidadePercent));
+        }
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const carregarDescontos = async () => {
+    if (!logadoCliente) {
+      setElegivelFidelidade(false);
+      return;
+    }
+    try {
+      const desc = await solicitacaoApi.descontoPrimeiroServico();
+      if (Number(desc.percentualPix) > 0) setDescontoPixPercent(Number(desc.percentualPix));
+      else if (!desc.fidelidade && Number(desc.percentual) > 0) setDescontoPixPercent(Number(desc.percentual));
+      if (Number(desc.percentualFidelidade) > 0) setDescontoFidelidadePercent(Number(desc.percentualFidelidade));
+      setElegivelFidelidade(Boolean(desc.fidelidade || desc.elegivel));
+    } catch {
+      setElegivelFidelidade(false);
+    }
+  };
+
+  useEffect(() => {
+    void carregarDescontos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recarrega ao logar / mudar usuário
+  }, [logadoCliente, user?.id]);
+
+  useEffect(() => {
+    if (step === 'pagamento' && logadoCliente) void carregarDescontos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, logadoCliente]);
 
   useEffect(() => {
     const slug = searchParams.get('slug');
@@ -583,12 +612,15 @@ export function AgendarServicoPage() {
     }
   };
 
+  const descontoFidelidadeEstimado = elegivelFidelidade
+    ? Math.round(preco * (descontoFidelidadePercent / 100) * 100) / 100
+    : 0;
+  const baseAposFidelidade = Math.max(0, preco - descontoFidelidadeEstimado);
   const descontoPixEstimado =
     metodoPagamento === 'PIX'
-      ? Math.round(preco * (descontoPixPercent / 100) * 100) / 100
+      ? Math.round(baseAposFidelidade * (descontoPixPercent / 100) * 100) / 100
       : 0;
-  const totalComPix =
-    metodoPagamento === 'PIX' ? Math.max(0, preco - descontoPixEstimado) : preco;
+  const totalComDescontos = Math.max(0, baseAposFidelidade - descontoPixEstimado);
 
   const confirmarPedido = async () => {
     setSubmitting(true);
@@ -624,22 +656,23 @@ export function AgendarServicoPage() {
   };
 
   const opcoesParcelas = useMemo(() => {
-    const max = preco >= 100 ? 12 : preco >= 50 ? 6 : 3;
+    const baseParcelas = elegivelFidelidade ? baseAposFidelidade : preco;
+    const max = baseParcelas >= 100 ? 12 : baseParcelas >= 50 ? 6 : 3;
     return Array.from({ length: max }, (_, i) => i + 1).map((n) =>
-      calcularParcelamento(preco, n, {
+      calcularParcelamento(baseParcelas, n, {
         parcelasSemJuros,
         taxaJurosMesPercent: taxaJurosMes,
       })
     );
-  }, [preco, parcelasSemJuros, taxaJurosMes]);
+  }, [preco, baseAposFidelidade, elegivelFidelidade, parcelasSemJuros, taxaJurosMes]);
 
   const parcelaSelecionada = useMemo(
     () =>
-      calcularParcelamento(preco, parcelas, {
+      calcularParcelamento(elegivelFidelidade ? baseAposFidelidade : preco, parcelas, {
         parcelasSemJuros,
         taxaJurosMesPercent: taxaJurosMes,
       }),
-    [preco, parcelas, parcelasSemJuros, taxaJurosMes]
+    [preco, baseAposFidelidade, elegivelFidelidade, parcelas, parcelasSemJuros, taxaJurosMes]
   );
 
   const pagar = async (metodo: string) => {
@@ -666,7 +699,7 @@ export function AgendarServicoPage() {
       funil.iniciouPagamento({
         solicitacao_id: solicitacaoId,
         metodo,
-        valor: metodo === 'PIX' ? totalComPix : preco,
+        valor: metodo === 'PIX' ? totalComDescontos : elegivelFidelidade ? baseAposFidelidade : preco,
         parcelas: installmentCount || 1,
       });
       const res = (await solicitacaoApi.pagar(solicitacaoId, metodo, installmentCount, cartaoPayload)) as {
@@ -1086,21 +1119,30 @@ export function AgendarServicoPage() {
               </p>
             </>
           )}
+          {elegivelFidelidade && descontoFidelidadeEstimado > 0 && (
+            <p className="mb-2 text-sm text-emerald-700">
+              Desconto fidelidade ({descontoFidelidadePercent}% — a partir da 2ª compra): −
+              {formatCurrency(descontoFidelidadeEstimado)}
+            </p>
+          )}
           {metodoPagamento === 'PIX' && descontoPixEstimado > 0 && (
             <p className="mb-2 text-sm text-emerald-700">
               Desconto PIX ({descontoPixPercent}%): −{formatCurrency(descontoPixEstimado)}
             </p>
           )}
-          {valorDescontoAplicado > 0 && metodoPagamento !== 'PIX' && (
+          {valorDescontoAplicado > 0 && metodoPagamento !== 'PIX' && !elegivelFidelidade && (
             <p className="mb-2 text-sm text-emerald-700">
-              Desconto PIX ({pctDescontoAplicado}%): −{formatCurrency(valorDescontoAplicado)}
+              Desconto ({pctDescontoAplicado}%): −{formatCurrency(valorDescontoAplicado)}
             </p>
           )}
-          <p className="mb-1 text-2xl font-bold text-primary-700">{formatCurrency(totalComPix)}</p>
-          {metodoPagamento === 'PIX' && descontoPixEstimado > 0 && (
-            <p className="mb-4 text-xs text-slate-500">De {formatCurrency(preco)} por {formatCurrency(totalComPix)} no PIX</p>
+          <p className="mb-1 text-2xl font-bold text-primary-700">{formatCurrency(totalComDescontos)}</p>
+          {(descontoFidelidadeEstimado > 0 || descontoPixEstimado > 0) && (
+            <p className="mb-4 text-xs text-slate-500">
+              De {formatCurrency(preco)} por {formatCurrency(totalComDescontos)}
+              {metodoPagamento === 'PIX' ? ' no PIX' : elegivelFidelidade ? ' com fidelidade' : ''}
+            </p>
           )}
-          {metodoPagamento !== 'PIX' && <div className="mb-4" />}
+          {descontoFidelidadeEstimado <= 0 && descontoPixEstimado <= 0 && <div className="mb-4" />}
 
           <p className="mb-2 text-sm font-medium text-primary-800">Forma de pagamento</p>
           <div className="mb-4 flex flex-wrap gap-2">
@@ -1220,9 +1262,21 @@ export function AgendarServicoPage() {
             </div>
           )}
 
-          {metodoPagamento === 'PIX' && (
+          {elegivelFidelidade && (
             <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
-              Pagando com PIX você ganha {descontoPixPercent}% de desconto automático.
+              Cliente recorrente: {descontoFidelidadePercent}% de desconto na sua compra
+              {metodoPagamento === 'PIX' ? ` + ${descontoPixPercent}% no PIX` : ''}.
+            </p>
+          )}
+          {!elegivelFidelidade && metodoPagamento === 'PIX' && (
+            <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+              Pagando com PIX você ganha {descontoPixPercent}% de desconto automático. A partir da 2ª compra:{' '}
+              {descontoFidelidadePercent}% off.
+            </p>
+          )}
+          {!elegivelFidelidade && metodoPagamento !== 'PIX' && (
+            <p className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
+              A partir da 2ª compra você ganha {descontoFidelidadePercent}% de desconto automático.
             </p>
           )}
 
@@ -1240,7 +1294,9 @@ export function AgendarServicoPage() {
                   ? `Pagar ${parcelas}x de ${formatCurrency(parcelaSelecionada.valorParcela)}`
                   : `Pagar ${parcelas}x (${formatCurrency(parcelaSelecionada.total)})`
                 : metodoPagamento === 'PIX'
-                  ? `Gerar PIX com ${descontoPixPercent}% off`
+                  ? elegivelFidelidade
+                    ? `Gerar PIX com ${descontoFidelidadePercent}% + ${descontoPixPercent}% off`
+                    : `Gerar PIX com ${descontoPixPercent}% off`
                   : 'Escolha a forma de pagamento'}
           </Button>
         </Card>

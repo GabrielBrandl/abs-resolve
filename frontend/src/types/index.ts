@@ -360,6 +360,7 @@ export interface SolicitacaoConfig {
   taxaAusencia: number;
   minimoCarrinhoServico?: number;
   minimoPecasIsentoEntrega?: number;
+  descontoFidelidadePercent?: number;
   cashbackPercent?: number;
   bonusIndicacao?: number;
   garantiaPadraoDias?: number;

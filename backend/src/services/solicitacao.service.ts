@@ -31,6 +31,12 @@ function descontoPixPercent(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : 5;
 }
 
+/** Desconto a partir da 2ª compra paga do cliente. */
+function descontoFidelidadePercent(): number {
+  const raw = Number(process.env.DESCONTO_FIDELIDADE_PERCENT || 30);
+  return Number.isFinite(raw) && raw > 0 ? raw : 30;
+}
+
 function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
   return `${opcoes.tipo || 'simples'}_${opcoes.amperagem || '10a'}`.toLowerCase();
 }
@@ -386,6 +392,38 @@ export class SolicitacaoService {
     return descontoPixPercent();
   }
 
+  descontoFidelidadePercent() {
+    return descontoFidelidadePercent();
+  }
+
+  /** Compras já pagas (RECEIVED) — a partir de 1, a próxima é a 2ª compra. */
+  async contarComprasConfirmadas(clienteId: string) {
+    return prisma.pagamento.count({
+      where: { clienteId, status: 'RECEIVED' },
+    });
+  }
+
+  async elegibilidadeDescontos(clienteId: string) {
+    const comprasAnteriores = await this.contarComprasConfirmadas(clienteId);
+    const percentualFidelidade = descontoFidelidadePercent();
+    const percentualPix = descontoPixPercent();
+    const fidelidade = comprasAnteriores >= 1;
+    return {
+      elegivel: fidelidade,
+      fidelidade,
+      percentual: fidelidade ? percentualFidelidade : percentualPix,
+      percentualFidelidade,
+      percentualPix,
+      somentePix: !fidelidade,
+      comprasAnteriores,
+      mensagem: fidelidade
+        ? `${percentualFidelidade}% de desconto de fidelidade (a partir da 2ª compra).${
+            percentualPix > 0 ? ` No PIX, mais ${percentualPix}% sobre o valor com desconto.` : ''
+          }`
+        : `${percentualPix}% de desconto exclusivo no pagamento via PIX. A partir da 2ª compra: ${percentualFidelidade}% off.`,
+    };
+  }
+
   async atualizarCheckout(id: string, clienteId: string, express: boolean) {
     const sol = await prisma.solicitacaoServico.findFirst({ where: { id, clienteId } });
     if (!sol) throw new Error('Solicitação não encontrada');
@@ -405,6 +443,9 @@ export class SolicitacaoService {
           ...opcoes,
           valorDesconto: undefined,
           descontoPix: undefined,
+          descontoFidelidade: undefined,
+          valorDescontoFidelidade: undefined,
+          valorDescontoPix: undefined,
           descontoPrimeiroServico: undefined,
           elegivelPrimeiroServico: undefined,
         } as Prisma.InputJsonValue,
@@ -414,7 +455,11 @@ export class SolicitacaoService {
     });
   }
 
-  /** Aplica 5% de desconto apenas quando o método escolhido for PIX. */
+  /**
+   * Aplica descontos no pagamento:
+   * - Fidelidade 30% a partir da 2ª compra (qualquer método)
+   * - PIX 5% sobre o valor restante
+   */
   async aplicarDescontoPixNoPagamento(
     id: string,
     clienteId: string,
@@ -427,10 +472,18 @@ export class SolicitacaoService {
     const config = await getConfigPrecificacao();
     const base = toNumber(sol.precoBase || 0);
     const expressValor = sol.express ? toNumber(config.expressValor) : 0;
-    const percentualDesconto = metodo === 'PIX' ? descontoPixPercent() : 0;
-    const valorDesconto =
-      percentualDesconto > 0 ? Math.round(base * (percentualDesconto / 100) * 100) / 100 : 0;
-    const precoFinal = Math.max(0, base - valorDesconto) + expressValor;
+
+    const comprasAnteriores = await this.contarComprasConfirmadas(clienteId);
+    const pctFidelidade = comprasAnteriores >= 1 ? descontoFidelidadePercent() : 0;
+    const pctPix = metodo === 'PIX' ? descontoPixPercent() : 0;
+
+    const valorDescontoFidelidade =
+      pctFidelidade > 0 ? Math.round(base * (pctFidelidade / 100) * 100) / 100 : 0;
+    const baseAposFidelidade = Math.max(0, base - valorDescontoFidelidade);
+    const valorDescontoPix =
+      pctPix > 0 ? Math.round(baseAposFidelidade * (pctPix / 100) * 100) / 100 : 0;
+    const valorDesconto = Math.round((valorDescontoFidelidade + valorDescontoPix) * 100) / 100;
+    const precoFinal = Math.max(0, baseAposFidelidade - valorDescontoPix) + expressValor;
 
     return prisma.solicitacaoServico.update({
       where: { id },
@@ -438,8 +491,12 @@ export class SolicitacaoService {
         precoFinal,
         opcoes: {
           ...opcoes,
-          descontoPix: percentualDesconto || undefined,
+          descontoFidelidade: pctFidelidade || undefined,
+          valorDescontoFidelidade: valorDescontoFidelidade || undefined,
+          descontoPix: pctPix || undefined,
+          valorDescontoPix: valorDescontoPix || undefined,
           valorDesconto: valorDesconto || undefined,
+          comprasAnteriores,
           descontoPrimeiroServico: undefined,
           elegivelPrimeiroServico: undefined,
         } as Prisma.InputJsonValue,

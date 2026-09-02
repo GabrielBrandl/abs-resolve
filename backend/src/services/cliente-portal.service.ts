@@ -9,6 +9,11 @@ import {
   MINIMO_PECAS_ISENTO_ENTREGA,
 } from '../utils/carrinho-regras.js';
 
+const DESCONTO_FIDELIDADE_PERCENT = (() => {
+  const raw = Number(process.env.DESCONTO_FIDELIDADE_PERCENT || 30);
+  return Number.isFinite(raw) && raw > 0 ? raw : 30;
+})();
+
 export class ClientePortalService {
   async pedidosComTimeline(clienteId: string) {
     return solicitacaoService.acompanhamentoPedidos(clienteId);
@@ -73,6 +78,7 @@ export class ClientePortalService {
       taxaAusencia: toNumber(config.taxaAusencia),
       minimoCarrinhoServico: MINIMO_CARRINHO_SERVICO,
       minimoPecasIsentoEntrega: MINIMO_PECAS_ISENTO_ENTREGA,
+      descontoFidelidadePercent: DESCONTO_FIDELIDADE_PERCENT,
       cashbackPercent: toNumber(config.cashbackPercent) || 0.1,
       bonusIndicacao: toNumber(config.bonusIndicacao) || 20,
       garantiaPadraoDias: Number(config.garantiaPadraoDias) || 90,
