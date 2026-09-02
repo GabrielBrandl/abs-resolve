@@ -100,6 +100,9 @@ export function CartPage() {
         {resumo.avisoServico && (
           <p className="mt-2 text-xs text-amber-700">{resumo.avisoServico}</p>
         )}
+        {resumo.avisoMisto && (
+          <p className="mt-2 text-xs text-emerald-700">{resumo.avisoMisto}</p>
+        )}
         {resumo.avisoPecas && (
           <p className="mt-2 text-xs text-slate-600">{resumo.avisoPecas}</p>
         )}

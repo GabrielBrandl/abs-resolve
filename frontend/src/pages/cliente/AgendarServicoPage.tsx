@@ -909,6 +909,9 @@ export function AgendarServicoPage() {
             {resumoCarrinho.avisoServico && (
               <p className="mt-1 text-xs text-amber-700">{resumoCarrinho.avisoServico}</p>
             )}
+            {resumoCarrinho.avisoMisto && (
+              <p className="mt-1 text-xs text-emerald-700">{resumoCarrinho.avisoMisto}</p>
+            )}
             {resumoCarrinho.avisoPecas && (
               <p className="mt-1 text-xs text-slate-600">{resumoCarrinho.avisoPecas}</p>
             )}

@@ -48,8 +48,9 @@ export function analisarItensCarrinho(
 
   const subtotal = subtotalServicos + subtotalPecas;
   const somentePecas = temPeca && !temServico;
+  const misto = temServico && temPeca;
 
-  return { subtotalServicos, subtotalPecas, subtotal, temServico, temPeca, somentePecas };
+  return { subtotalServicos, subtotalPecas, subtotal, temServico, temPeca, somentePecas, misto };
 }
 
 /** Faixas de entrega a partir da sede (Distrito Industrial, Manaus). Valores moderados. */
@@ -149,15 +150,19 @@ export function aplicarRegrasCarrinho(
 
   if (resumo.temServico && resumo.subtotal < MINIMO_CARRINHO_SERVICO) {
     const falta = MINIMO_CARRINHO_SERVICO - resumo.subtotal;
+    const contexto = resumo.misto
+      ? 'Pedidos com serviço e peça'
+      : 'Pedidos só com serviço';
     throw new Error(
-      `Pedidos com serviço exigem valor mínimo de R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}. ` +
-        `Faltam R$ ${falta.toFixed(2).replace('.', ',')}. Adicione mais itens ou serviços.`
+      `${contexto} exigem valor mínimo de R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}. ` +
+        `Faltam R$ ${falta.toFixed(2).replace('.', ',')}. Adicione mais itens.`
     );
   }
 
   let taxaEntrega = 0;
   let taxaEntregaRegiao: string | undefined;
 
+  // Frete apenas quando o carrinho tem só peças (sem serviço)
   if (resumo.somentePecas && resumo.subtotal < MINIMO_PECAS_ISENTO_ENTREGA) {
     if (!endereco?.cep && !endereco?.cidade) {
       throw new Error(

@@ -309,17 +309,20 @@ export class SolicitacaoService {
 
     const temServico = detalhes.some((d) => d.tipo !== 'peca');
     const somentePecas = detalhes.length > 0 && detalhes.every((d) => d.tipo === 'peca');
+    const misto = temServico && detalhes.some((d) => d.tipo === 'peca');
 
     if (temServico && precoSubtotal < MINIMO_CARRINHO_SERVICO) {
       const falta = MINIMO_CARRINHO_SERVICO - precoSubtotal;
+      const contexto = misto ? 'Pedidos com serviço e peça' : 'Pedidos só com serviço';
       throw new Error(
-        `Pedidos com serviço exigem valor mínimo de R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}. ` +
+        `${contexto} exigem valor mínimo de R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}. ` +
           `Faltam R$ ${falta.toFixed(2).replace('.', ',')}.`
       );
     }
 
     let taxaEntrega = 0;
     let taxaEntregaRegiao: string | undefined;
+    // Frete só quando o carrinho tem apenas peças (sem serviço)
     if (somentePecas && precoSubtotal < MINIMO_PECAS_ISENTO_ENTREGA) {
       const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
       const endereco = (cliente?.endereco || {}) as Record<string, string>;

@@ -39,14 +39,10 @@ export function analisarItensCarrinho(itens: ItemCarrinhoResumo[]) {
   }
 
   const subtotal = subtotalServicos + subtotalPecas;
-  return {
-    subtotalServicos,
-    subtotalPecas,
-    subtotal,
-    temServico,
-    temPeca,
-    somentePecas: temPeca && !temServico,
-  };
+  const somentePecas = temPeca && !temServico;
+  const misto = temServico && temPeca;
+
+  return { subtotalServicos, subtotalPecas, subtotal, temServico, temPeca, somentePecas, misto };
 }
 
 const FAIXAS_CEP_MANAUS: Array<{ prefixos: string[]; taxa: number; regiao: string }> = [
@@ -116,21 +112,26 @@ export function validarCarrinhoFrontend(itens: ItemCarrinhoResumo[], endereco?: 
 
   if (resumo.temServico && resumo.subtotal < MINIMO_CARRINHO_SERVICO) {
     const falta = MINIMO_CARRINHO_SERVICO - resumo.subtotal;
+    const contexto = resumo.misto
+      ? 'Pedidos com serviço e peça'
+      : 'Pedidos só com serviço';
     return {
       ok: false as const,
-      mensagem: `Pedidos com serviço exigem mínimo de R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}. Faltam R$ ${falta.toFixed(2).replace('.', ',')}.`,
+      mensagem: `${contexto} exigem mínimo de R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}. Faltam R$ ${falta.toFixed(2).replace('.', ',')}.`,
       ...resumo,
       taxaEntrega: 0,
       taxaEntregaRegiao: undefined,
       total: resumo.subtotal,
       avisoServico: undefined,
       avisoPecas: undefined,
+      avisoMisto: undefined,
     };
   }
 
   let taxaEntrega = 0;
   let taxaEntregaRegiao: string | undefined;
 
+  // Frete só quando o carrinho tem APENAS peças (sem serviço)
   if (resumo.somentePecas && resumo.subtotal < MINIMO_PECAS_ISENTO_ENTREGA) {
     if (endereco?.cep || endereco?.cidade) {
       const entrega = calcularTaxaEntrega(endereco);
@@ -139,20 +140,27 @@ export function validarCarrinhoFrontend(itens: ItemCarrinhoResumo[], endereco?: 
     }
   }
 
+  const avisoPecas =
+    resumo.somentePecas && resumo.subtotal < MINIMO_PECAS_ISENTO_ENTREGA
+      ? endereco?.cep
+        ? `Taxa de entrega (${taxaEntregaRegiao}): incluída no total`
+        : 'Só peças abaixo de R$ 150: taxa de entrega calculada no checkout conforme seu CEP'
+      : resumo.somentePecas && resumo.subtotal >= MINIMO_PECAS_ISENTO_ENTREGA
+        ? 'Frete grátis — pedido de peças acima de R$ 150'
+        : undefined;
+
+  const avisoMisto = resumo.misto
+    ? 'Peças vão na mesma visita do serviço — sem taxa de entrega'
+    : undefined;
+
   return {
     ok: true as const,
     ...resumo,
     taxaEntrega,
     taxaEntregaRegiao,
     total: resumo.subtotal + taxaEntrega,
-    avisoPecas:
-      resumo.somentePecas && resumo.subtotal < MINIMO_PECAS_ISENTO_ENTREGA
-        ? endereco?.cep
-          ? `Taxa de entrega (${taxaEntregaRegiao}): incluída no total`
-          : 'Peças abaixo de R$ 150: taxa de entrega calculada no checkout conforme seu CEP'
-        : undefined,
-    avisoServico: resumo.temServico
-      ? `Valor mínimo para serviços: R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}`
-      : undefined,
+    avisoPecas,
+    avisoServico: undefined,
+    avisoMisto,
   };
 }
