@@ -84,31 +84,33 @@ export function HomePage() {
       </section>
 
       <section id="ofertas">
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="text-[22px] font-black text-[#111827]">
-            Mais contratados <span className="text-[18px]">🔥</span>
-          </h2>
-          <Link to="/busca" className="text-sm font-bold text-[#1d4ed8]">
-            Ver todos os serviços &gt;
-          </Link>
-        </div>
+        <h2 className="mb-3 text-[22px] font-black text-[#111827]">
+          Mais contratados <span className="text-[18px]">🔥</span>
+        </h2>
         <div className="flex items-stretch gap-3">
-          <ProductCarousel
-            layout="rail"
-            className="min-w-0 flex-1"
-            showArrows
-            showFade={false}
-          >
-            {destaques.map((s) => (
-              <ProductCarouselItem key={s.slug} rail>
-                <ServiceCard
-                  servico={s}
-                  showCashbackBadge
-                  cashbackLabel={cashbackPct}
-                />
-              </ProductCarouselItem>
-            ))}
-          </ProductCarousel>
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex justify-end pr-2">
+              <Link to="/busca" className="text-sm font-bold text-[#1d4ed8] hover:underline">
+                Ver todos os serviços &gt;
+              </Link>
+            </div>
+            <ProductCarousel
+              layout="rail"
+              className="min-w-0"
+              showArrows
+              showFade={false}
+            >
+              {destaques.map((s) => (
+                <ProductCarouselItem key={s.slug} rail>
+                  <ServiceCard
+                    servico={s}
+                    showCashbackBadge
+                    cashbackLabel={cashbackPct}
+                  />
+                </ProductCarouselItem>
+              ))}
+            </ProductCarousel>
+          </div>
           <div className="hidden w-[10.5rem] shrink-0 self-start lg:block">
             <CashbackPromoBanner />
           </div>
