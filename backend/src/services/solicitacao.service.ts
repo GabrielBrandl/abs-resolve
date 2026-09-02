@@ -407,7 +407,8 @@ export class SolicitacaoService {
     const comprasAnteriores = await this.contarComprasConfirmadas(clienteId);
     const percentualFidelidade = descontoFidelidadePercent();
     const percentualPix = descontoPixPercent();
-    const fidelidade = comprasAnteriores >= 1;
+    // 30% somente na 2ª compra (exatamente 1 pagamento confirmado antes)
+    const fidelidade = comprasAnteriores === 1;
     return {
       elegivel: fidelidade,
       fidelidade,
@@ -417,10 +418,12 @@ export class SolicitacaoService {
       somentePix: !fidelidade,
       comprasAnteriores,
       mensagem: fidelidade
-        ? `${percentualFidelidade}% de desconto de fidelidade (a partir da 2ª compra).${
+        ? `${percentualFidelidade}% de desconto exclusivo na sua 2ª compra.${
             percentualPix > 0 ? ` No PIX, mais ${percentualPix}% sobre o valor com desconto.` : ''
           }`
-        : `${percentualPix}% de desconto exclusivo no pagamento via PIX. A partir da 2ª compra: ${percentualFidelidade}% off.`,
+        : comprasAnteriores === 0
+          ? `${percentualPix}% de desconto exclusivo no pagamento via PIX. Na 2ª compra: ${percentualFidelidade}% off.`
+          : `${percentualPix}% de desconto exclusivo no pagamento via PIX.`,
     };
   }
 
@@ -457,7 +460,7 @@ export class SolicitacaoService {
 
   /**
    * Aplica descontos no pagamento:
-   * - Fidelidade 30% a partir da 2ª compra (qualquer método)
+   * - Fidelidade 30% somente na 2ª compra (qualquer método)
    * - PIX 5% sobre o valor restante
    */
   async aplicarDescontoPixNoPagamento(
@@ -474,7 +477,8 @@ export class SolicitacaoService {
     const expressValor = sol.express ? toNumber(config.expressValor) : 0;
 
     const comprasAnteriores = await this.contarComprasConfirmadas(clienteId);
-    const pctFidelidade = comprasAnteriores >= 1 ? descontoFidelidadePercent() : 0;
+    // 30% somente na contratação do segundo serviço
+    const pctFidelidade = comprasAnteriores === 1 ? descontoFidelidadePercent() : 0;
     const pctPix = metodo === 'PIX' ? descontoPixPercent() : 0;
 
     const valorDescontoFidelidade =

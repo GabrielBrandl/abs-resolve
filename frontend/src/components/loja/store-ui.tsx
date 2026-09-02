@@ -75,18 +75,18 @@ export function CashbackTag({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Banner lateral de cashback — imagem promocional (apenas na home) */
+/** Banner lateral — desconto na 2ª compra (apenas na home) */
 export function CashbackPromoBanner() {
   return (
     <Link
       id="cashback"
-      to="/cadastro"
+      to="/agendar"
       className="block w-full overflow-hidden rounded-[12px] shadow-[0_8px_24px_rgba(0,45,98,0.15)] transition hover:opacity-95"
-      aria-label="Cashback em todos os serviços — saiba como funciona"
+      aria-label="30% de desconto na segunda compra — saiba como funciona"
     >
       <img
         src="/cashback-promo.webp"
-        alt="Cashback 10% em todos os serviços — saiba como funciona"
+        alt="30% de desconto na contratação do segundo serviço"
         width={200}
         height={225}
         loading="lazy"

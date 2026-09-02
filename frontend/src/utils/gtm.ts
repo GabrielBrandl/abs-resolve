@@ -8,9 +8,10 @@ declare global {
 
 export const GOOGLE_ADS_ID = 'AW-18328348632';
 
-/** Rótulo da ação de conversão (opcional). Ex.: AW-18328348632/AbCdEfGh */
+/** Snippet de conversão "Compra" — Google Ads */
 export const GOOGLE_ADS_CONVERSION_SEND_TO =
-  import.meta.env.VITE_GOOGLE_ADS_CONVERSION_SEND_TO || GOOGLE_ADS_ID;
+  import.meta.env.VITE_GOOGLE_ADS_CONVERSION_SEND_TO ||
+  'AW-18328348632/n-7cCKKM8ewcENjP0aNE';
 
 export function gtmPush(event: string, params: Record<string, unknown> = {}) {
   if (typeof window === 'undefined') return;
@@ -87,7 +88,31 @@ export const funil = {
 
 const CONVERSAO_STORAGE_PREFIX = 'abs-ads-conversao-';
 
-/** Dispara conversão de compra no Google Ads — somente pagamento confirmado */
+function conversaoJaDisparada(transactionId: string): boolean {
+  const key = `${CONVERSAO_STORAGE_PREFIX}${transactionId}`;
+  try {
+    if (localStorage.getItem(key) || sessionStorage.getItem(key)) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function marcarConversaoDisparada(transactionId: string) {
+  const key = `${CONVERSAO_STORAGE_PREFIX}${transactionId}`;
+  try {
+    localStorage.setItem(key, String(Date.now()));
+    sessionStorage.setItem(key, '1');
+  } catch {
+    /* segue sem persistência */
+  }
+}
+
+/**
+ * Conversão Google Ads — somente após pagamento efetivamente confirmado.
+ * Não chamar em: adicionar ao carrinho, "Comprar e Agendar", ou entrada no checkout.
+ * Deduplica por transaction_id (localStorage) para não reenviar ao atualizar/reabrir a página.
+ */
 export function gtmConversaoCompra(params: {
   transaction_id: string;
   value: number;
@@ -96,27 +121,24 @@ export function gtmConversaoCompra(params: {
   metodo?: string;
 }) {
   if (typeof window === 'undefined') return;
-  if (!params.transaction_id || params.value <= 0) return;
+  const transactionId = String(params.transaction_id || '').trim();
+  const value = Math.round(Number(params.value) * 100) / 100;
+  if (!transactionId || !(value > 0)) return;
+  if (conversaoJaDisparada(transactionId)) return;
 
-  const key = `${CONVERSAO_STORAGE_PREFIX}${params.transaction_id}`;
-  try {
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, '1');
-  } catch {
-    /* segue sem deduplicação persistente */
-  }
+  marcarConversaoDisparada(transactionId);
 
   funil.pagamentoAprovado({
-    transaction_id: params.transaction_id,
-    value: params.value,
+    transaction_id: transactionId,
+    value,
     solicitacao_id: params.solicitacao_id,
     pedido_id: params.pedido_id,
     metodo: params.metodo,
   });
 
   gtmPush('agendar_pagamento_confirmado', {
-    transaction_id: params.transaction_id,
-    value: params.value,
+    transaction_id: transactionId,
+    value,
     currency: 'BRL',
     solicitacao_id: params.solicitacao_id,
     pedido_id: params.pedido_id,
@@ -124,17 +146,11 @@ export function gtmConversaoCompra(params: {
   });
 
   if (typeof window.gtag === 'function') {
-    window.gtag('event', 'purchase', {
-      transaction_id: params.transaction_id,
-      value: params.value,
-      currency: 'BRL',
-    });
-
     window.gtag('event', 'conversion', {
       send_to: GOOGLE_ADS_CONVERSION_SEND_TO,
-      value: params.value,
+      value,
       currency: 'BRL',
-      transaction_id: params.transaction_id,
+      transaction_id: transactionId,
     });
   }
 }

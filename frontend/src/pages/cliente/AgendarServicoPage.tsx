@@ -509,10 +509,20 @@ export function AgendarServicoPage() {
           if (pollRef.current) clearInterval(pollRef.current);
           setAguardandoPagamento(false);
           cart.clear();
-          if (status.pedidoNumero) {
+          const pagoConfirmado =
+            status.pagamento?.status === 'RECEIVED' ||
+            status.status === 'pago' ||
+            Boolean(status.podeAgendar && status.pedidoNumero);
+          const valorPago = Number(status.pagamento?.valor);
+          if (
+            pagoConfirmado &&
+            status.pedidoNumero &&
+            Number.isFinite(valorPago) &&
+            valorPago > 0
+          ) {
             gtmConversaoCompra({
               transaction_id: status.pedidoNumero,
-              value: Number(status.pagamento?.valor ?? preco),
+              value: valorPago,
               solicitacao_id: solId,
               pedido_id: status.pedidoId,
               metodo: status.pagamento?.metodo || metodoPagamento || undefined,
@@ -1121,7 +1131,7 @@ export function AgendarServicoPage() {
           )}
           {elegivelFidelidade && descontoFidelidadeEstimado > 0 && (
             <p className="mb-2 text-sm text-emerald-700">
-              Desconto fidelidade ({descontoFidelidadePercent}% — a partir da 2ª compra): −
+              Desconto fidelidade ({descontoFidelidadePercent}% — só na 2ª compra): −
               {formatCurrency(descontoFidelidadeEstimado)}
             </p>
           )}
@@ -1264,19 +1274,19 @@ export function AgendarServicoPage() {
 
           {elegivelFidelidade && (
             <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
-              Cliente recorrente: {descontoFidelidadePercent}% de desconto na sua compra
+              2ª compra: {descontoFidelidadePercent}% de desconto exclusivo
               {metodoPagamento === 'PIX' ? ` + ${descontoPixPercent}% no PIX` : ''}.
             </p>
           )}
           {!elegivelFidelidade && metodoPagamento === 'PIX' && (
             <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
-              Pagando com PIX você ganha {descontoPixPercent}% de desconto automático. A partir da 2ª compra:{' '}
-              {descontoFidelidadePercent}% off.
+              Pagando com PIX você ganha {descontoPixPercent}% de desconto automático. Na contratação do
+              2º serviço: {descontoFidelidadePercent}% off.
             </p>
           )}
           {!elegivelFidelidade && metodoPagamento !== 'PIX' && (
             <p className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
-              A partir da 2ª compra você ganha {descontoFidelidadePercent}% de desconto automático.
+              Na contratação do 2º serviço você ganha {descontoFidelidadePercent}% de desconto.
             </p>
           )}
 
