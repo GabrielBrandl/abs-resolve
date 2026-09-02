@@ -198,15 +198,39 @@ export class SolicitacaoController {
   async pagar(req: Request, res: Response) {
     try {
       const clienteId = await clienteIdFromReq(req);
-      const { metodo, installmentCount } = req.body as {
+      const { metodo, installmentCount, cartao } = req.body as {
         metodo?: string;
         installmentCount?: number;
+        cartao?: {
+          holderName?: string;
+          number?: string;
+          expiryMonth?: string;
+          expiryYear?: string;
+          ccv?: string;
+        };
       };
+      if (metodo === 'CARTAO' && !cartao?.number) {
+        return error(res, 'Informe os dados do cartão de crédito', 400);
+      }
+      const remoteIp =
+        typeof req.headers['x-forwarded-for'] === 'string'
+          ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
+          : req.socket.remoteAddress || undefined;
       const data = await solicitacaoService.finalizarPagamento(
         paramId(req.params.id),
         clienteId,
         (metodo || 'PIX') as 'PIX' | 'BOLETO' | 'CARTAO',
-        typeof installmentCount === 'number' ? installmentCount : undefined
+        typeof installmentCount === 'number' ? installmentCount : undefined,
+        metodo === 'CARTAO' && cartao
+          ? {
+              holderName: String(cartao.holderName || ''),
+              number: String(cartao.number || ''),
+              expiryMonth: String(cartao.expiryMonth || ''),
+              expiryYear: String(cartao.expiryYear || ''),
+              ccv: String(cartao.ccv || ''),
+            }
+          : undefined,
+        remoteIp
       );
       return success(res, data, 201);
     } catch (err) {

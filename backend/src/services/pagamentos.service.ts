@@ -1,8 +1,65 @@
 import { prisma } from '../utils/prisma.js';
 import { confirmarPagamentoRecebido } from './pagamento-confirmacao.service.js';
-import { asaasService } from './asaas.service.js';
+import { asaasService, type CartaoCreditoInput } from './asaas.service.js';
 import { notificacaoService } from './notificacao.service.js';
 import { montarItensEmail, type ItemEmailPedido } from '../utils/email-pedido.js';
+
+function montarTitularCartao(cliente: {
+  nome: string;
+  email: string;
+  cpf?: string | null;
+  cnpj?: string | null;
+  telefone: string;
+  whatsapp?: string | null;
+  endereco: unknown;
+}) {
+  const end = (cliente.endereco && typeof cliente.endereco === 'object'
+    ? cliente.endereco
+    : {}) as Record<string, string>;
+  const cpfCnpj = (cliente.cpf || cliente.cnpj || '').replace(/\D/g, '');
+  const phone = (cliente.telefone || cliente.whatsapp || '').replace(/\D/g, '');
+  const postalCode = (end.cep || '').replace(/\D/g, '');
+  const addressNumber = String(end.numero || '').trim() || 'S/N';
+
+  if (!cpfCnpj) throw new Error('CPF do cliente é obrigatório para pagamento com cartão');
+  if (postalCode.length < 8) throw new Error('CEP do cliente é obrigatório para pagamento com cartão');
+  if (phone.length < 10) throw new Error('Telefone do cliente é obrigatório para pagamento com cartão');
+
+  return {
+    name: cliente.nome,
+    email: cliente.email,
+    cpfCnpj,
+    postalCode,
+    addressNumber,
+    phone,
+    mobilePhone: phone,
+    addressComplement: end.complemento || null,
+  };
+}
+
+function validarCartao(cartao: CartaoCreditoInput) {
+  const number = cartao.number.replace(/\D/g, '');
+  const ccv = cartao.ccv.replace(/\D/g, '');
+  const expiryMonth = cartao.expiryMonth.replace(/\D/g, '');
+  let expiryYear = cartao.expiryYear.replace(/\D/g, '');
+  if (expiryYear.length === 2) expiryYear = `20${expiryYear}`;
+
+  if (!cartao.holderName.trim()) throw new Error('Nome no cartão é obrigatório');
+  if (number.length < 13 || number.length > 19) throw new Error('Número do cartão inválido');
+  if (ccv.length < 3 || ccv.length > 4) throw new Error('CVV inválido');
+  if (expiryMonth.length !== 2 || Number(expiryMonth) < 1 || Number(expiryMonth) > 12) {
+    throw new Error('Validade do cartão inválida');
+  }
+  if (expiryYear.length !== 4) throw new Error('Ano de validade inválido');
+
+  return {
+    holderName: cartao.holderName.trim(),
+    number,
+    expiryMonth,
+    expiryYear,
+    ccv,
+  };
+}
 
 function pixQrImageFromBase64(encodedImage: string | null | undefined) {
   if (!encodedImage) return undefined;
@@ -66,6 +123,8 @@ export class PagamentosService {
     dueDate: string;
     solicitacaoId?: string;
     installmentCount?: number;
+    cartao?: CartaoCreditoInput;
+    remoteIp?: string;
   }) {
     const cliente = await prisma.cliente.findUnique({ where: { id: data.clienteId } });
     if (!cliente) throw new Error('Cliente não encontrado');
@@ -134,6 +193,33 @@ export class PagamentosService {
       }
     }
 
+    if (data.metodo === 'CARTAO') {
+      if (!data.cartao) throw new Error('Dados do cartão são obrigatórios');
+      const creditCard = validarCartao(data.cartao);
+      const creditCardHolderInfo = montarTitularCartao(cliente);
+      const resultado = await asaasService.pagarComCartao(
+        cobranca.id,
+        creditCard,
+        creditCardHolderInfo,
+        data.remoteIp
+      );
+      const pago =
+        resultado.status === 'RECEIVED' ||
+        resultado.status === 'CONFIRMED' ||
+        resultado.status === 'RECEIVED_IN_CASH';
+      if (pago) {
+        pagamento = await prisma.pagamento.update({
+          where: { id: pagamento.id },
+          data: {
+            status: 'RECEIVED',
+            paymentDate: resultado.paymentDate ? new Date(resultado.paymentDate) : new Date(),
+          },
+          include: { cliente: true, pedido: { select: { numero: true } } },
+        });
+        await confirmarPagamentoRecebido(pagamento.id);
+      }
+    }
+
     let itensEmail: ItemEmailPedido[] = [];
     try {
       itensEmail = await itensEmailDoPedido(data.pedidoId, data.solicitacaoId);
@@ -156,9 +242,9 @@ export class PagamentosService {
       })
       .catch(() => {});
 
-    // Mock/dev: confirma pagamento automaticamente após 2s
+    // Mock/dev: confirma pagamento automaticamente (exceto cartão já processado acima)
     const isMock = !process.env.ASAAS_API_KEY || process.env.ASAAS_MOCK === 'true' || cobranca.id.startsWith('pay_mock');
-    if (isMock && data.pedidoId) {
+    if (isMock && data.pedidoId && data.metodo !== 'CARTAO') {
       pagamento = await prisma.pagamento.update({
         where: { id: pagamento.id },
         data: { status: 'RECEIVED', paymentDate: new Date() },

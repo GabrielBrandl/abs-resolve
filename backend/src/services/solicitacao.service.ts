@@ -650,7 +650,9 @@ export class SolicitacaoService {
     id: string,
     clienteId: string,
     metodo: 'PIX' | 'BOLETO' | 'CARTAO',
-    installmentCount?: number
+    installmentCount?: number,
+    cartao?: import('./asaas.service.js').CartaoCreditoInput,
+    remoteIp?: string
   ) {
     let sol = await prisma.solicitacaoServico.findFirst({
       where: { id, clienteId },
@@ -692,6 +694,8 @@ export class SolicitacaoService {
       dueDate: dueDate.toISOString().split('T')[0],
       solicitacaoId: id,
       installmentCount: metodo === 'CARTAO' ? installmentCount : undefined,
+      cartao: metodo === 'CARTAO' ? cartao : undefined,
+      remoteIp,
     });
 
     return { pedido, pagamento, solicitacao: { ...sol, status: 'aguardando_pagamento', pedidoId: pedido.id } };

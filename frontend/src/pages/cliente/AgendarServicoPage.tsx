@@ -81,15 +81,17 @@ function PagamentoArea({
   pixCode,
   pixQrImage,
   invoiceUrl,
+  cartaoProcessado,
 }: {
   metodo: 'PIX' | 'CARTAO' | null;
   pixCode?: string;
   pixQrImage?: string;
   invoiceUrl?: string;
+  cartaoProcessado?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
-  if (!pixCode && !invoiceUrl) return null;
+  if (!pixCode && !invoiceUrl && !cartaoProcessado) return null;
 
   const isPix = metodo === 'PIX' || Boolean(pixCode);
   const titulo = isPix ? 'Pagamento PIX' : 'Pagamento no cartão de crédito';
@@ -146,7 +148,15 @@ function PagamentoArea({
           </button>
         </>
       )}
-      {!isPix && invoiceUrl && (
+      {!isPix && cartaoProcessado && (
+        <div className="rounded-lg border border-blue-200 bg-white p-6 text-center">
+          <p className="mb-1 text-sm font-semibold text-blue-900">Cartão enviado com sucesso</p>
+          <p className="text-sm text-slate-600">
+            Estamos aguardando a confirmação do pagamento. Você receberá um e-mail assim que for aprovado.
+          </p>
+        </div>
+      )}
+      {!isPix && !cartaoProcessado && invoiceUrl && (
         <div className="rounded-lg border border-blue-200 bg-white p-6 text-center">
           <p className="mb-1 text-sm font-semibold text-blue-900">Checkout seguro Asaas</p>
           <p className="mb-4 text-sm text-slate-600">
@@ -228,6 +238,14 @@ export function AgendarServicoPage() {
     complemento: '',
     consentimentoLgpd: false,
   });
+  const [cartaoForm, setCartaoForm] = useState({
+    holderName: '',
+    number: '',
+    expiryMonth: '',
+    expiryYear: '',
+    ccv: '',
+  });
+  const [cartaoProcessado, setCartaoProcessado] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retomouAgendamento = useRef(false);
   const assistenteImportado = useRef(false);
@@ -344,6 +362,43 @@ export function AgendarServicoPage() {
       valor: total,
     });
   }, [loading, cart]);
+
+  useEffect(() => {
+    if (step !== 'pagamento' || metodoPagamento !== 'CARTAO') return;
+    const nome = guestForm.nome.trim() || user?.nome?.trim() || '';
+    if (nome && !cartaoForm.holderName) {
+      setCartaoForm((prev) => ({ ...prev, holderName: nome }));
+    }
+  }, [step, metodoPagamento, guestForm.nome, user?.nome, cartaoForm.holderName]);
+
+  const validarCartaoForm = () => {
+    const number = cartaoForm.number.replace(/\D/g, '');
+    const ccv = cartaoForm.ccv.replace(/\D/g, '');
+    const expiryMonth = cartaoForm.expiryMonth.replace(/\D/g, '');
+    const expiryYear = cartaoForm.expiryYear.replace(/\D/g, '');
+
+    if (!cartaoForm.holderName.trim()) {
+      toast('Informe o nome impresso no cartão', 'error');
+      return false;
+    }
+    if (number.length < 13) {
+      toast('Número do cartão inválido', 'error');
+      return false;
+    }
+    if (expiryMonth.length !== 2 || Number(expiryMonth) < 1 || Number(expiryMonth) > 12) {
+      toast('Mês de validade inválido (MM)', 'error');
+      return false;
+    }
+    if (expiryYear.length !== 2 && expiryYear.length !== 4) {
+      toast('Ano de validade inválido (AA ou AAAA)', 'error');
+      return false;
+    }
+    if (ccv.length < 3) {
+      toast('CVV inválido', 'error');
+      return false;
+    }
+    return true;
+  };
 
   useEffect(() => {
     return () => {
@@ -542,9 +597,20 @@ export function AgendarServicoPage() {
   );
 
   const pagar = async (metodo: string) => {
+    if (metodo === 'CARTAO' && !validarCartaoForm()) return;
     setSubmitting(true);
     try {
       const installmentCount = metodo === 'CARTAO' ? parcelas : undefined;
+      const cartaoPayload =
+        metodo === 'CARTAO'
+          ? {
+              holderName: cartaoForm.holderName.trim(),
+              number: cartaoForm.number.replace(/\D/g, ''),
+              expiryMonth: cartaoForm.expiryMonth.replace(/\D/g, '').padStart(2, '0'),
+              expiryYear: cartaoForm.expiryYear.replace(/\D/g, ''),
+              ccv: cartaoForm.ccv.replace(/\D/g, ''),
+            }
+          : undefined;
       gtmPush('agendar_pagamento_iniciado', {
         solicitacao_id: solicitacaoId,
         metodo,
@@ -557,11 +623,12 @@ export function AgendarServicoPage() {
         valor: metodo === 'PIX' ? totalComPix : preco,
         parcelas: installmentCount || 1,
       });
-      const res = (await solicitacaoApi.pagar(solicitacaoId, metodo, installmentCount)) as {
-        pagamento: { id?: string; invoiceUrl?: string; pixCode?: string; pixQrImage?: string };
+      const res = (await solicitacaoApi.pagar(solicitacaoId, metodo, installmentCount, cartaoPayload)) as {
+        pagamento: { id?: string; invoiceUrl?: string; pixCode?: string; pixQrImage?: string; status?: string };
         solicitacao?: { precoFinal?: number; opcoes?: { valorDesconto?: number; descontoPix?: number } };
       };
       setPagamento(res.pagamento);
+      if (metodo === 'CARTAO') setCartaoProcessado(true);
       if (res.solicitacao?.precoFinal != null) setPreco(Number(res.solicitacao.precoFinal));
       if (res.solicitacao?.opcoes?.valorDesconto != null) {
         setValorDescontoAplicado(Number(res.solicitacao.opcoes.valorDesconto));
@@ -583,7 +650,9 @@ export function AgendarServicoPage() {
       toast(
         metodo === 'PIX'
           ? 'PIX gerado! Escaneie o QR Code ou copie o código abaixo.'
-          : 'Clique em "Abrir checkout seguro" para pagar com cartão.',
+          : res.pagamento?.status === 'RECEIVED'
+            ? 'Pagamento aprovado! Aguarde para escolher o horário.'
+            : 'Cartão processado! Aguardando confirmação do pagamento.',
         'success'
       );
     } catch (e) {
@@ -982,36 +1051,89 @@ export function AgendarServicoPage() {
           </div>
 
           {metodoPagamento === 'CARTAO' && (
-            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <label className="mb-2 block text-sm font-medium text-primary-800">Parcelamento</label>
-              <p className="mb-2 text-xs text-emerald-700">
-                Até {parcelasSemJuros}x sem juros. A partir de {parcelasSemJuros + 1}x há acréscimo de{' '}
-                {taxaJurosMes.toLocaleString('pt-BR')}% a.m.
-              </p>
-              <select
-                value={parcelas}
-                onChange={(e) => setParcelas(Number(e.target.value))}
-                className="w-full rounded-lg border border-abs-gray bg-white px-3 py-2 text-sm"
-              >
-                {opcoesParcelas.map((op) => (
-                  <option key={op.parcelas} value={op.parcelas}>
-                    {op.parcelas === 1
-                      ? `1x de ${formatCurrency(op.valorParcela)} (à vista)`
-                      : op.semJuros
-                        ? `${op.parcelas}x de ${formatCurrency(op.valorParcela)} sem juros`
-                        : `${op.parcelas}x de ${formatCurrency(op.valorParcela)} (total ${formatCurrency(op.total)} c/ juros)`}
-                  </option>
-                ))}
-              </select>
-              {!parcelaSelecionada.semJuros && (
-                <p className="mt-2 text-xs text-amber-800">
-                  Total com juros: {formatCurrency(parcelaSelecionada.total)} (+{' '}
-                  {formatCurrency(parcelaSelecionada.valorJuros)})
+            <div className="mb-4 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-primary-800">Parcelamento</label>
+                <p className="mb-2 text-xs text-emerald-700">
+                  Até {parcelasSemJuros}x sem juros. A partir de {parcelasSemJuros + 1}x há acréscimo de{' '}
+                  {taxaJurosMes.toLocaleString('pt-BR')}% a.m.
                 </p>
-              )}
-              <p className="mt-2 text-xs text-slate-500">
-                O cartão é preenchido nesta mesma página, no checkout seguro do Asaas.
-              </p>
+                <select
+                  value={parcelas}
+                  onChange={(e) => setParcelas(Number(e.target.value))}
+                  className="w-full rounded-lg border border-abs-gray bg-white px-3 py-2 text-sm"
+                >
+                  {opcoesParcelas.map((op) => (
+                    <option key={op.parcelas} value={op.parcelas}>
+                      {op.parcelas === 1
+                        ? `1x de ${formatCurrency(op.valorParcela)} (à vista)`
+                        : op.semJuros
+                          ? `${op.parcelas}x de ${formatCurrency(op.valorParcela)} sem juros`
+                          : `${op.parcelas}x de ${formatCurrency(op.valorParcela)} (total ${formatCurrency(op.total)} c/ juros)`}
+                    </option>
+                  ))}
+                </select>
+                {!parcelaSelecionada.semJuros && (
+                  <p className="mt-2 text-xs text-amber-800">
+                    Total com juros: {formatCurrency(parcelaSelecionada.total)} (+{' '}
+                    {formatCurrency(parcelaSelecionada.valorJuros)})
+                  </p>
+                )}
+              </div>
+              <div className="border-t border-slate-200 pt-3">
+                <p className="mb-3 text-sm font-medium text-primary-800">Dados do cartão</p>
+                <div className="space-y-3">
+                  <Input
+                    label="Nome no cartão"
+                    value={cartaoForm.holderName}
+                    onChange={(e) => setCartaoForm({ ...cartaoForm, holderName: e.target.value })}
+                    autoComplete="cc-name"
+                  />
+                  <Input
+                    label="Número do cartão"
+                    value={cartaoForm.number}
+                    onChange={(e) => setCartaoForm({ ...cartaoForm, number: e.target.value })}
+                    inputMode="numeric"
+                    autoComplete="cc-number"
+                    placeholder="0000 0000 0000 0000"
+                  />
+                  <div className="grid grid-cols-3 gap-3">
+                    <Input
+                      label="Mês (MM)"
+                      value={cartaoForm.expiryMonth}
+                      onChange={(e) =>
+                        setCartaoForm({ ...cartaoForm, expiryMonth: e.target.value.replace(/\D/g, '').slice(0, 2) })
+                      }
+                      inputMode="numeric"
+                      autoComplete="cc-exp-month"
+                      placeholder="MM"
+                    />
+                    <Input
+                      label="Ano (AA)"
+                      value={cartaoForm.expiryYear}
+                      onChange={(e) =>
+                        setCartaoForm({ ...cartaoForm, expiryYear: e.target.value.replace(/\D/g, '').slice(0, 4) })
+                      }
+                      inputMode="numeric"
+                      autoComplete="cc-exp-year"
+                      placeholder="AA"
+                    />
+                    <Input
+                      label="CVV"
+                      value={cartaoForm.ccv}
+                      onChange={(e) =>
+                        setCartaoForm({ ...cartaoForm, ccv: e.target.value.replace(/\D/g, '').slice(0, 4) })
+                      }
+                      inputMode="numeric"
+                      autoComplete="cc-csc"
+                      placeholder="123"
+                    />
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">
+                  Pagamento seguro processado pelo Asaas. Os dados do titular vêm do seu cadastro.
+                </p>
+              </div>
             </div>
           )}
 
@@ -1027,11 +1149,13 @@ export function AgendarServicoPage() {
             onClick={() => metodoPagamento && pagar(metodoPagamento)}
           >
             {submitting
-              ? 'Gerando pagamento...'
+              ? metodoPagamento === 'CARTAO'
+                ? 'Processando cartão...'
+                : 'Gerando pagamento...'
               : metodoPagamento === 'CARTAO'
                 ? parcelaSelecionada.semJuros
-                  ? `Pagar em ${parcelas}x — abrir checkout`
-                  : `Pagar em ${parcelas}x (${formatCurrency(parcelaSelecionada.total)})`
+                  ? `Pagar ${parcelas}x de ${formatCurrency(parcelaSelecionada.valorParcela)}`
+                  : `Pagar ${parcelas}x (${formatCurrency(parcelaSelecionada.total)})`
                 : metodoPagamento === 'PIX'
                   ? `Gerar PIX com ${descontoPixPercent}% off`
                   : 'Escolha a forma de pagamento'}
@@ -1052,6 +1176,7 @@ export function AgendarServicoPage() {
             pixCode={pagamento?.pixCode}
             pixQrImage={pagamento?.pixQrImage}
             invoiceUrl={pagamento?.invoiceUrl}
+            cartaoProcessado={cartaoProcessado}
           />
           {aguardandoPagamento && (
             <div className="mt-3 flex items-center gap-2 text-sm text-slate-500">

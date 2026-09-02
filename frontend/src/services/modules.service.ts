@@ -277,10 +277,22 @@ export const solicitacaoApi = {
   upsellsAplicar: (id: string, body: unknown) => post(`/solicitacao/${id}/upsells`, body),
   horarios: (id: string) => get<{ slots: Array<{ data: string; horarioInicio: string; horarioFim: string; label: string; escassez: string }>; proximaDisponibilidade: string | null }>(`/solicitacao/${id}/horarios`),
   agendar: (id: string, body: unknown) => post(`/solicitacao/${id}/agendar`, body),
-  pagar: (id: string, metodo: string, installmentCount?: number) =>
+  pagar: (
+    id: string,
+    metodo: string,
+    installmentCount?: number,
+    cartao?: {
+      holderName: string;
+      number: string;
+      expiryMonth: string;
+      expiryYear: string;
+      ccv: string;
+    }
+  ) =>
     post(`/solicitacao/${id}/pagar`, {
       metodo,
       ...(metodo === 'CARTAO' && installmentCount ? { installmentCount } : {}),
+      ...(metodo === 'CARTAO' && cartao ? { cartao } : {}),
     }),
   status: (id: string) => get<SolicitacaoStatus>(`/solicitacao/${id}/status`),
   config: () => get<SolicitacaoConfig>('/solicitacao/config'),

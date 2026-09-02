@@ -21,6 +21,25 @@ function asaasErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'Erro na integração Asaas';
 }
 
+export interface CartaoCreditoInput {
+  holderName: string;
+  number: string;
+  expiryMonth: string;
+  expiryYear: string;
+  ccv: string;
+}
+
+export interface CartaoTitularInput {
+  name: string;
+  email: string;
+  cpfCnpj: string;
+  postalCode: string;
+  addressNumber: string;
+  phone: string;
+  mobilePhone?: string;
+  addressComplement?: string | null;
+}
+
 function mockCobranca() {
   const mockId = `pay_mock_${Date.now()}`;
   return {
@@ -122,6 +141,42 @@ export class AsaasService {
       if (this.devFallback) {
         this.warnFallback('buscarCobranca', err);
         return { id: asaasId, status: 'PENDING' };
+      }
+      throw new Error(asaasErrorMessage(err));
+    }
+  }
+
+  /** Paga cobrança CREDIT_CARD existente com dados do cartão (checkout no site) */
+  async pagarComCartao(
+    asaasId: string,
+    creditCard: CartaoCreditoInput,
+    creditCardHolderInfo: CartaoTitularInput,
+    remoteIp?: string
+  ) {
+    if (this.mockMode || asaasId.startsWith('pay_mock')) {
+      return {
+        id: asaasId,
+        status: 'CONFIRMED',
+        paymentDate: new Date().toISOString().split('T')[0],
+      };
+    }
+
+    const payload: Record<string, unknown> = { creditCard, creditCardHolderInfo };
+    if (remoteIp) payload.remoteIp = remoteIp;
+
+    try {
+      const { data } = await asaasApi.post(`/payments/${asaasId}/payWithCreditCard`, payload, {
+        timeout: 60_000,
+      });
+      return data;
+    } catch (err) {
+      if (this.devFallback) {
+        this.warnFallback('pagarComCartao', err);
+        return {
+          id: asaasId,
+          status: 'CONFIRMED',
+          paymentDate: new Date().toISOString().split('T')[0],
+        };
       }
       throw new Error(asaasErrorMessage(err));
     }
