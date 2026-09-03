@@ -67,14 +67,24 @@ export function CartPage() {
         <p className="mb-4 text-sm text-slate-500">{items.length} {items.length === 1 ? 'item' : 'itens'} no pedido</p>
         <ul className="divide-y divide-[#eef0f4]">
           {items.map((item) => (
-            <li key={item.slug} className="flex gap-4 py-4">
+            <li key={item.cartKey || item.slug} className="flex gap-4 py-4">
               <img src={item.imagemUrl || '/logo.png'} alt="" className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover" />
               <div className="min-w-0 flex-1">
                 <p className="font-bold leading-tight text-[#111827]">{item.nome}</p>
-                {(item.tipo === 'peca' || item.slug.startsWith('peca-')) && (
-                  <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-[#002d62]">Peça avulsa</p>
+                {(item.tipo === 'peca' || item.slug.startsWith('peca-') || item.slug.startsWith('mat-')) && (
+                  <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-[#002d62]">Peça</p>
                 )}
-                <p className="mt-1 text-lg font-black text-[#002d62]">{money((item.precoMinimo || 0) * item.quantidade)}</p>
+                {item.tipo === 'servico' && (
+                  <p className="mt-0.5 text-[11px] text-slate-500">Mão de obra</p>
+                )}
+                <p className="mt-1 text-lg font-black text-[#002d62]">
+                  {money((Number(item.precoMinimo) || 0) * (item.quantidade || 1))}
+                </p>
+                {item.quantidade > 1 && (
+                  <p className="text-xs text-slate-500">
+                    {money(Number(item.precoMinimo) || 0)} × {item.quantidade}
+                  </p>
+                )}
                 <div className="mt-3 flex items-center gap-3">
                   <div className="flex items-center overflow-hidden rounded-md border border-[#d5d9e2]">
                     <button type="button" className="h-8 w-8 text-lg" onClick={() => cart.setQty(item.cartKey || item.slug, item.quantidade - 1)}>−</button>

@@ -31,7 +31,14 @@ export type CategoriaLoja = {
 };
 
 export function money(value: number | string | null | undefined) {
-  return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  let n = 0;
+  if (typeof value === 'number') n = value;
+  else if (typeof value === 'string') {
+    const cleaned = value.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
+    n = Number(cleaned);
+  }
+  if (!Number.isFinite(n)) n = 0;
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 const FOTO_CATEGORIA: Record<string, string> = {

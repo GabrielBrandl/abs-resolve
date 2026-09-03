@@ -110,15 +110,15 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
     nome: nomeServico('troca-tomada'),
     perguntas: [
       pergunta('tipoTomada', 'Qual tomada deseja trocar?', [
-        opcao('simples', 'Tomada simples'),
-        opcao('dupla', 'Tomada dupla'),
+        opcao('simples', 'Tomada simples 10A'),
+        opcao('dupla', 'Tomada dupla 10A'),
         opcao('tomada-20a', 'Tomada 20A'),
+        opcao('dupla-20a', 'Tomada dupla 20A'),
       ]),
       pergunta('quantidade', 'Quantidade', OPCOES_QTD_1_A_4_MAIS),
-      pergunta('fornecimentoTomada', 'Quem fornece a tomada?', [
-        opcao('cliente', 'Eu já tenho'),
-        opcao('abs-padrao', 'Quero tomada padrão ABS'),
-        opcao('abs-premium', 'Quero tomada premium ABS'),
+      pergunta('fornecimentoTomada', 'Quem fornecerá a tomada?', [
+        opcao('cliente', 'Cliente (já tenho)'),
+        opcao('abs', 'ABS (fornece a peça)'),
       ]),
       pergunta('estadoAtual', 'Estado atual', [
         opcao('funcionando', 'Está funcionando'),
@@ -160,10 +160,9 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         opcao('intermediario', 'Intermediário'),
       ]),
       pergunta('quantidade', 'Quantidade', OPCOES_QTD_1_A_4_MAIS),
-      pergunta('fornecimentoInterruptor', 'Quem fornece?', [
-        opcao('cliente', 'Cliente'),
-        opcao('abs-padrao', 'ABS padrão'),
-        opcao('abs-premium', 'ABS premium'),
+      pergunta('fornecimentoInterruptor', 'Quem fornecerá o interruptor?', [
+        opcao('cliente', 'Cliente (já tenho)'),
+        opcao('abs', 'ABS (fornece a peça)'),
       ]),
       pergunta('estadoInterruptor', 'Estado', [
         opcao('funciona', 'Funciona'),

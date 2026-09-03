@@ -1,4 +1,5 @@
 import { SERVICOS_CATALOGO } from './catalogo-servicos.js';
+import { findPeca } from './pecas-catalogo.js';
 import { type FluxoServico, type RespostasFluxo, type SlugFluxoServico } from './fluxo-servicos.js';
 import { fluxoConfigService, type ItemPrecoConfig } from '../services/fluxo-config.service.js';
 import {
@@ -18,6 +19,13 @@ export interface ResultadoPrecoFluxo {
   breakdown: PrecoFluxoBreakdownItem[];
   requerValidacaoTecnica: boolean;
   mensagemValidacao?: string;
+  /** Mão de obra (não multiplica por quantidade de peças) */
+  valorServico?: number;
+  /** Peças/material × quantidade */
+  valorPeca?: number;
+  pecaSlug?: string;
+  pecaNome?: string;
+  quantidade?: number;
 }
 
 const PRECO_MINIMO_POR_SLUG = Object.fromEntries(
@@ -188,7 +196,14 @@ function minimoCatalogo(slug: SlugFluxoServico): number {
 
 function finalizarResultado(
   breakdown: PrecoFluxoBreakdownItem[],
-  mensagens: Set<string>
+  mensagens: Set<string>,
+  extra?: {
+    valorServico?: number;
+    valorPeca?: number;
+    pecaSlug?: string;
+    pecaNome?: string;
+    quantidade?: number;
+  }
 ): ResultadoPrecoFluxo {
   const preco = roundCurrency(breakdown.reduce((acc, item) => acc + item.valor, 0));
   const mensagemValidacao = [...mensagens].join(' ');
@@ -197,7 +212,37 @@ function finalizarResultado(
     breakdown,
     requerValidacaoTecnica: mensagens.size > 0,
     ...(mensagemValidacao ? { mensagemValidacao } : {}),
+    ...(extra?.valorServico != null ? { valorServico: roundCurrency(extra.valorServico) } : {}),
+    ...(extra?.valorPeca != null ? { valorPeca: roundCurrency(extra.valorPeca) } : {}),
+    ...(extra?.pecaSlug ? { pecaSlug: extra.pecaSlug } : {}),
+    ...(extra?.pecaNome ? { pecaNome: extra.pecaNome } : {}),
+    ...(extra?.quantidade != null ? { quantidade: extra.quantidade } : {}),
   };
+}
+
+/** Mapeia tipo do questionário → SKU da peça avulsa no catálogo */
+function pecaSlugPorTipo(servicoSlug: string, tipo: string): string | null {
+  const mapa: Record<string, Record<string, string>> = {
+    'troca-tomada': {
+      simples: 'peca-tomada-simples',
+      dupla: 'peca-tomada-dupla',
+      'tomada-20a': 'peca-tomada-20a',
+      'dupla-20a': 'peca-tomada-20a',
+    },
+    'troca-interruptor': {
+      simples: 'peca-interruptor-simples',
+      duplo: 'peca-interruptor-duplo',
+      paralelo: 'peca-interruptor-paralelo',
+      triplo: 'peca-interruptor-duplo',
+      intermediario: 'peca-interruptor-paralelo',
+    },
+  };
+  return mapa[servicoSlug]?.[tipo] || null;
+}
+
+function fornecimentoAbs(respostas: RespostasFluxo, chave: string): boolean {
+  const v = resposta(respostas, chave);
+  return v === 'abs' || v === 'abs-padrao' || v === 'abs-premium' || v === 'nao' || v === 'nao-abs';
 }
 
 function assertSlug(slug: string): SlugFluxoServico {
@@ -227,16 +272,27 @@ export function calcularPrecoFluxo(
     case 'troca-tomada': {
       const tipo = resposta(respostas, 'tipoTomada') ?? 'simples';
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
-      const unitario = tipo === 'dupla' ? 169 : tipo === 'tomada-20a' ? 189 : 149;
-      const materialAbs =
-        resposta(respostas, 'fornecimentoTomada') === 'abs-padrao'
-          ? 25
-          : resposta(respostas, 'fornecimentoTomada') === 'abs-premium'
-            ? 45
-            : 0;
+      const laborPorTipo: Record<string, number> = {
+        simples: 149,
+        dupla: 169,
+        'tomada-20a': 189,
+        'dupla-20a': 199,
+      };
+      // Mão de obra: 1× (não multiplica pela quantidade de tomadas)
+      const labor = laborPorTipo[tipo] ?? PRECO_MINIMO_POR_SLUG['troca-tomada'] ?? 149;
+      const pecaSlug = pecaSlugPorTipo('troca-tomada', tipo);
+      const peca = pecaSlug ? findPeca(pecaSlug) : null;
+      const levaPeca = fornecimentoAbs(respostas, 'fornecimentoTomada');
+      const valorPeca = levaPeca && peca ? peca.precoMinimo * qtd : 0;
 
-      adicionarItem(breakdown, `Mão de obra (${qtd} tomada(s))`, unitario * qtd);
-      adicionarItem(breakdown, 'Tomada fornecida pela ABS', materialAbs * qtd);
+      adicionarItem(breakdown, 'Mão de obra — troca de tomada', labor);
+      if (valorPeca > 0 && peca) {
+        adicionarItem(
+          breakdown,
+          `${peca.nome} × ${qtd}`,
+          valorPeca
+        );
+      }
       adicionarItem(breakdown, 'Tomada não funciona', tem(respostas, 'estadoAtual', ['nao-funciona']) ? 40 : 0);
       adicionarItem(
         breakdown,
@@ -275,7 +331,7 @@ export function calcularPrecoFluxo(
           tem(respostas, 'transformarSimplesEmDupla', ['sim']) ? 50 : 0
         );
       }
-      if (tipo === 'tomada-20a') {
+      if (tipo === 'tomada-20a' || tipo === 'dupla-20a') {
         adicionarItem(
           breakdown,
           'Tomada atual não é 20A',
@@ -287,7 +343,16 @@ export function calcularPrecoFluxo(
           tem(respostas, 'disjuntorExclusivo', ['nao']) ? 50 : 0
         );
       }
-      return finalizarResultado(breakdown, mensagens);
+      const extras = breakdown
+        .filter((b) => !b.label.startsWith('Mão de obra') && !b.label.includes('×'))
+        .reduce((s, b) => s + b.valor, 0);
+      return finalizarResultado(breakdown, mensagens, {
+        valorServico: labor + extras,
+        valorPeca,
+        pecaSlug: peca?.slug,
+        pecaNome: peca?.nome,
+        quantidade: qtd,
+      });
     }
 
     case 'troca-interruptor': {
@@ -300,16 +365,16 @@ export function calcularPrecoFluxo(
         paralelo: 199,
         intermediario: 219,
       };
-      const unitario = baseTipo[tipo] ?? 149;
-      const materialAbs =
-        resposta(respostas, 'fornecimentoInterruptor') === 'abs-padrao'
-          ? 25
-          : resposta(respostas, 'fornecimentoInterruptor') === 'abs-premium'
-            ? 45
-            : 0;
+      const labor = baseTipo[tipo] ?? 149;
+      const pecaSlug = pecaSlugPorTipo('troca-interruptor', tipo);
+      const peca = pecaSlug ? findPeca(pecaSlug) : null;
+      const levaPeca = fornecimentoAbs(respostas, 'fornecimentoInterruptor');
+      const valorPeca = levaPeca && peca ? peca.precoMinimo * qtd : 0;
 
-      adicionarItem(breakdown, `Mão de obra (${qtd} interruptor(es))`, unitario * qtd);
-      adicionarItem(breakdown, 'Interruptor fornecido pela ABS', materialAbs * qtd);
+      adicionarItem(breakdown, 'Mão de obra — troca de interruptor', labor);
+      if (valorPeca > 0 && peca) {
+        adicionarItem(breakdown, `${peca.nome} × ${qtd}`, valorPeca);
+      }
       adicionarItem(
         breakdown,
         'Funciona parcialmente',
@@ -350,7 +415,16 @@ export function calcularPrecoFluxo(
       adicionarItem(breakdown, 'Ajuste de fiação', tem(respostas, 'ajusteFiacao', ['sim']) ? 40 : 0);
       adicionarItem(breakdown, 'Conectores', tem(respostas, 'conectores', ['sim']) ? 20 : 0);
       adicionarItem(breakdown, 'Organização da caixa', tem(respostas, 'organizacaoCaixa', ['sim']) ? 25 : 0);
-      return finalizarResultado(breakdown, mensagens);
+      const extrasInt = breakdown
+        .filter((b) => !b.label.startsWith('Mão de obra') && !b.label.includes('×'))
+        .reduce((s, b) => s + b.valor, 0);
+      return finalizarResultado(breakdown, mensagens, {
+        valorServico: labor + extrasInt,
+        valorPeca,
+        pecaSlug: peca?.slug,
+        pecaNome: peca?.nome,
+        quantidade: qtd,
+      });
     }
 
     case 'instalacao-chuveiro': {

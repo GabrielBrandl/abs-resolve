@@ -301,6 +301,11 @@ export const solicitacaoApi = {
       breakdown: Array<{ label: string; valor: number }>;
       requerValidacaoTecnica: boolean;
       mensagemValidacao?: string;
+      valorServico?: number;
+      valorPeca?: number;
+      pecaSlug?: string;
+      pecaNome?: string;
+      quantidade?: number;
     }>('/solicitacao/calcular-preco', body),
   interpretarResposta: (body: { slug: string; perguntaId: string; texto: string }) =>
     post<{
