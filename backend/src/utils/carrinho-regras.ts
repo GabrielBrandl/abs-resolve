@@ -21,7 +21,7 @@ export type EnderecoEntrega = {
 };
 
 export function isPecaItem(slug: string, tipo?: string) {
-  return tipo === 'peca' || isPecaSlug(slug);
+  return tipo === 'peca' || isPecaSlug(slug) || slug.startsWith('mat-');
 }
 
 export function analisarItensCarrinho(
