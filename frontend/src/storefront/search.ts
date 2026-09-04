@@ -49,11 +49,15 @@ export const SLUG_KEYWORDS: Record<string, string[]> = {
 };
 
 function expandToken(token: string) {
+  if (token.length < 3) return [token];
   const extra = new Set<string>([token]);
   for (const [key, aliases] of Object.entries(SEARCH_SYNONYMS)) {
     const group = [key, ...aliases];
-    if (group.some((a) => a === token || a.startsWith(token) || (token.length >= 2 && token.startsWith(a)))) {
-      group.forEach((a) => extra.add(a));
+    // Só expande se o token for prefixo claro de um termo do grupo (mín. 3 chars)
+    if (group.some((a) => a === token || (a.length >= 3 && a.startsWith(token)))) {
+      group.forEach((a) => {
+        if (a.length >= 3) extra.add(a);
+      });
     }
   }
   return Array.from(extra);
@@ -71,38 +75,47 @@ export type SearchableItem = {
 
 export function searchScore(item: SearchableItem, query: string) {
   const nq = normalizeSearch(query);
-  if (!nq) return 1;
+  if (!nq) return 0;
 
-  const hay = normalizeSearch(
-    [
-      item.nome,
-      item.slug.replace(/-/g, ' '),
-      item.descricao || '',
-      item.categoria || '',
-      item.tipo || '',
-      ...(item.keywords || []),
-      ...(SLUG_KEYWORDS[item.slug] || []),
-    ].join(' ')
+  const nome = normalizeSearch(item.nome);
+  const slug = normalizeSearch(item.slug.replace(/-/g, ' '));
+  const keywords = normalizeSearch(
+    [...(item.keywords || []), ...(SLUG_KEYWORDS[item.slug] || [])].join(' ')
   );
-  const words = hay.split(/\s+/).filter(Boolean);
+  const nomeWords = nome.split(/\s+/).filter(Boolean);
 
-  if (hay === nq) return 100;
-  if (hay.includes(nq)) return 92;
-  if (words.some((w) => w.startsWith(nq))) return 88;
+  if (nome === nq || slug === nq) return 100;
+  if (nome.startsWith(nq) || nomeWords.some((w) => w.startsWith(nq))) return 95;
+  if (nome.includes(nq)) return 90;
+  if (slug.includes(nq)) return 85;
+  if (keywords.split(/\s+/).some((w) => w === nq || w.startsWith(nq))) return 80;
 
-  const tokens = nq.split(/\s+/).filter((t) => t.length >= 2);
-  if (!tokens.length) return 0;
+  const tokens = nq.split(/\s+/).filter((t) => t.length >= 3);
+  if (!tokens.length) {
+    // Query curta (2 letras): só aceita prefixo do nome
+    if (nq.length === 2 && nomeWords.some((w) => w.startsWith(nq))) return 78;
+    return 0;
+  }
+
   let hits = 0;
   for (const token of tokens) {
     const expanded = expandToken(token);
     const ok =
-      hay.includes(token) ||
-      words.some((w) => w.startsWith(token)) ||
-      expanded.some((e) => e.length >= 2 && (hay.includes(e) || words.some((w) => w.startsWith(e))));
+      nome.includes(token) ||
+      nomeWords.some((w) => w.startsWith(token)) ||
+      slug.includes(token) ||
+      expanded.some(
+        (e) =>
+          e.length >= 3 &&
+          (nome.includes(e) || nomeWords.some((w) => w.startsWith(e)) || keywords.split(/\s+/).includes(e))
+      );
     if (ok) hits += 1;
   }
   if (!hits) return 0;
-  return hits === tokens.length ? 75 : Math.round(45 * (hits / tokens.length));
+  if (hits === tokens.length) return 75;
+  // Exige maioria dos tokens para não listar lixo
+  if (hits / tokens.length >= 0.67) return Math.round(55 * (hits / tokens.length));
+  return 0;
 }
 
 export function searchItems<T extends SearchableItem>(items: T[], query: string) {
@@ -110,6 +123,6 @@ export function searchItems<T extends SearchableItem>(items: T[], query: string)
   if (!term) return items.map((item) => ({ item, score: 1 }));
   return items
     .map((item) => ({ item, score: searchScore(item, term) }))
-    .filter((r) => r.score > 0)
+    .filter((r) => r.score >= 55)
     .sort((a, b) => b.score - a.score || a.item.nome.localeCompare(b.item.nome, 'pt-BR'));
 }

@@ -30,15 +30,25 @@ export type CategoriaLoja = {
   servicos: ServicoLoja[];
 };
 
-export function money(value: number | string | null | undefined) {
-  let n = 0;
-  if (typeof value === 'number') n = value;
-  else if (typeof value === 'string') {
-    const cleaned = value.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
-    n = Number(cleaned);
+/** Converte preço da API (number | "89.00" | "R$ 89,00") em número seguro. */
+export function toMoneyNumber(value: number | string | null | undefined): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (value == null || value === '') return 0;
+  const raw = String(value).trim();
+  const digits = raw.replace(/[^\d,.-]/g, '');
+  if (!digits) return 0;
+  // Formato BR: 1.234,56
+  if (/,\d{1,2}$/.test(digits)) {
+    const n = Number(digits.replace(/\./g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
   }
-  if (!Number.isFinite(n)) n = 0;
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  // Formato US / JSON: 1234.56 ou 89.00 — NÃO remover o ponto decimal
+  const n = Number(digits.replace(/,/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+export function money(value: number | string | null | undefined) {
+  return toMoneyNumber(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 const FOTO_CATEGORIA: Record<string, string> = {
@@ -215,12 +225,11 @@ export function searchServices(cats: CategoriaLoja[], q: string) {
   const scored = searchItems(items, term);
   const seen = new Set(scored.map((r) => r.item.slug));
   const extra: typeof items = [];
-  for (const r of scored) {
+  // Só anexa peças/serviço relacionado em matches fortes — evita lixo na busca
+  for (const r of scored.filter((x) => x.score >= 80).slice(0, 3)) {
     const item = r.item;
-    const pecasLigadas = PECAS_CATALOGO.filter(
-      (p) => p.servicoRelacionado === item.slug || p.slug === item.slug || item.servicoRelacionado === p.servicoRelacionado
-    );
-    for (const p of pecasLigadas) {
+    const pecasLigadas = PECAS_CATALOGO.filter((p) => p.servicoRelacionado === item.slug);
+    for (const p of pecasLigadas.slice(0, 2)) {
       if (seen.has(p.slug)) continue;
       const full = items.find((i) => i.slug === p.slug);
       if (full) {
@@ -233,14 +242,6 @@ export function searchServices(cats: CategoriaLoja[], q: string) {
       if (svc) {
         extra.push(svc);
         seen.add(svc.slug);
-      }
-    }
-    for (const rel of FREQUENTLY_TOGETHER[item.slug] || []) {
-      if (seen.has(rel)) continue;
-      const relItem = items.find((i) => i.slug === rel);
-      if (relItem) {
-        extra.push(relItem);
-        seen.add(rel);
       }
     }
   }

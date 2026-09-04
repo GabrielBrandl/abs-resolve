@@ -12,6 +12,7 @@ import {
   frequentlyTogether,
   fotoServico,
   money,
+  toMoneyNumber,
   relatedSameCategory,
   type ServicoLoja,
 } from '../../storefront/catalog';
@@ -288,20 +289,24 @@ export function ServicePage() {
     };
   }, [slug, respostas, qty, todasRespondidas, perguntasSemQty.length, temPerguntaQty]);
 
-  const price = servico?.precoMinimo || 0;
-  const valorServico =
+  const price = toMoneyNumber(servico?.precoMinimo);
+  const valorServico = toMoneyNumber(
     precoCalc?.valorServico != null
       ? precoCalc.valorServico
       : precoCalc
-        ? Math.max(0, precoCalc.preco - (precoCalc.valorPeca || 0))
-        : price;
-  const valorPecaCatalogo =
+        ? Math.max(0, toMoneyNumber(precoCalc.preco) - toMoneyNumber(precoCalc.valorPeca))
+        : price
+  );
+  const valorPecaCatalogo = toMoneyNumber(
     precoCalc?.valorPeca != null
       ? precoCalc.valorPeca
       : precisaMaterial && varianteSel?.disponivelParaCompra
-        ? varianteSel.preco * qty
-        : 0;
-  const total = (precoCalc?.preco != null ? precoCalc.preco : valorServico + valorPecaCatalogo) || 0;
+        ? toMoneyNumber(varianteSel.preco) * qty
+        : 0
+  );
+  const total = toMoneyNumber(
+    precoCalc?.preco != null ? precoCalc.preco : valorServico + valorPecaCatalogo
+  );
 
   const together = useMemo(() => frequentlyTogether(categorias, slug, 4), [categorias, slug]);
   const sameCategory = useMemo(() => relatedSameCategory(categorias, slug, 4), [categorias, slug]);
@@ -353,19 +358,6 @@ export function ServicePage() {
     setSkuSel(preferida?.sku || null);
   };
 
-  const validarPerguntas = () => {
-    const faltando = perguntasSemQty.find((p) => !respostas[p.id]);
-    if (faltando) {
-      setErroPerguntas(`Responda: ${faltando.titulo}`);
-      return false;
-    }
-    if (precisaMaterial && !varianteSel?.disponivelParaCompra) {
-      setErroPerguntas(`Selecione um(a) ${materiaisCfg?.labelProduto || 'produto'} disponível`);
-      return false;
-    }
-    return true;
-  };
-
   const addItems = () => {
     const respostasServico: Record<string, string> = {
       ...respostas,
@@ -388,14 +380,14 @@ export function ServicePage() {
         tipoPreco: servico.tipoPreco || 'fixo',
         imagemUrl: servico.imagemUrl,
         tipo: 'servico',
-        respostas: respostasServico,
+        respostas: Object.keys(respostasServico).length ? respostasServico : undefined,
         cartKey: `svc:${servico.slug}`,
       },
       1
     );
 
     // Peça do catálogo (tomada/interruptor via ABS) — multiplica pela quantidade
-    if (precoCalc?.pecaSlug && (precoCalc.valorPeca || 0) > 0) {
+    if (precoCalc?.pecaSlug && toMoneyNumber(precoCalc.valorPeca) > 0) {
       const peca = findPeca(precoCalc.pecaSlug);
       if (peca) {
         addToCart(
@@ -403,7 +395,7 @@ export function ServicePage() {
             slug: peca.slug,
             nome: peca.nome,
             categoria: peca.categoria,
-            precoMinimo: peca.precoMinimo,
+            precoMinimo: toMoneyNumber(peca.precoMinimo),
             precoTexto: peca.precoTexto,
             tipoPreco: 'fixo',
             imagemUrl: peca.imagemUrl,
@@ -423,7 +415,7 @@ export function ServicePage() {
           slug: varianteSel.sku,
           nome: `${modeloSel.nome} — ${varianteSel.labelCor}`,
           categoria: servico.categoria,
-          precoMinimo: varianteSel.preco,
+          precoMinimo: toMoneyNumber(varianteSel.preco),
           precoTexto: money(varianteSel.preco),
           tipoPreco: 'fixo',
           imagemUrl: varianteSel.imagemUrl,
@@ -440,19 +432,33 @@ export function ServicePage() {
   };
 
   const putInCart = () => {
-    if (!validarPerguntas()) return;
+    if (precisaMaterial && !varianteSel?.disponivelParaCompra) {
+      setErroPerguntas(`Selecione um(a) ${materiaisCfg?.labelProduto || 'produto'} disponível`);
+      document.getElementById('resumo-servico')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    const faltando = perguntasSemQty.find((p) => !respostas[p.id]);
+    // Se já começou o questionário, pede para completar; senão leva pelo preço base
+    if (faltando && perguntasSemQty.some((p) => Boolean(respostas[p.id]))) {
+      setErroPerguntas(`Responda: ${faltando.titulo}`);
+      document.getElementById('resumo-servico')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    setErroPerguntas('');
     addItems();
   };
 
   const goCart = () => {
-    if (!validarPerguntas()) return;
+    putInCart();
+    if (precisaMaterial && !varianteSel?.disponivelParaCompra) return;
+    const faltando = perguntasSemQty.find((p) => !respostas[p.id]);
+    if (faltando && perguntasSemQty.some((p) => Boolean(respostas[p.id]))) return;
     funil.clicouComprarAgendar({
       slug: servico.slug,
       nome: servico.nome,
       origem: 'pagina_servico',
       valor: total || undefined,
     });
-    addItems();
     navigate('/carrinho');
   };
 
@@ -694,7 +700,7 @@ export function ServicePage() {
         <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
           <VisitUpsellCompact servicos={together} />
 
-          <div className="rounded-[12px] border border-[#e6e8ee] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+          <div id="resumo-servico" className="rounded-[12px] border border-[#e6e8ee] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
             <div className="flex items-center justify-between">
               <p className="text-sm font-black text-[#002d62]">Resumo do serviço</p>
               {visiveis.length > 0 && (
@@ -734,13 +740,16 @@ export function ServicePage() {
                     {materiaisCfg?.labelProduto} {modeloSel.nome}
                     <span className="block text-xs text-slate-400">{varianteSel.labelCor} × {qty}</span>
                   </span>
-                  <span className="font-bold text-[#111827]">{money(varianteSel.preco * qty)}</span>
+                  <span className="font-bold text-[#111827]">{money(toMoneyNumber(varianteSel.preco) * qty)}</span>
                 </div>
               )}
             </div>
 
             <p className="mt-3 text-[13px] font-semibold text-slate-500">Total</p>
             <p className="text-[30px] font-black text-[#002d62]">{money(total)}</p>
+            {erroPerguntas && (
+              <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{erroPerguntas}</p>
+            )}
             <YellowButton className="mt-4 w-full" onClick={goCart}>
               Comprar e agendar
             </YellowButton>

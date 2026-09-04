@@ -85,7 +85,11 @@ export function cartCount(items: CartItem[]) {
 }
 
 export function cartTotal(items: CartItem[]) {
-  return items.reduce((sum, i) => sum + (Number(i.precoMinimo) || 0) * i.quantidade, 0);
+  return items.reduce((sum, i) => {
+    const unit = Number(i.precoMinimo);
+    const safe = Number.isFinite(unit) ? unit : 0;
+    return sum + safe * (i.quantidade || 1);
+  }, 0);
 }
 
 type CartListener = (message: string, count: number) => void;

@@ -108,7 +108,14 @@ export function calcularTaxaEntrega(endereco: EnderecoEntrega): { taxa: number; 
 }
 
 export function validarCarrinhoFrontend(itens: ItemCarrinhoResumo[], endereco?: EnderecoEntrega | null) {
-  const resumo = analisarItensCarrinho(itens);
+  const normalizados = itens.map((i) => ({
+    ...i,
+    precoMinimo:
+      typeof i.precoMinimo === 'number'
+        ? i.precoMinimo
+        : Number(String(i.precoMinimo ?? '').replace(/[^\d.-]/g, '')) || 0,
+  }));
+  const resumo = analisarItensCarrinho(normalizados);
 
   if (resumo.temServico && resumo.subtotal < MINIMO_CARRINHO_SERVICO) {
     const falta = MINIMO_CARRINHO_SERVICO - resumo.subtotal;

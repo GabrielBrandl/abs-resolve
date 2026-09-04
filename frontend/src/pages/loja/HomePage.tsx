@@ -50,10 +50,9 @@ export function HomePage() {
   return (
     <div className="space-y-6">
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16.5rem]">
-        <Link
-          to="/agendar"
-          className="block overflow-hidden rounded-[14px] shadow-[0_10px_30px_rgba(0,45,98,0.18)] transition hover:opacity-[0.98]"
-          aria-label="Programa de Cashback ABS Resolve — agendar agora"
+        <div
+          className="block overflow-hidden rounded-[14px] shadow-[0_10px_30px_rgba(0,45,98,0.18)]"
+          aria-label="Programa de Cashback ABS Resolve"
         >
           <img
             src="/hero-cashback.jpg"
@@ -64,7 +63,7 @@ export function HomePage() {
             decoding="async"
             className="h-auto w-full object-cover"
           />
-        </Link>
+        </div>
 
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none lg:mx-0 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:overflow-visible lg:px-0">
           {FEATURES.map((f) => (
