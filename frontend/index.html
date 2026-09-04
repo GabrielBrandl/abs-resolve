@@ -39,6 +39,52 @@
         } catch (e) {}
       })();
     </script>
+    <!-- Limpa cache do navegador 1× por semana (ISO week) e força reload fresco -->
+    <script>
+      (function () {
+        var KEY = 'abs-cache-week';
+        var RELOAD_KEY = 'abs-cache-reloaded';
+        function isoWeekId(d) {
+          var date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+          var day = date.getUTCDay() || 7;
+          date.setUTCDate(date.getUTCDate() + 4 - day);
+          var yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+          var week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+          return date.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+        }
+        try {
+          var week = isoWeekId(new Date());
+          var prev = localStorage.getItem(KEY);
+          if (prev === week) return;
+          localStorage.setItem(KEY, week);
+
+          var clearCaches = Promise.resolve();
+          if (window.caches && caches.keys) {
+            clearCaches = caches.keys().then(function (keys) {
+              return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+            });
+          }
+
+          var clearSw = Promise.resolve();
+          if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+            clearSw = navigator.serviceWorker.getRegistrations().then(function (regs) {
+              return Promise.all(regs.map(function (r) { return r.unregister(); }));
+            });
+          }
+
+          try { sessionStorage.clear(); } catch (e) {}
+
+          Promise.all([clearCaches, clearSw]).finally(function () {
+            // Evita loop infinito de reload na mesma semana
+            if (sessionStorage.getItem(RELOAD_KEY) === week) return;
+            try { sessionStorage.setItem(RELOAD_KEY, week); } catch (e) {}
+            var url = new URL(window.location.href);
+            url.searchParams.set('_cw', week);
+            window.location.replace(url.toString());
+          });
+        } catch (e) {}
+      })();
+    </script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18328348632"></script>
     <script>
