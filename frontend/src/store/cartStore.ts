@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { totalComDescontoAPartirDaSegunda, DESCONTO_SEGUNDA_UNIDADE_PERCENT } from '../utils/desconto-quantidade';
+
 export interface CartItem {
   slug: string;
   nome: string;
@@ -91,7 +93,11 @@ export function cartTotal(items: CartItem[]) {
   return items.reduce((sum, i) => {
     const unit = Number(i.precoMinimo);
     const safe = Number.isFinite(unit) ? unit : 0;
-    return sum + safe * (i.quantidade || 1);
+    const qty = i.quantidade || 1;
+    // Serviço já traz valor agregado (mão de obra com desconto nas respostas)
+    if (i.tipo === 'servico') return sum + safe * qty;
+    const { total } = totalComDescontoAPartirDaSegunda(safe, qty, DESCONTO_SEGUNDA_UNIDADE_PERCENT);
+    return sum + total;
   }, 0);
 }
 

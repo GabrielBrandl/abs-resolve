@@ -13,6 +13,15 @@ import { relatedForCart, type CategoriaLoja } from '../../storefront/catalog';
 import { normalizeSearch } from '../../storefront/search';
 import { useToast } from '../../components/Toast';
 import { gtmConversaoCompra, gtmEtapaAgendar, funil, gtmPush } from '../../utils/gtm';
+import { totalComDescontoAPartirDaSegunda, DESCONTO_SEGUNDA_UNIDADE_PERCENT } from '../../utils/desconto-quantidade';
+import { cartTotal } from '../../store/cartStore';
+
+function lineTotalAgendar(item: { tipo?: string; precoMinimo?: number | null; quantidade: number }) {
+  const unit = Number(item.precoMinimo) || 0;
+  const qty = item.quantidade || 1;
+  if (item.tipo === 'servico') return unit * qty;
+  return totalComDescontoAPartirDaSegunda(unit, qty, DESCONTO_SEGUNDA_UNIDADE_PERCENT).total;
+}
 import { isClienteRole } from '../../utils/auth-routes';
 import { normalizeUser } from '../../utils/normalize-user';
 import {
@@ -441,7 +450,7 @@ export function AgendarServicoPage() {
   useEffect(() => {
     if (loading || checkoutIniciado.current || cart.count() === 0) return;
     checkoutIniciado.current = true;
-    const total = cart.items.reduce((sum, i) => sum + (Number(i.precoMinimo) || 0) * i.quantidade, 0);
+    const total = cartTotal(cart.items);
     funil.iniciouCheckout({
       origem: 'agendar',
       qtd_itens: cart.count(),
@@ -1005,7 +1014,7 @@ export function AgendarServicoPage() {
                   </div>
                   )}
                   <p className="font-bold text-primary-700 sm:ml-auto sm:w-24 sm:text-right">
-                    {formatCurrency((item.precoMinimo || 0) * item.quantidade)}
+                    {formatCurrency(lineTotalAgendar(item))}
                   </p>
                   <button type="button" className="text-sm text-red-500 sm:order-last" onClick={() => cart.remove(item.cartKey || item.slug)}>Remover</button>
                   </div>
@@ -1201,7 +1210,7 @@ export function AgendarServicoPage() {
           )}
           {elegivelFidelidade && descontoFidelidadeEstimado > 0 && (
             <p className="mb-2 text-sm text-emerald-700">
-              Desconto fidelidade ({descontoFidelidadePercent}% — só na 2ª compra): −
+              Desconto fidelidade ({descontoFidelidadePercent}% — a partir da 2ª compra): −
               {formatCurrency(descontoFidelidadeEstimado)}
             </p>
           )}
@@ -1344,12 +1353,12 @@ export function AgendarServicoPage() {
 
           {elegivelFidelidade && (
             <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
-              2ª compra: {descontoFidelidadePercent}% de desconto exclusivo nesta contratação.
+              2ª compra em diante: {descontoFidelidadePercent}% de desconto nesta contratação.
             </p>
           )}
           {!elegivelFidelidade && (
             <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
-              Cashback em todos os serviços. Na contratação do 2º serviço você ganha{' '}
+              Cashback em todos os serviços. A partir da 2ª compra você ganha{' '}
               {descontoFidelidadePercent}% de desconto. Não há desconto automático no PIX.
             </p>
           )}

@@ -1,4 +1,5 @@
 import { isPecaSlug } from '../storefront/pecas';
+import { totalComDescontoAPartirDaSegunda, DESCONTO_SEGUNDA_UNIDADE_PERCENT } from './desconto-quantidade';
 
 export const MINIMO_CARRINHO_SERVICO = 150;
 export const MINIMO_PECAS_ISENTO_ENTREGA = 150;
@@ -28,8 +29,13 @@ export function analisarItensCarrinho(itens: ItemCarrinhoResumo[]) {
   let temPeca = false;
 
   for (const item of itens) {
-    const val = (Number(item.precoMinimo) || 0) * item.quantidade;
-    if (isPecaItem(item.slug, item.tipo)) {
+    const unit = Number(item.precoMinimo) || 0;
+    const qty = item.quantidade || 1;
+    const isPeca = isPecaItem(item.slug, item.tipo);
+    const val = isPeca
+      ? totalComDescontoAPartirDaSegunda(unit, qty, DESCONTO_SEGUNDA_UNIDADE_PERCENT).total
+      : unit * qty;
+    if (isPeca) {
       subtotalPecas += val;
       temPeca = true;
     } else {

@@ -11,6 +11,14 @@ import { funil } from '../../utils/gtm';
 import { IconLock, IconShield, IconVerified } from '../../components/loja/icons';
 import { useToast } from '../../components/Toast';
 import { validarCarrinhoFrontend } from '../../utils/carrinho-regras';
+import { totalComDescontoAPartirDaSegunda, DESCONTO_SEGUNDA_UNIDADE_PERCENT } from '../../utils/desconto-quantidade';
+
+function lineTotal(item: { tipo?: string; precoMinimo: number | null; quantidade: number }) {
+  const unit = Number(item.precoMinimo) || 0;
+  const qty = item.quantidade || 1;
+  if (item.tipo === 'servico') return unit * qty;
+  return totalComDescontoAPartirDaSegunda(unit, qty, DESCONTO_SEGUNDA_UNIDADE_PERCENT).total;
+}
 
 export function CartPage() {
   const cart = useCartStore();
@@ -78,7 +86,7 @@ export function CartPage() {
                   <p className="mt-0.5 text-[11px] text-slate-500">Mão de obra</p>
                 )}
                 <p className="mt-1 text-lg font-black text-[#002d62]">
-                  {money((Number(item.precoMinimo) || 0) * (item.quantidade || 1))}
+                  {money(lineTotal(item))}
                 </p>
                 {item.tipo === 'servico' && item.respostas?.quantidade && Number(item.respostas.quantidade) > 1 && (
                   <p className="text-xs text-slate-500">
@@ -86,8 +94,16 @@ export function CartPage() {
                   </p>
                 )}
                 {item.tipo !== 'servico' && item.quantidade > 1 && (
-                  <p className="text-xs text-slate-500">
-                    {money(Number(item.precoMinimo) || 0)} × {item.quantidade}
+                  <p className="text-xs text-emerald-700">
+                    1ª un. {money(Number(item.precoMinimo) || 0)} · demais com {DESCONTO_SEGUNDA_UNIDADE_PERCENT}% off
+                    {(() => {
+                      const d = totalComDescontoAPartirDaSegunda(
+                        Number(item.precoMinimo) || 0,
+                        item.quantidade,
+                        DESCONTO_SEGUNDA_UNIDADE_PERCENT
+                      );
+                      return d.economia > 0 ? ` (−${money(d.economia)})` : '';
+                    })()}
                   </p>
                 )}
                 <div className="mt-3 flex items-center gap-3">

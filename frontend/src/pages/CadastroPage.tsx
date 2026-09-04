@@ -98,8 +98,9 @@ export function CadastroPage() {
 
         <Card>
           <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            <strong>Cashback:</strong> receba parte do valor de volta nos serviços. Na contratação do{' '}
-            <strong>2º serviço</strong>, ganhe <strong>30% de desconto</strong>. Não há desconto automático no PIX.
+            <strong>Cashback:</strong> receba parte do valor de volta nos serviços. A partir da{' '}
+            <strong>2ª compra</strong>, ganhe <strong>30% de desconto</strong>. Na mesma compra, a partir da 2ª
+            unidade de serviço/peça também há desconto. Não há desconto automático no PIX.
           </div>
           {ref && (
             <div className="mb-4 rounded-lg bg-accent-500/15 px-4 py-3 text-sm text-primary-700">

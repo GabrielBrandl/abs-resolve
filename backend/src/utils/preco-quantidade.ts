@@ -39,6 +39,39 @@ export function aplicarModoCobranca(valor: number, modo: ModoCobranca | undefine
   return modo === 'fixo' ? v : v * qtd;
 }
 
+/**
+ * Desconto a partir da 2ª unidade (serviço ou peça):
+ * 1ª unidade = preço cheio; unidades extras = percentual de desconto (padrão 30%).
+ */
+export function totalComDescontoAPartirDaSegunda(
+  unitario: number,
+  quantidade: number,
+  percentualExtras = 30
+): { total: number; economia: number; precoCheio: number; unitarioExtra: number } {
+  const u = Math.max(0, Number(unitario) || 0);
+  const n = Math.max(1, Math.floor(Number(quantidade) || 1));
+  const precoCheio = Math.round(u * n * 100) / 100;
+  if (n <= 1) {
+    return { total: Math.round(u * 100) / 100, economia: 0, precoCheio, unitarioExtra: u };
+  }
+  const pct = Number.isFinite(percentualExtras) ? Math.max(0, Math.min(100, percentualExtras)) : 30;
+  const fator = 1 - pct / 100;
+  const unitarioExtra = Math.round(u * fator * 100) / 100;
+  const total = Math.round((u + (n - 1) * unitarioExtra) * 100) / 100;
+  return {
+    total,
+    economia: Math.max(0, Math.round((precoCheio - total) * 100) / 100),
+    precoCheio,
+    unitarioExtra,
+  };
+}
+
+/** Percentual padrão do desconto a partir da 2ª unidade (peça/material). */
+export function descontoAPartirDaSegundaPercent(): number {
+  const raw = Number(process.env.DESCONTO_SEGUNDA_UNIDADE_PERCENT ?? 30);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 30;
+}
+
 export function resolverPerguntaQuantidadeId(
   perguntas: Array<{ id: string; papel?: string }>,
   perguntaQuantidadeId?: string | null

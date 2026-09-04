@@ -13,7 +13,7 @@ import { type FluxoServico, type RespostasFluxo } from '../config/fluxo-servicos
 import { fluxoConfigService } from './fluxo-config.service.js';
 import { calcularPrecoFluxo } from '../config/tabela-precos-fluxo.js';
 import { isMaterialSku } from '../config/materiais-catalogo.js';
-import { parseQuantidadeOpcao } from '../utils/preco-quantidade.js';
+import { parseQuantidadeOpcao, totalComDescontoAPartirDaSegunda, descontoAPartirDaSegundaPercent } from '../utils/preco-quantidade.js';
 import { estoqueService } from './estoque.service.js';
 import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from '../engines/pricing.engine.js';
 import {
@@ -35,7 +35,7 @@ function descontoPixPercent(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : 0;
 }
 
-/** Desconto a partir da 2ª compra paga do cliente. */
+/** Desconto a partir da 2ª compra paga do cliente (e nas seguintes). */
 function descontoFidelidadePercent(): number {
   const raw = Number(process.env.DESCONTO_FIDELIDADE_PERCENT || 30);
   return Number.isFinite(raw) && raw > 0 ? raw : 30;
@@ -266,7 +266,11 @@ export class SolicitacaoService {
         const mat = await estoqueService.precoMaterialSku(sku);
         if (!mat) throw new Error(`Material "${sku}" não encontrado`);
         if (item.quantidade < 1) continue;
-        const subtotal = mat.preco * item.quantidade;
+        const { total: subtotal } = totalComDescontoAPartirDaSegunda(
+          mat.preco,
+          item.quantidade,
+          descontoAPartirDaSegundaPercent()
+        );
         precoSubtotal += subtotal;
         detalhes.push({
           slug: sku,
@@ -297,7 +301,11 @@ export class SolicitacaoService {
         const peca = findPeca(item.slug);
         if (!peca) throw new Error(`Peça "${item.slug}" não encontrada`);
         if (item.quantidade < 1) continue;
-        const subtotal = peca.precoMinimo * item.quantidade;
+        const { total: subtotal } = totalComDescontoAPartirDaSegunda(
+          peca.precoMinimo,
+          item.quantidade,
+          descontoAPartirDaSegundaPercent()
+        );
         precoSubtotal += subtotal;
         detalhes.push({
           slug: peca.slug,
@@ -500,7 +508,7 @@ export class SolicitacaoService {
     return descontoFidelidadePercent();
   }
 
-  /** Compras já pagas (RECEIVED) — a partir de 1, a próxima é a 2ª compra. */
+  /** Compras já pagas (RECEIVED) — a partir de 1, a próxima já é 2ª compra (e seguintes). */
   async contarComprasConfirmadas(clienteId: string) {
     return prisma.pagamento.count({
       where: { clienteId, status: 'RECEIVED' },
@@ -511,8 +519,8 @@ export class SolicitacaoService {
     const comprasAnteriores = await this.contarComprasConfirmadas(clienteId);
     const percentualFidelidade = descontoFidelidadePercent();
     const percentualPix = descontoPixPercent();
-    // 30% somente na 2ª compra (exatamente 1 pagamento confirmado antes)
-    const fidelidade = comprasAnteriores === 1;
+    // A partir da 2ª compra (1+ pagamentos confirmados antes)
+    const fidelidade = comprasAnteriores >= 1;
     return {
       elegivel: fidelidade,
       fidelidade,
@@ -522,8 +530,8 @@ export class SolicitacaoService {
       somentePix: !fidelidade && percentualPix > 0,
       comprasAnteriores,
       mensagem: fidelidade
-        ? `${percentualFidelidade}% de desconto exclusivo na sua 2ª compra.`
-        : 'Receba cashback em todos os serviços. Na 2ª compra: 30% de desconto.',
+        ? `${percentualFidelidade}% de desconto a partir da sua 2ª compra.`
+        : 'Receba cashback em todos os serviços. A partir da 2ª compra: 30% de desconto.',
     };
   }
 
@@ -560,7 +568,7 @@ export class SolicitacaoService {
 
   /**
    * Aplica descontos no pagamento:
-   * - Fidelidade 30% somente na 2ª compra (qualquer método)
+   * - Fidelidade 30% a partir da 2ª compra (qualquer método)
    * - PIX automático desativado por padrão (DESCONTO_PIX_PERCENT=0)
    */
   async aplicarDescontoPixNoPagamento(
@@ -577,8 +585,8 @@ export class SolicitacaoService {
     const expressValor = sol.express ? toNumber(config.expressValor) : 0;
 
     const comprasAnteriores = await this.contarComprasConfirmadas(clienteId);
-    // 30% somente na contratação do segundo serviço
-    const pctFidelidade = comprasAnteriores === 1 ? descontoFidelidadePercent() : 0;
+    // A partir da 2ª compra (já tem pelo menos 1 pagamento confirmado)
+    const pctFidelidade = comprasAnteriores >= 1 ? descontoFidelidadePercent() : 0;
     const pctPix = metodo === 'PIX' ? descontoPixPercent() : 0;
 
     const valorDescontoFidelidade =

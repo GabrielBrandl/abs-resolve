@@ -6,6 +6,8 @@ import {
   aplicarModoCobranca,
   quantidadeDasRespostas,
   resolverPerguntaQuantidadeId,
+  totalComDescontoAPartirDaSegunda,
+  descontoAPartirDaSegundaPercent,
   type ModoCobranca,
 } from '../utils/preco-quantidade.js';
 
@@ -120,29 +122,22 @@ function deltaPorQuantidade(
 
 /**
  * Mão de obra com desconto automático por quantidade:
- * 1ª unidade = preço cheio; unidades extras = ~60% (não cobra 100% × N).
+ * 1ª unidade = preço cheio; unidades extras com desconto (padrão 30%, alinhado ao 2º serviço/peça).
  */
 function maoDeObraPorQuantidade(unitario: number, qtd: number): {
   total: number;
   economia: number;
   precoCheio: number;
 } {
-  const base = Math.max(0, unitario);
-  const n = Math.max(1, Math.floor(qtd) || 1);
-  const precoCheio = roundCurrency(base * n);
-  if (n <= 1) return { total: roundCurrency(base), economia: 0, precoCheio };
+  const pct = descontoAPartirDaSegundaPercent();
+  const r = totalComDescontoAPartirDaSegunda(unitario, qtd, pct);
+  return { total: r.total, economia: r.economia, precoCheio: r.precoCheio };
+}
 
-  const delta = deltaPorQuantidade(
-    n,
-    {
-      2: roundCurrency(base * 0.6),
-      3: roundCurrency(base * 1.2),
-      4: roundCurrency(base * 1.75),
-    },
-    { threshold: 4, perUnit: roundCurrency(base * 0.55) }
-  );
-  const total = roundCurrency(base + delta);
-  return { total, economia: Math.max(0, roundCurrency(precoCheio - total)), precoCheio };
+function valorPecasComDesconto(unitario: number, qtd: number): { total: number; economia: number } {
+  const pct = descontoAPartirDaSegundaPercent();
+  const r = totalComDescontoAPartirDaSegunda(unitario, qtd, pct);
+  return { total: r.total, economia: r.economia };
 }
 
 function adicionarItem(breakdown: PrecoFluxoBreakdownItem[], label: string, valor: number): void {
@@ -316,7 +311,9 @@ export function calcularPrecoFluxo(
       const pecaSlug = pecaSlugPorTipo('troca-tomada', tipo);
       const peca = pecaSlug ? findPeca(pecaSlug) : null;
       const levaPeca = fornecimentoAbs(respostas, 'fornecimentoTomada');
-      const valorPeca = levaPeca && peca ? peca.precoMinimo * qtd : 0;
+      const pecaCalc =
+        levaPeca && peca ? valorPecasComDesconto(peca.precoMinimo, qtd) : { total: 0, economia: 0 };
+      const valorPeca = pecaCalc.total;
 
       adicionarItem(
         breakdown,
@@ -382,7 +379,7 @@ export function calcularPrecoFluxo(
       return finalizarResultado(breakdown, mensagens, {
         valorServico: labor + extras,
         valorPeca,
-        descontoQuantidade: economia,
+        descontoQuantidade: economia + pecaCalc.economia,
         pecaSlug: peca?.slug,
         pecaNome: peca?.nome,
         quantidade: qtd,
@@ -404,7 +401,9 @@ export function calcularPrecoFluxo(
       const pecaSlug = pecaSlugPorTipo('troca-interruptor', tipo);
       const peca = pecaSlug ? findPeca(pecaSlug) : null;
       const levaPeca = fornecimentoAbs(respostas, 'fornecimentoInterruptor');
-      const valorPeca = levaPeca && peca ? peca.precoMinimo * qtd : 0;
+      const pecaCalc =
+        levaPeca && peca ? valorPecasComDesconto(peca.precoMinimo, qtd) : { total: 0, economia: 0 };
+      const valorPeca = pecaCalc.total;
 
       adicionarItem(
         breakdown,
@@ -460,7 +459,7 @@ export function calcularPrecoFluxo(
       return finalizarResultado(breakdown, mensagens, {
         valorServico: labor + extrasInt,
         valorPeca,
-        descontoQuantidade: economia,
+        descontoQuantidade: economia + pecaCalc.economia,
         pecaSlug: peca?.slug,
         pecaNome: peca?.nome,
         quantidade: qtd,

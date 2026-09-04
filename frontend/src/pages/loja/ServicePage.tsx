@@ -18,6 +18,7 @@ import {
 } from '../../storefront/catalog';
 import { WHATSAPP_LINK } from '../../storefront/constants';
 import { findPeca, isPecaSlug, itemPath, pecasDoServico } from '../../storefront/pecas';
+import { totalComDescontoAPartirDaSegunda, DESCONTO_SEGUNDA_UNIDADE_PERCENT } from '../../utils/desconto-quantidade';
 
 type FluxoPergunta = {
   id: string;
@@ -302,25 +303,46 @@ export function ServicePage() {
     precoCalc?.valorPeca != null
       ? precoCalc.valorPeca
       : precisaMaterial && varianteSel?.disponivelParaCompra
-        ? toMoneyNumber(varianteSel.preco) * qty
+        ? totalComDescontoAPartirDaSegunda(
+            toMoneyNumber(varianteSel.preco),
+            qty,
+            DESCONTO_SEGUNDA_UNIDADE_PERCENT
+          ).total
         : 0
   );
   const total = toMoneyNumber(
     (() => {
       const base =
         precoCalc?.preco != null ? toMoneyNumber(precoCalc.preco) : valorServico + valorPecaCatalogo;
-      // Materiais (torneira/chuveiro) não entram no cálculo do fluxo — somar à parte
+      // Materiais (torneira/chuveiro) não entram no cálculo do fluxo — somar à parte (com desconto 2ª+)
       const materialExtra =
         precoCalc?.preco != null &&
         precisaMaterial &&
         varianteSel?.disponivelParaCompra &&
         !(toMoneyNumber(precoCalc.valorPeca) > 0)
-          ? toMoneyNumber(varianteSel.preco) * qty
+          ? totalComDescontoAPartirDaSegunda(
+              toMoneyNumber(varianteSel.preco),
+              qty,
+              DESCONTO_SEGUNDA_UNIDADE_PERCENT
+            ).total
           : 0;
       return base + materialExtra;
     })()
   );
-  const descontoQtd = toMoneyNumber(precoCalc?.descontoQuantidade);
+  const descontoQtd = toMoneyNumber(
+    (() => {
+      const api = toMoneyNumber(precoCalc?.descontoQuantidade);
+      if (api > 0) return api;
+      if (precisaMaterial && varianteSel?.disponivelParaCompra && qty > 1) {
+        return totalComDescontoAPartirDaSegunda(
+          toMoneyNumber(varianteSel.preco),
+          qty,
+          DESCONTO_SEGUNDA_UNIDADE_PERCENT
+        ).economia;
+      }
+      return 0;
+    })()
+  );
 
   const together = useMemo(() => frequentlyTogether(categorias, slug, 4), [categorias, slug]);
   const sameCategory = useMemo(() => relatedSameCategory(categorias, slug, 4), [categorias, slug]);
@@ -563,7 +585,8 @@ export function ServicePage() {
                       </button>
                     </div>
                     <p className="mt-1.5 text-xs text-slate-500">
-                      Unidades extras têm desconto automático na mão de obra. Peças ABS multiplicam pela quantidade.
+                      A partir da 2ª unidade: {DESCONTO_SEGUNDA_UNIDADE_PERCENT}% de desconto na mão de obra e nas
+                      peças/materiais.
                     </p>
                   </div>
                 );
@@ -756,7 +779,7 @@ export function ServicePage() {
               </div>
               {descontoQtd > 0 && (
                 <p className="text-xs font-semibold text-emerald-700">
-                  Desconto automático por quantidade: −{money(descontoQtd)}
+                  Desconto a partir da 2ª unidade: −{money(descontoQtd)}
                 </p>
               )}
               {valorPecaCatalogo > 0 && (
@@ -774,7 +797,15 @@ export function ServicePage() {
                     {materiaisCfg?.labelProduto} {modeloSel.nome}
                     <span className="block text-xs text-slate-400">{varianteSel.labelCor} × {qty}</span>
                   </span>
-                  <span className="font-bold text-[#111827]">{money(toMoneyNumber(varianteSel.preco) * qty)}</span>
+                  <span className="font-bold text-[#111827]">
+                    {money(
+                      totalComDescontoAPartirDaSegunda(
+                        toMoneyNumber(varianteSel.preco),
+                        qty,
+                        DESCONTO_SEGUNDA_UNIDADE_PERCENT
+                      ).total
+                    )}
+                  </span>
                 </div>
               )}
             </div>
