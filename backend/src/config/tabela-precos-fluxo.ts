@@ -19,10 +19,12 @@ export interface ResultadoPrecoFluxo {
   breakdown: PrecoFluxoBreakdownItem[];
   requerValidacaoTecnica: boolean;
   mensagemValidacao?: string;
-  /** Mão de obra (não multiplica por quantidade de peças) */
+  /** Mão de obra (já com desconto por qtd, se houver) */
   valorServico?: number;
   /** Peças/material × quantidade */
   valorPeca?: number;
+  /** Economia vs cobrar mão de obra cheia × N */
+  descontoQuantidade?: number;
   pecaSlug?: string;
   pecaNome?: string;
   quantidade?: number;
@@ -116,6 +118,33 @@ function deltaPorQuantidade(
   return tiers[maiorTier] ?? 0;
 }
 
+/**
+ * Mão de obra com desconto automático por quantidade:
+ * 1ª unidade = preço cheio; unidades extras = ~60% (não cobra 100% × N).
+ */
+function maoDeObraPorQuantidade(unitario: number, qtd: number): {
+  total: number;
+  economia: number;
+  precoCheio: number;
+} {
+  const base = Math.max(0, unitario);
+  const n = Math.max(1, Math.floor(qtd) || 1);
+  const precoCheio = roundCurrency(base * n);
+  if (n <= 1) return { total: roundCurrency(base), economia: 0, precoCheio };
+
+  const delta = deltaPorQuantidade(
+    n,
+    {
+      2: roundCurrency(base * 0.6),
+      3: roundCurrency(base * 1.2),
+      4: roundCurrency(base * 1.75),
+    },
+    { threshold: 4, perUnit: roundCurrency(base * 0.55) }
+  );
+  const total = roundCurrency(base + delta);
+  return { total, economia: Math.max(0, roundCurrency(precoCheio - total)), precoCheio };
+}
+
 function adicionarItem(breakdown: PrecoFluxoBreakdownItem[], label: string, valor: number): void {
   const valorFinal = roundCurrency(valor);
   if (!valorFinal) return;
@@ -200,6 +229,7 @@ function finalizarResultado(
   extra?: {
     valorServico?: number;
     valorPeca?: number;
+    descontoQuantidade?: number;
     pecaSlug?: string;
     pecaNome?: string;
     quantidade?: number;
@@ -214,6 +244,9 @@ function finalizarResultado(
     ...(mensagemValidacao ? { mensagemValidacao } : {}),
     ...(extra?.valorServico != null ? { valorServico: roundCurrency(extra.valorServico) } : {}),
     ...(extra?.valorPeca != null ? { valorPeca: roundCurrency(extra.valorPeca) } : {}),
+    ...(extra?.descontoQuantidade != null && extra.descontoQuantidade > 0
+      ? { descontoQuantidade: roundCurrency(extra.descontoQuantidade) }
+      : {}),
     ...(extra?.pecaSlug ? { pecaSlug: extra.pecaSlug } : {}),
     ...(extra?.pecaNome ? { pecaNome: extra.pecaNome } : {}),
     ...(extra?.quantidade != null ? { quantidade: extra.quantidade } : {}),
@@ -273,25 +306,25 @@ export function calcularPrecoFluxo(
       const tipo = resposta(respostas, 'tipoTomada') ?? 'simples';
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
       const laborPorTipo: Record<string, number> = {
-        simples: 149,
+        simples: PRECO_MINIMO_POR_SLUG['troca-tomada'] || 149,
         dupla: 169,
         'tomada-20a': 189,
         'dupla-20a': 199,
       };
-      // Mão de obra: 1× (não multiplica pela quantidade de tomadas)
-      const labor = laborPorTipo[tipo] ?? PRECO_MINIMO_POR_SLUG['troca-tomada'] ?? 149;
+      const unitario = laborPorTipo[tipo] ?? PRECO_MINIMO_POR_SLUG['troca-tomada'] ?? 149;
+      const { total: labor, economia } = maoDeObraPorQuantidade(unitario, qtd);
       const pecaSlug = pecaSlugPorTipo('troca-tomada', tipo);
       const peca = pecaSlug ? findPeca(pecaSlug) : null;
       const levaPeca = fornecimentoAbs(respostas, 'fornecimentoTomada');
       const valorPeca = levaPeca && peca ? peca.precoMinimo * qtd : 0;
 
-      adicionarItem(breakdown, 'Mão de obra — troca de tomada', labor);
+      adicionarItem(
+        breakdown,
+        qtd > 1 ? `Mão de obra — troca de tomada (${qtd} un.)` : 'Mão de obra — troca de tomada',
+        labor
+      );
       if (valorPeca > 0 && peca) {
-        adicionarItem(
-          breakdown,
-          `${peca.nome} × ${qtd}`,
-          valorPeca
-        );
+        adicionarItem(breakdown, `${peca.nome} × ${qtd}`, valorPeca);
       }
       adicionarItem(breakdown, 'Tomada não funciona', tem(respostas, 'estadoAtual', ['nao-funciona']) ? 40 : 0);
       adicionarItem(
@@ -349,6 +382,7 @@ export function calcularPrecoFluxo(
       return finalizarResultado(breakdown, mensagens, {
         valorServico: labor + extras,
         valorPeca,
+        descontoQuantidade: economia,
         pecaSlug: peca?.slug,
         pecaNome: peca?.nome,
         quantidade: qtd,
@@ -359,19 +393,24 @@ export function calcularPrecoFluxo(
       const tipo = resposta(respostas, 'tipoInterruptor') ?? 'simples';
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
       const baseTipo: Record<string, number> = {
-        simples: 149,
+        simples: PRECO_MINIMO_POR_SLUG['troca-interruptor'] || 149,
         duplo: 169,
         triplo: 189,
         paralelo: 199,
         intermediario: 219,
       };
-      const labor = baseTipo[tipo] ?? 149;
+      const unitario = baseTipo[tipo] ?? PRECO_MINIMO_POR_SLUG['troca-interruptor'] ?? 149;
+      const { total: labor, economia } = maoDeObraPorQuantidade(unitario, qtd);
       const pecaSlug = pecaSlugPorTipo('troca-interruptor', tipo);
       const peca = pecaSlug ? findPeca(pecaSlug) : null;
       const levaPeca = fornecimentoAbs(respostas, 'fornecimentoInterruptor');
       const valorPeca = levaPeca && peca ? peca.precoMinimo * qtd : 0;
 
-      adicionarItem(breakdown, 'Mão de obra — troca de interruptor', labor);
+      adicionarItem(
+        breakdown,
+        qtd > 1 ? `Mão de obra — troca de interruptor (${qtd} un.)` : 'Mão de obra — troca de interruptor',
+        labor
+      );
       if (valorPeca > 0 && peca) {
         adicionarItem(breakdown, `${peca.nome} × ${qtd}`, valorPeca);
       }
@@ -421,6 +460,7 @@ export function calcularPrecoFluxo(
       return finalizarResultado(breakdown, mensagens, {
         valorServico: labor + extrasInt,
         valorPeca,
+        descontoQuantidade: economia,
         pecaSlug: peca?.slug,
         pecaNome: peca?.nome,
         quantidade: qtd,

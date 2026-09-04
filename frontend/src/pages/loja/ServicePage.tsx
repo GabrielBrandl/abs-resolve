@@ -63,6 +63,7 @@ type PrecoCalc = {
   breakdown: Array<{ label: string; valor: number }>;
   valorServico?: number;
   valorPeca?: number;
+  descontoQuantidade?: number;
   pecaSlug?: string;
   pecaNome?: string;
   quantidade?: number;
@@ -307,6 +308,7 @@ export function ServicePage() {
   const total = toMoneyNumber(
     precoCalc?.preco != null ? precoCalc.preco : valorServico + valorPecaCatalogo
   );
+  const descontoQtd = toMoneyNumber(precoCalc?.descontoQuantidade);
 
   const together = useMemo(() => frequentlyTogether(categorias, slug, 4), [categorias, slug]);
   const sameCategory = useMemo(() => relatedSameCategory(categorias, slug, 4), [categorias, slug]);
@@ -722,9 +724,26 @@ export function ServicePage() {
 
             <div className="mt-3 space-y-2 border-b border-slate-100 pb-3 text-sm">
               <div className="flex justify-between gap-2">
-                <span className="text-slate-600">{servico.nome} <span className="text-xs text-slate-400">(mão de obra)</span></span>
-                <span className="font-bold text-[#111827]">{money(valorServico)}</span>
+                <span className="text-slate-600">
+                  {servico.nome}{' '}
+                  <span className="text-xs text-slate-400">
+                    (mão de obra{qty > 1 ? ` · ${qty} un.` : ''})
+                  </span>
+                </span>
+                <span className="text-right font-bold text-[#111827]">
+                  {descontoQtd > 0 && (
+                    <span className="mr-2 text-xs font-semibold text-slate-400 line-through">
+                      {money(valorServico + descontoQtd)}
+                    </span>
+                  )}
+                  {money(valorServico)}
+                </span>
               </div>
+              {descontoQtd > 0 && (
+                <p className="text-xs font-semibold text-emerald-700">
+                  Desconto automático por quantidade: −{money(descontoQtd)}
+                </p>
+              )}
               {valorPecaCatalogo > 0 && (
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-600">
