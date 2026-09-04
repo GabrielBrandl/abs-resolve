@@ -111,6 +111,11 @@ export function HelpConsultorWidget() {
     breakdown: Array<{ label: string; valor: number }>;
     requerValidacaoTecnica: boolean;
     mensagemValidacao?: string;
+    valorServico?: number;
+    valorPeca?: number;
+    pecaSlug?: string;
+    pecaNome?: string;
+    quantidade?: number;
   } | null>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([
     {
@@ -353,25 +358,35 @@ export function HelpConsultorWidget() {
 
   const continuar = (destino: 'login' | 'cadastro') => {
     if (!servico) return;
+    const valorOrcado =
+      preco?.valorServico != null
+        ? Number(preco.valorServico)
+        : preco?.preco != null
+          ? Number(preco.preco) - Number(preco.valorPeca || 0)
+          : Number(servico.precoMinimo) || 0;
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         slug: servico.slug,
         nome: servico.nome,
         categoria: servico.categoria,
-        precoMinimo: servico.precoMinimo,
+        precoMinimo: valorOrcado,
         precoTexto: servico.precoTexto || '',
         tipoPreco: servico.tipoPreco,
         imagemUrl: servico.imagemUrl,
         respostas,
+        pecaSlug: preco?.pecaSlug,
+        pecaNome: preco?.pecaNome,
+        valorPeca: preco?.valorPeca,
+        quantidade: preco?.quantidade || Number(respostas.quantidade) || 1,
       })
     );
     setAberto(false);
     gtmPush('consultor_finalizar_agendamento', {
       servico_slug: servico.slug,
       servico_nome: servico.nome,
-      value: preco?.preco || 0,
-      valor: preco?.preco || 0,
+      value: preco?.preco || valorOrcado || 0,
+      valor: preco?.preco || valorOrcado || 0,
       currency: 'BRL',
     });
     if (user?.role === 'cliente') {

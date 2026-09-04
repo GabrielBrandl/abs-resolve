@@ -26,7 +26,10 @@ export function RedefinirSenhaPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    if (senha.length < 6) return setError('A senha deve ter no mínimo 6 caracteres');
+    if (senha.length < 8) return setError('A senha deve ter no mínimo 8 caracteres, com letra e número');
+    if (!/[A-Za-z]/.test(senha) || !/\d/.test(senha)) {
+      return setError('A senha deve ter no mínimo 8 caracteres, com letra e número');
+    }
     if (senha !== confirmar) return setError('As senhas não conferem');
 
     setLoading(true);

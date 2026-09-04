@@ -80,17 +80,28 @@ export function CartPage() {
                 <p className="mt-1 text-lg font-black text-[#002d62]">
                   {money((Number(item.precoMinimo) || 0) * (item.quantidade || 1))}
                 </p>
-                {item.quantidade > 1 && (
+                {item.tipo === 'servico' && item.respostas?.quantidade && Number(item.respostas.quantidade) > 1 && (
+                  <p className="text-xs text-slate-500">
+                    Quantidade no serviço: {item.respostas.quantidade} un. (já no valor)
+                  </p>
+                )}
+                {item.tipo !== 'servico' && item.quantidade > 1 && (
                   <p className="text-xs text-slate-500">
                     {money(Number(item.precoMinimo) || 0)} × {item.quantidade}
                   </p>
                 )}
                 <div className="mt-3 flex items-center gap-3">
-                  <div className="flex items-center overflow-hidden rounded-md border border-[#d5d9e2]">
-                    <button type="button" className="h-8 w-8 text-lg" onClick={() => cart.setQty(item.cartKey || item.slug, item.quantidade - 1)}>−</button>
-                    <span className="w-8 text-center text-sm font-bold">{item.quantidade}</span>
-                    <button type="button" className="h-8 w-8 text-lg" onClick={() => cart.setQty(item.cartKey || item.slug, item.quantidade + 1)}>+</button>
-                  </div>
+                  {item.tipo === 'servico' ? (
+                    <span className="rounded-md border border-[#d5d9e2] px-3 py-1.5 text-xs font-semibold text-slate-600">
+                      1 serviço
+                    </span>
+                  ) : (
+                    <div className="flex items-center overflow-hidden rounded-md border border-[#d5d9e2]">
+                      <button type="button" className="h-8 w-8 text-lg" onClick={() => cart.setQty(item.cartKey || item.slug, item.quantidade - 1)}>−</button>
+                      <span className="w-8 text-center text-sm font-bold">{item.quantidade}</span>
+                      <button type="button" className="h-8 w-8 text-lg" onClick={() => cart.setQty(item.cartKey || item.slug, item.quantidade + 1)}>+</button>
+                    </div>
+                  )}
                   <button type="button" className="text-xs font-semibold text-[#1d4ed8] hover:underline" onClick={() => cart.remove(item.cartKey || item.slug)}>
                     Remover
                   </button>

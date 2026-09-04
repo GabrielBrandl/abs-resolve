@@ -130,8 +130,8 @@ export class AuthController {
       } catch (e) {
         return error(res, e instanceof Error ? e.message : 'Senha fraca', 400);
       }
-      const result = await authService.redefinirSenha(token, senha);
-      return success(res, { message: 'Senha redefinida com sucesso. Faça login com a nova senha.', ...result });
+      await authService.redefinirSenha(token, senha);
+      return success(res, { message: 'Senha redefinida com sucesso. Faça login com a nova senha.' });
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro ao redefinir senha', 400);
     }

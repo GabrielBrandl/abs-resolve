@@ -64,9 +64,12 @@ export const useCartStore = create<CartState>()(
           return;
         }
         set({
-          items: get().items.map((i) =>
-            itemKey(i) === slugOrKey || i.slug === slugOrKey ? { ...i, quantidade: qty } : i
-          ),
+          items: get().items.map((i) => {
+            if (itemKey(i) !== slugOrKey && i.slug !== slugOrKey) return i;
+            // Serviço já traz mão de obra agregada (com desconto por qtd nas respostas) — não multiplicar
+            if (i.tipo === 'servico') return { ...i, quantidade: 1 };
+            return { ...i, quantidade: qty };
+          }),
         });
       },
       clear: () => set({ items: [] }),

@@ -306,7 +306,19 @@ export function ServicePage() {
         : 0
   );
   const total = toMoneyNumber(
-    precoCalc?.preco != null ? precoCalc.preco : valorServico + valorPecaCatalogo
+    (() => {
+      const base =
+        precoCalc?.preco != null ? toMoneyNumber(precoCalc.preco) : valorServico + valorPecaCatalogo;
+      // Materiais (torneira/chuveiro) não entram no cálculo do fluxo — somar à parte
+      const materialExtra =
+        precoCalc?.preco != null &&
+        precisaMaterial &&
+        varianteSel?.disponivelParaCompra &&
+        !(toMoneyNumber(precoCalc.valorPeca) > 0)
+          ? toMoneyNumber(varianteSel.preco) * qty
+          : 0;
+      return base + materialExtra;
+    })()
   );
   const descontoQtd = toMoneyNumber(precoCalc?.descontoQuantidade);
 
@@ -440,10 +452,13 @@ export function ServicePage() {
       return;
     }
     const faltando = perguntasSemQty.find((p) => !respostas[p.id]);
-    // Se já começou o questionário, pede para completar; senão leva pelo preço base
-    if (faltando && perguntasSemQty.some((p) => Boolean(respostas[p.id]))) {
+    if (faltando) {
       setErroPerguntas(`Responda: ${faltando.titulo}`);
       document.getElementById('resumo-servico')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    if (temPerguntaQty && qty < 1) {
+      setErroPerguntas('Informe a quantidade');
       return;
     }
     setErroPerguntas('');
@@ -454,7 +469,7 @@ export function ServicePage() {
     putInCart();
     if (precisaMaterial && !varianteSel?.disponivelParaCompra) return;
     const faltando = perguntasSemQty.find((p) => !respostas[p.id]);
-    if (faltando && perguntasSemQty.some((p) => Boolean(respostas[p.id]))) return;
+    if (faltando) return;
     funil.clicouComprarAgendar({
       slug: servico.slug,
       nome: servico.nome,
@@ -548,7 +563,7 @@ export function ServicePage() {
                       </button>
                     </div>
                     <p className="mt-1.5 text-xs text-slate-500">
-                      A quantidade multiplica só as peças. A mão de obra permanece 1×.
+                      Unidades extras têm desconto automático na mão de obra. Peças ABS multiplicam pela quantidade.
                     </p>
                   </div>
                 );

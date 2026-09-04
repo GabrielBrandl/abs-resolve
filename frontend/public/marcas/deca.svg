@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 56" role="img" aria-label="Deca">
+  <text x="0" y="40" font-family="Arial, Helvetica Neue, Helvetica, sans-serif" font-size="40" font-weight="600" fill="#5B6570">deca</text>
+  <defs>
+    <linearGradient id="decaDrop" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#2DE2E6"/>
+      <stop offset="100%" stop-color="#0B5FA5"/>
+    </linearGradient>
+  </defs>
+  <path d="M138 8c14 10 22 22 22 34 0 10-8 18-18 18s-18-8-18-18c0-12 8-24 14-34z" fill="url(#decaDrop)"/>
+</svg>

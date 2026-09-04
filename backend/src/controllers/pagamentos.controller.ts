@@ -70,7 +70,13 @@ export class PagamentosController {
 
   async webhookAsaas(req: Request, res: Response) {
     try {
-      const token = process.env.ASAAS_WEBHOOK_TOKEN;
+      const token = String(process.env.ASAAS_WEBHOOK_TOKEN || '').trim();
+      const isProd = process.env.NODE_ENV === 'production';
+      // Em produção o token é obrigatório — sem ele qualquer um poderia marcar pedido como pago
+      if (isProd && !token) {
+        console.error('[SECURITY] ASAAS_WEBHOOK_TOKEN ausente em produção');
+        return error(res, 'Webhook não configurado', 503);
+      }
       if (token && req.headers['asaas-access-token'] !== token) {
         return error(res, 'Webhook não autorizado', 401);
       }
@@ -81,7 +87,7 @@ export class PagamentosController {
       // E-mail enviado em confirmarPagamentoRecebido quando status = RECEIVED
       return success(res, { received: true, pagamentoId: pagamento?.id });
     } catch (err) {
-      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+      return error(res, 'Falha ao processar webhook', 400);
     }
   }
 }

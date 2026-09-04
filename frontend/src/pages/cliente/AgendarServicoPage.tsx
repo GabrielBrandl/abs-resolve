@@ -369,7 +369,7 @@ export function AgendarServicoPage() {
     })();
   }, [searchParams, loading, navigate, setSearchParams, toast]);
 
-  // Importar serviço do Consultor ABS (preço fixo — sem questionário)
+  // Importar orçamento do Consultor ABS (preço + respostas do questionário)
   useEffect(() => {
     if (loading || assistenteImportado.current) return;
     if (searchParams.get('assistente') !== '1') return;
@@ -385,26 +385,58 @@ export function AgendarServicoPage() {
         precoTexto: string;
         tipoPreco: string;
         imagemUrl?: string | null;
+        respostas?: Record<string, string>;
+        pecaSlug?: string;
+        pecaNome?: string;
+        valorPeca?: number;
+        quantidade?: number;
       };
       sessionStorage.removeItem('abs-guided-selling');
-      if (!cart.items.some((i) => i.slug === data.slug)) {
-        cart.add({
-          slug: data.slug,
-          nome: data.nome,
-          categoria: data.categoria,
-          precoMinimo: data.precoMinimo,
-          precoTexto: data.precoTexto,
-          tipoPreco: data.tipoPreco,
-          imagemUrl: data.imagemUrl,
-        });
+      const qtd = Math.max(1, Number(data.quantidade) || Number(data.respostas?.quantidade) || 1);
+      if (!cart.items.some((i) => i.slug === data.slug && i.tipo === 'servico')) {
+        cart.add(
+          {
+            slug: data.slug,
+            nome: data.nome,
+            categoria: data.categoria,
+            precoMinimo: data.precoMinimo,
+            precoTexto: data.precoTexto,
+            tipoPreco: data.tipoPreco,
+            imagemUrl: data.imagemUrl,
+            tipo: 'servico',
+            respostas: {
+              ...(data.respostas || {}),
+              quantidade: String(qtd),
+            },
+            cartKey: `svc:${data.slug}`,
+          },
+          1
+        );
       }
+      if (data.pecaSlug && Number(data.valorPeca) > 0) {
+        const unitPeca = Number(data.valorPeca) / qtd;
+        cart.add(
+          {
+            slug: data.pecaSlug,
+            nome: data.pecaNome || 'Peça',
+            categoria: data.categoria,
+            precoMinimo: unitPeca,
+            precoTexto: '',
+            tipoPreco: 'fixo',
+            tipo: 'peca',
+            servicoRelacionado: data.slug,
+            cartKey: `peca:${data.pecaSlug}:${data.slug}`,
+          },
+          qtd
+        );
+      }
+      toast('Orçamento do consultor adicionado ao pedido.', 'success');
       setStep('carrinho');
       setSearchParams({}, { replace: true });
-      toast('Serviço do consultor adicionado ao carrinho.', 'success');
     } catch {
       sessionStorage.removeItem('abs-guided-selling');
     }
-  }, [loading, searchParams, setSearchParams, toast, cart]);
+  }, [loading, searchParams, cart, toast, setSearchParams]);
 
   useEffect(() => {
     if (loading || checkoutIniciado.current || cart.count() === 0) return;
@@ -759,7 +791,7 @@ export function AgendarServicoPage() {
       if (res.solicitacao?.opcoes?.descontoPix != null) {
         setPctDescontoAplicado(Number(res.solicitacao.opcoes.descontoPix));
       }
-      cart.clear();
+      // Mantém o carrinho até o pagamento confirmar — permite retentar se PIX/cartão falhar
       gtmPush(metodo === 'PIX' ? 'agendar_pagamento_pix_gerado' : 'agendar_pagamento_cartao_gerado', {
         solicitacao_id: idPagamento,
         metodo,
@@ -963,15 +995,19 @@ export function AgendarServicoPage() {
                     <p className="text-sm text-slate-500">{item.precoTexto}</p>
                   </div>
                   <div className="flex items-center justify-between gap-2 sm:contents">
+                  {item.tipo === 'servico' ? (
+                    <span className="rounded border px-2 py-1 text-xs text-slate-600">1 serviço</span>
+                  ) : (
                   <div className="flex items-center gap-2">
-                    <button type="button" className="h-8 w-8 rounded border" onClick={() => cart.setQty(item.slug, item.quantidade - 1)}>−</button>
+                    <button type="button" className="h-8 w-8 rounded border" onClick={() => cart.setQty(item.cartKey || item.slug, item.quantidade - 1)}>−</button>
                     <span className="w-6 text-center">{item.quantidade}</span>
-                    <button type="button" className="h-8 w-8 rounded border" onClick={() => cart.setQty(item.slug, item.quantidade + 1)}>+</button>
+                    <button type="button" className="h-8 w-8 rounded border" onClick={() => cart.setQty(item.cartKey || item.slug, item.quantidade + 1)}>+</button>
                   </div>
+                  )}
                   <p className="font-bold text-primary-700 sm:ml-auto sm:w-24 sm:text-right">
                     {formatCurrency((item.precoMinimo || 0) * item.quantidade)}
                   </p>
-                  <button type="button" className="text-sm text-red-500 sm:order-last" onClick={() => cart.remove(item.slug)}>Remover</button>
+                  <button type="button" className="text-sm text-red-500 sm:order-last" onClick={() => cart.remove(item.cartKey || item.slug)}>Remover</button>
                   </div>
                 </li>
               ))}

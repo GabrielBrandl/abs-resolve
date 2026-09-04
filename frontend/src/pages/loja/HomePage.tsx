@@ -50,20 +50,21 @@ export function HomePage() {
   return (
     <div className="space-y-6">
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16.5rem]">
-        <div
+        <Link
+          to="/busca"
           className="block overflow-hidden rounded-[14px] shadow-[0_10px_30px_rgba(0,45,98,0.18)]"
-          aria-label="Programa de Cashback ABS Resolve"
+          aria-label={`Programa de Cashback ABS Resolve — até ${cashbackPct}`}
         >
           <img
             src="/hero-cashback.jpg"
-            alt="Programa de Cashback ABS Resolve — até 7% de cashback em serviços"
+            alt={`Programa de Cashback ABS Resolve — até ${cashbackPct} de cashback em serviços`}
             width={1200}
             height={520}
             fetchPriority="high"
             decoding="async"
             className="h-auto w-full object-cover"
           />
-        </div>
+        </Link>
 
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none lg:mx-0 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:overflow-visible lg:px-0">
           {FEATURES.map((f) => (

@@ -13,6 +13,7 @@ import { type FluxoServico, type RespostasFluxo } from '../config/fluxo-servicos
 import { fluxoConfigService } from './fluxo-config.service.js';
 import { calcularPrecoFluxo } from '../config/tabela-precos-fluxo.js';
 import { isMaterialSku } from '../config/materiais-catalogo.js';
+import { parseQuantidadeOpcao } from '../utils/preco-quantidade.js';
 import { estoqueService } from './estoque.service.js';
 import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from '../engines/pricing.engine.js';
 import {
@@ -137,10 +138,13 @@ export class SolicitacaoService {
         bySlug.set(s.slug, {
           ...def,
           ...s,
+          // Preços de vitrine acompanham o catálogo/código (alinhado ao fluxo de cálculo)
+          precoMinimo: def?.precoMinimo ?? toNumber(s.precoMinimo),
+          precoTexto: def?.precoTexto || s.precoTexto,
+          tipoPreco: def?.tipoPreco || s.tipoPreco,
           categoria: def?.categoria || String(s.categoria || '').toLowerCase(),
           imagemUrl: s.imagemUrl || def?.imagemUrl,
           descricao: s.descricao || def?.descricao,
-          precoTexto: s.precoTexto || def?.precoTexto,
         } as (typeof SERVICOS_CATALOGO)[number]);
       }
       const all = [...bySlug.values()];
@@ -327,19 +331,64 @@ export class SolicitacaoService {
 
       if (fluxo && temRespostas) {
         validarRespostasFluxo(item.slug, item.respostas!);
-        const calculo = calcularPrecoFluxo(item.slug, item.respostas!, item.quantidade);
-        subtotal = calculo.preco;
-        precoUnit = item.quantidade > 0 ? subtotal / item.quantidade : subtotal;
+        // Quantidade do fluxo (ex.: 2 tomadas) vem das respostas; linha do carrinho de serviço fica 1×
+        const qtdRespostas = parseQuantidadeOpcao(
+          item.respostas!.quantidade == null ? undefined : String(item.respostas!.quantidade)
+        );
+        const qtdFluxo =
+          qtdRespostas && qtdRespostas > 0
+            ? qtdRespostas
+            : Math.max(1, Math.floor(item.quantidade) || 1);
+        const calculo = calcularPrecoFluxo(item.slug, item.respostas!, qtdFluxo);
+
+        // Se peças ABS estão em linhas separadas no mesmo carrinho, cobra só a mão de obra no serviço
+        const pecaSeparadaNoCarrinho = Boolean(
+          calculo.pecaSlug &&
+            calculo.valorPeca != null &&
+            calculo.valorPeca > 0 &&
+            itens.some((i) => i.slug === calculo.pecaSlug)
+        );
+        subtotal =
+          pecaSeparadaNoCarrinho && calculo.valorServico != null
+            ? calculo.valorServico
+            : calculo.preco;
+        precoUnit = subtotal;
         breakdown = calculo.breakdown;
         itemValidacao = calculo.requerValidacaoTecnica;
         mensagemValidacao = calculo.mensagemValidacao;
         if (itemValidacao) requerValidacaoTecnica = true;
-      } else {
-        // Preço fixo do catálogo (sem questionário)
-        precoUnit = toNumber(servico.precoMinimo || 0);
-        subtotal = precoUnit * item.quantidade;
-        breakdown = [{ label: 'Serviço (preço fixo)', valor: subtotal }];
+
+        detalhes.push({
+          slug: servico.slug,
+          nome: servico.nome,
+          categoria: servico.categoria,
+          quantidade: 1,
+          precoUnitario: precoUnit,
+          precoTexto: servico.precoTexto,
+          subtotal,
+          respostas: {
+            ...item.respostas!,
+            quantidade: String(qtdFluxo),
+          },
+          ...(breakdown ? { breakdown } : {}),
+          ...(itemValidacao ? { requerValidacaoTecnica: true, mensagemValidacao } : {}),
+          ...(item.fotos?.length ? { fotos: item.fotos } : {}),
+          tipo: 'servico',
+          imagemUrl: servico.imagemUrl,
+          valorServico: calculo.valorServico ?? subtotal,
+          ...(calculo.valorPeca != null && !pecaSeparadaNoCarrinho
+            ? { valorPeca: calculo.valorPeca }
+            : {}),
+        });
+        precoSubtotal += subtotal;
+        pontosTotal += servico.pontos * qtdFluxo;
+        continue;
       }
+
+      // Preço fixo do catálogo (sem questionário)
+      precoUnit = toNumber(servico.precoMinimo || 0);
+      subtotal = precoUnit * item.quantidade;
+      breakdown = [{ label: 'Serviço (preço fixo)', valor: subtotal }];
 
       precoSubtotal += subtotal;
       pontosTotal += servico.pontos * item.quantidade;

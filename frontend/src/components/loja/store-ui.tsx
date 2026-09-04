@@ -75,10 +75,11 @@ export function CashbackTag({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Banner lateral — desconto na 2ª compra (apenas na home). Não é link. */
+/** Banner lateral — desconto na 2ª compra (apenas na home). */
 export function CashbackPromoBanner() {
   return (
-    <div
+    <Link
+      to="/busca"
       id="cashback"
       className="block w-full overflow-hidden rounded-[12px] shadow-[0_8px_24px_rgba(0,45,98,0.15)]"
       aria-label="30% de desconto na segunda compra"
@@ -92,7 +93,7 @@ export function CashbackPromoBanner() {
         decoding="async"
         className="h-auto w-full object-cover"
       />
-    </div>
+    </Link>
   );
 }
 

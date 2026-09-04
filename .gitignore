@@ -17,3 +17,6 @@ generated/
 deploy/easypanel.env.local
 deploy/secrets.env
 backend/tmp-emails/
+tmp-cookies.txt
+*cookies*.txt
+

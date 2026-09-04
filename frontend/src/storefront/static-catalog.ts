@@ -11,17 +11,17 @@ const SERVICOS = [
   ['troca-tomada', 'eletricista', 'Troca de tomada', 149, 'R$ 149', 'fixo', 90],
   ['troca-interruptor', 'eletricista', 'Troca de interruptor', 149, 'R$ 149', 'fixo', 90],
   ['instalacao-chuveiro', 'eletricista', 'Instalação de chuveiro', 199, 'R$ 199', 'fixo', 90],
-  ['troca-disjuntor', 'eletricista', 'Troca de disjuntor', 169, 'R$ 169', 'fixo', 90],
-  ['instalacao-luminaria', 'eletricista', 'Instalação de luminária', 159, 'R$ 159', 'fixo', 90],
+  ['troca-disjuntor', 'eletricista', 'Troca de disjuntor', 149, 'A partir de R$ 149', 'a_partir', 90],
+  ['instalacao-luminaria', 'eletricista', 'Instalação de luminária', 149, 'R$ 149', 'fixo', 90],
   ['instalacao-ventilador-teto', 'eletricista', 'Instalação de ventilador de teto', 299, 'R$ 299', 'fixo', 90],
-  ['troca-torneira', 'hidraulica', 'Troca de torneira', 179, 'R$ 179', 'fixo', 90],
-  ['troca-registro', 'hidraulica', 'Troca de registro', 189, 'R$ 189', 'fixo', 90],
-  ['reparo-vazamento', 'hidraulica', 'Reparo de vazamento', 249, 'A partir de R$ 249', 'a_partir', 90],
-  ['desentupimento-pia', 'hidraulica', 'Desentupimento de pia', 199, 'R$ 199', 'fixo', 30],
+  ['troca-torneira', 'hidraulica', 'Troca de torneira', 129, 'A partir de R$ 129', 'a_partir', 90],
+  ['troca-registro', 'hidraulica', 'Troca de registro', 149, 'A partir de R$ 149', 'a_partir', 90],
+  ['reparo-vazamento', 'hidraulica', 'Reparo de vazamento', 129, 'A partir de R$ 129', 'a_partir', 90],
+  ['desentupimento-pia', 'hidraulica', 'Desentupimento de pia', 249, 'R$ 249', 'fixo', 30],
   ['desentupimento-vaso', 'hidraulica', 'Desentupimento de vaso', 299, 'A partir de R$ 299', 'a_partir', 30],
-  ['instalacao-suporte-tv', 'montador', 'Instalação de suporte de TV', 159, 'R$ 159', 'fixo', 90],
-  ['instalacao-prateleira', 'montador', 'Instalação de prateleira', 149, 'R$ 149', 'fixo', 30],
-  ['limpeza-ar-split', 'ar-condicionado', 'Limpeza preventiva (split)', 249, 'R$ 249', 'fixo', 30],
+  ['instalacao-suporte-tv', 'montador', 'Instalação de suporte de TV', 149, 'A partir de R$ 149', 'a_partir', 90],
+  ['instalacao-prateleira', 'montador', 'Instalação de prateleira', 129, 'A partir de R$ 129', 'a_partir', 30],
+  ['limpeza-ar-split', 'ar-condicionado', 'Limpeza preventiva (split)', 149, 'A partir de R$ 149', 'a_partir', 30],
   ['instalacao-ar-split', 'ar-condicionado', 'Instalação de ar-condicionado split', null, 'Sob orçamento', 'sob_orcamento', 90],
 ] as const;
 
@@ -38,4 +38,4 @@ export const CATALOGO_FALLBACK: CategoriaLoja[] = CATS.map((cat) => ({
     descricao: s[2],
     imagemUrl: `/servicos/${s[0]}.webp`,
   })),
-})).filter((c) => c.servicos.length > 0);
+}));

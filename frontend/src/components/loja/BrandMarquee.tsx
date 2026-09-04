@@ -1,10 +1,10 @@
 const BRANDS = [
   { id: 'lorenzetti', label: 'Lorenzetti', src: '/marcas/lorenzetti.svg' },
-  { id: 'civitt', label: 'Civitt', src: '/marcas/civitt.png' },
-  { id: 'tigre', label: 'Tigre', src: '/marcas/tigre.png' },
-  { id: 'taschibra', label: 'Taschibra', src: '/marcas/taschibra.png' },
-  { id: 'deca', label: 'Deca', src: '/marcas/deca.png' },
-  { id: 'amanco', label: 'Amanco', src: '/marcas/amanco.png' },
+  { id: 'civitt', label: 'Civitt', src: '/marcas/civitt.svg' },
+  { id: 'tigre', label: 'Tigre', src: '/marcas/tigre.svg' },
+  { id: 'taschibra', label: 'Taschibra', src: '/marcas/taschibra.svg' },
+  { id: 'deca', label: 'Deca', src: '/marcas/deca.svg' },
+  { id: 'amanco', label: 'Amanco', src: '/marcas/amanco.svg' },
   { id: 'tramontina', label: 'Tramontina', src: '/marcas/tramontina.svg' },
 ] as const;
 

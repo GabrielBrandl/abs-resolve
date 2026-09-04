@@ -115,7 +115,7 @@ https://SEU-DOMINIO/api/webhooks/asaas
 
 **Eventos recomendados:** `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`, `PAYMENT_OVERDUE`
 
-**Opcional — segurança:** defina um token em `ASAAS_WEBHOOK_TOKEN` no Environment e configure o mesmo token no Asaas (header `asaas-access-token`).
+**Obrigatório em produção — segurança:** defina um token forte em `ASAAS_WEBHOOK_TOKEN` no Environment e configure o mesmo token no Asaas (header `asaas-access-token`). Sem token em produção o webhook é rejeitado (503).
 
 ### 8. E-mails automáticos (opcional)
 
