@@ -1191,7 +1191,7 @@ export function AgendarServicoPage() {
               <li key={item.slug} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                 <span className="font-medium text-primary-800">{item.nome}</span>
                 <span className="font-bold">
-                  {formatCurrency((item.precoMinimo || 0) * item.quantidade)}
+                  {formatCurrency(lineTotalAgendar(item))}
                 </span>
               </li>
             ))}
