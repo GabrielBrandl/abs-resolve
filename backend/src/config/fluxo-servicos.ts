@@ -775,8 +775,8 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         opcao('nao-sei', 'Não sei'),
       ]),
       pergunta('materiaisInstalacaoAr', 'Quem fornece o material?', [
-        opcao('cliente-fornece', 'Já possuo o material adequado'),
-        opcao('abs-fornece-kit', 'ABS fornece o material/kit'),
+        opcao('sim', 'Sim, já possuo o material necessário'),
+        opcao('nao', 'Não, quero que a ABS forneça o material'),
       ]),
     ],
     fotosObrigatorias: ['Local evaporadora', 'Local condensadora', 'Parede externa', 'Quadro elétrico', 'Etiqueta do aparelho', 'Ambiente completo'],

@@ -602,10 +602,14 @@ export function ServicePage() {
           <Stars value={4.9} count={186} />
           <div className="mt-4 rounded-[10px] border border-[#e6e8ee] bg-[#f8fafc] p-4">
             <p className="text-xs text-slate-500">
-              {qty > 1 ? `Total mão de obra · ${qty} un.` : 'A partir de'}
+              {qty > 1 ? `Total · ${qty} un.` : slug === 'instalacao-ar-split' && total > 0 ? 'Total estimado' : 'A partir de'}
             </p>
             <p className="text-[32px] font-black text-[#002d62]">
-              {money(valorMaoObraDisplay || servico.precoMinimo || 0)}
+              {money(
+                slug === 'instalacao-ar-split' && total > 0
+                  ? total
+                  : valorMaoObraDisplay || servico.precoMinimo || 0
+              )}
             </p>
             {qty > 1 && descontoQtd > 0 && (
               <p className="mt-1 text-xs font-semibold text-emerald-700">
@@ -613,7 +617,9 @@ export function ServicePage() {
               </p>
             )}
             <p className="mt-1 text-xs text-slate-500">
-              Mão de obra = preço-base + ajuste por BTUs. Material (kit/metros) à parte, se a ABS fornecer.
+              {slug === 'instalacao-ar-split'
+                ? 'Inclui mão de obra + material (quando a ABS fornecer), conforme suas respostas.'
+                : 'Mão de obra = preço-base + ajuste por BTUs. Material (kit/metros) à parte, se a ABS fornecer.'}
             </p>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">{servico.descricao}</p>
@@ -896,6 +902,19 @@ export function ServicePage() {
               Valores discriminados
             </p>
             <div className="mt-2 space-y-2 border-b border-slate-100 pb-3 text-sm">
+              {slug === 'instalacao-ar-split' && Array.isArray(precoCalc?.breakdown) && precoCalc!.breakdown.length > 0 ? (
+                <>
+                  {precoCalc!.breakdown
+                    .filter((b) => b.valor !== 0 || /cliente|sem cobrança|incluso/i.test(b.label))
+                    .map((b) => (
+                      <div key={b.label} className="flex justify-between gap-2">
+                        <span className="text-slate-600">{b.label}</span>
+                        <span className="font-bold text-[#111827]">{money(b.valor)}</span>
+                      </div>
+                    ))}
+                </>
+              ) : (
+                <>
               <div className="flex justify-between gap-2">
                 <span className="text-slate-600">
                   Mão de obra
@@ -1005,6 +1024,8 @@ export function ServicePage() {
                       <span className="font-bold text-[#111827]">{money(b.valor)}</span>
                     </div>
                   ))}
+                </>
+              )}
 
               {descontoQtd > 0 && (
                 <p className="text-xs font-semibold text-emerald-700">

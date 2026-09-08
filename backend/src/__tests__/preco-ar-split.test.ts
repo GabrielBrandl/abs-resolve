@@ -134,11 +134,30 @@ describe('preço composto instalação ar-split', () => {
     expect(r.preco).toBe(779);
   });
 
-  it('casa faixa pelo label se o opcaoId da tabela estiver dessincronizado', () => {
+  it('ABS com id "nao" (Sim/Não): 499+100+285+(1×145) = 1029', () => {
     const composto = defaultPrecoCompostoArSplit();
+    composto.opcoesAbsFornece = ['nao'];
     composto.faixas = composto.faixas.map((f) =>
-      f.opcaoId === '12001-18000' ? { ...f, opcaoId: 'id-antigo-18k' } : f
+      f.opcaoId === '12001-18000'
+        ? { ...f, ajusteCapacidade: 100, valorKitInicial: 285, metrosInclusos: 2, precoPorMetroExtra: 145 }
+        : f
     );
+    const fluxo: FluxoServico = {
+      ...FLUXO_AR,
+      perguntas: FLUXO_AR.perguntas.map((p) =>
+        p.id === 'materiaisInstalacaoAr'
+          ? {
+              ...p,
+              opcoes: [
+                { id: 'sim', label: 'Sim, já possuo o material necessário' },
+                { id: 'nao', label: 'Não, quero que a ABS forneça o material' },
+              ],
+            }
+          : p
+      ),
+    };
+    (fluxoConfigService as unknown as { getFluxoEfetivo: () => FluxoServico }).getFluxoEfetivo = () =>
+      fluxo;
     (fluxoConfigService as unknown as { getPrecoConfig: () => unknown }).getPrecoConfig = () => ({
       modoPreco: 'personalizado',
       precoBase: 499,
@@ -150,10 +169,11 @@ describe('preço composto instalação ar-split', () => {
 
     const r = calcularPrecoFluxo('instalacao-ar-split', {
       capacidadeBtu: '12001-18000',
-      distanciaEvapCond: '2',
-      materiaisInstalacaoAr: 'cliente-fornece',
+      distanciaEvapCond: '3',
+      materiaisInstalacaoAr: 'nao',
     });
     expect(r.valorServico).toBe(599);
-    expect(r.preco).toBe(599);
+    expect(r.valorMaterial).toBe(285 + 145);
+    expect(r.preco).toBe(1029);
   });
 });

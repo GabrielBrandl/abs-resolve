@@ -65,7 +65,14 @@ function numero(respostas: RespostasFluxo, chave: string): number | undefined {
   const valor = respostas[chave];
   if (typeof valor === 'number' && Number.isFinite(valor)) return valor;
   if (typeof valor === 'string') {
-    const normalizado = valor.replace(/\./g, '').replace(',', '.').trim();
+    const t = valor.trim();
+    // Metros / quantidade simples: "3", "3.5", "3,5"
+    if (/^\d+([.,]\d+)?$/.test(t)) {
+      const parsed = Number(t.replace(',', '.'));
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    // Valores no formato 1.234,56
+    const normalizado = t.replace(/\./g, '').replace(',', '.');
     const parsed = Number(normalizado);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
@@ -341,15 +348,43 @@ function acharFaixaCapacidade(
   );
 }
 
-function clienteForneceMaterial(respFornecimento: string | undefined, opcoesAbs: string[]): boolean {
-  if (!respFornecimento) return false;
-  if (opcoesAbs.includes(respFornecimento)) return false;
-  return (
-    respFornecimento === 'cliente-fornece' ||
-    respFornecimento === 'cliente' ||
-    respFornecimento === 'sim' ||
-    /possui|já tenho|ja tenho|cliente/i.test(respFornecimento)
-  );
+function idsAbsFornece(composto: PrecoCompostoConfig): string[] {
+  return (composto.opcoesAbsFornece || []).map((x) => String(x).trim()).filter(Boolean);
+}
+
+/**
+ * Cobra kit/metros somente se a resposta (ID) estiver em opcoesAbsFornece do admin.
+ * Não usa texto visível das opções.
+ */
+function deveCobrarMaterialAbs(
+  composto: PrecoCompostoConfig,
+  respostas: RespostasFluxo
+): { cobraMaterial: boolean; respondeuFornecimento: boolean } {
+  const fornecimentoId = composto.perguntaFornecimentoId?.trim();
+  const idsAbs = idsAbsFornece(composto);
+
+  // Sem pergunta de fornecimento → cobra material (compat)
+  if (!fornecimentoId) {
+    return { cobraMaterial: true, respondeuFornecimento: false };
+  }
+
+  const respDireta = resposta(respostas, fornecimentoId);
+  if (respDireta != null && String(respDireta).trim() !== '') {
+    const id = String(respDireta).trim();
+    return { cobraMaterial: idsAbs.includes(id), respondeuFornecimento: true };
+  }
+
+  // Fallback se perguntaId no admin estiver desatualizada: achar ID ABS em qualquer resposta
+  if (idsAbs.length > 0) {
+    for (const valor of Object.values(respostas)) {
+      const id = valor == null ? '' : String(valor).trim();
+      if (id && idsAbs.includes(id)) {
+        return { cobraMaterial: true, respondeuFornecimento: true };
+      }
+    }
+  }
+
+  return { cobraMaterial: false, respondeuFornecimento: false };
 }
 
 function calcularMaterialComposto(
@@ -375,8 +410,8 @@ function calcularMaterialComposto(
   const faixa = acharFaixaCapacidade(composto, capacidadeId, fluxo);
 
   const metrosInclusos = faixa?.metrosInclusos ?? composto.metrosInclusosPadrao ?? 0;
-  const precoPorMetro = faixa?.precoPorMetroExtra ?? 0;
-  const valorKit = Math.max(0, Number(faixa?.valorKitInicial) || 0);
+  const precoPorMetro = Math.max(0, Number(faixa?.precoPorMetroExtra) || 0);
+  const valorKitFaixa = Math.max(0, Number(faixa?.valorKitInicial) || 0);
   const ajusteCapacidade = Math.max(0, Number(faixa?.ajusteCapacidade) || 0);
 
   let metrosRespondidos = 0;
@@ -394,7 +429,7 @@ function calcularMaterialComposto(
       } else {
         const fromMapaLegacy = parseQuantidadeOpcao(metrosRaw);
         metrosRespondidos = fromMapaLegacy ?? 0;
-        const match = metrosRaw.match(/(\d+(?:[.,]\d+)?)\s*m/i);
+        const match = String(metrosRaw).match(/(\d+(?:[.,]\d+)?)\s*m/i);
         if (match) metrosRespondidos = Number(match[1].replace(',', '.'));
       }
     }
@@ -407,25 +442,10 @@ function calcularMaterialComposto(
     capacidadeId ||
     'capacidade';
 
-  const fornecimentoId = composto.perguntaFornecimentoId?.trim();
-  const respFornecimento = fornecimentoId ? resposta(respostas, fornecimentoId) : undefined;
-  const respondeuFornecimento = Boolean(respFornecimento);
-  const opcoesAbs = composto.opcoesAbsFornece?.length
-    ? composto.opcoesAbsFornece
-    : ['abs-fornece-kit', 'abs', 'abs-padrao', 'abs-premium', 'nao', 'nao-abs'];
-  // Sem pergunta de fornecimento → cobra material (compat).
-  // Com pergunta: só cobra kit/metros se a opção for uma das marcadas como ABS.
-  const cobraMaterial = !fornecimentoId
-    ? true
-    : Boolean(respFornecimento && opcoesAbs.includes(respFornecimento));
+  const { cobraMaterial, respondeuFornecimento } = deveCobrarMaterialAbs(composto, respostas);
 
-  // Se respondeu algo que claramente é "cliente fornece", nunca cobra (mesmo se lista ABS estiver errada)
-  const forcaCliente =
-    respondeuFornecimento && clienteForneceMaterial(respFornecimento, opcoesAbs);
-  const cobra = forcaCliente ? false : cobraMaterial;
-
-  const metrosExtras = cobra ? Math.max(0, metrosRespondidos - metrosInclusos) : 0;
-  const valorExtras = cobra ? roundCurrency(metrosExtras * precoPorMetro) : 0;
+  const metrosExtras = cobraMaterial ? Math.max(0, metrosRespondidos - metrosInclusos) : 0;
+  const valorExtras = cobraMaterial ? roundCurrency(metrosExtras * precoPorMetro) : 0;
 
   return {
     metrosRespondidos,
@@ -433,10 +453,10 @@ function calcularMaterialComposto(
     metrosExtras,
     precoPorMetro,
     valorExtras,
-    valorKit: cobra ? valorKit : 0,
+    valorKit: cobraMaterial ? valorKitFaixa : 0,
     ajusteCapacidade,
     faixaLabel,
-    cobraMaterial: cobra,
+    cobraMaterial,
     respondeuFornecimento,
   };
 }

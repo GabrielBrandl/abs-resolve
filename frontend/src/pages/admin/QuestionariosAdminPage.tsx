@@ -300,7 +300,7 @@ export function QuestionariosAdminPage() {
                         perguntaFornecimentoId: base.perguntaFornecimentoId || 'materiaisInstalacaoAr',
                         opcoesAbsFornece: base.opcoesAbsFornece?.length
                           ? base.opcoesAbsFornece
-                          : ['abs-fornece-kit'],
+                          : ['abs-fornece-kit', 'nao'],
                         mapaMetrosOpcao: base.mapaMetrosOpcao || {
                           'ate-2m': 2,
                           'ate-3m': 3,
@@ -444,8 +444,15 @@ export function QuestionariosAdminPage() {
                           })}
                         </div>
                         <p className="mt-2 text-xs text-slate-500">
-                          Se o cliente marcar que já possui o material, kit e metragem de material ficam R$ 0.
+                          Marque a opção pelo ID salvo (não pelo texto). Se o cliente escolher uma opção
+                          marcada aqui, o sistema soma kit + metros extras. Sem marcação, kit/metros ficam
+                          R$ 0.
                         </p>
+                        {(config.precoComposto.opcoesAbsFornece || []).length === 0 && (
+                          <p className="mt-2 text-xs font-semibold text-amber-700">
+                            Nenhuma opção ABS marcada — o site não vai cobrar kit nem metragem.
+                          </p>
+                        )}
                       </div>
                     )}
                     </div>

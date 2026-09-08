@@ -57,7 +57,7 @@ export function defaultPrecoCompostoArSplit(): PrecoCompostoConfig {
     perguntaCapacidadeId: 'capacidadeBtu',
     perguntaMetrosId: 'distanciaEvapCond',
     perguntaFornecimentoId: 'materiaisInstalacaoAr',
-    opcoesAbsFornece: ['abs-fornece-kit'],
+    opcoesAbsFornece: ['abs-fornece-kit', 'nao'],
     metrosNumericos: true,
     mapaMetrosOpcao: {},
     metrosInclusosPadrao: 2,
@@ -135,7 +135,14 @@ export function enriquecerPrecoComposto(slug: string, raw: unknown): PrecoCompos
     perguntaCapacidadeId: atual.perguntaCapacidadeId || def.perguntaCapacidadeId,
     perguntaMetrosId: atual.perguntaMetrosId || def.perguntaMetrosId,
     perguntaFornecimentoId: atual.perguntaFornecimentoId || def.perguntaFornecimentoId,
-    opcoesAbsFornece: atual.opcoesAbsFornece?.length ? atual.opcoesAbsFornece : def.opcoesAbsFornece,
+    opcoesAbsFornece: (() => {
+      const base = atual.opcoesAbsFornece?.length
+        ? [...atual.opcoesAbsFornece]
+        : [...(def.opcoesAbsFornece || [])];
+      // Migração: pergunta no formato Sim/Não usa id "nao" para ABS fornecer
+      if (base.includes('abs-fornece-kit') && !base.includes('nao')) base.push('nao');
+      return base;
+    })(),
     mapaMetrosOpcao: atual.mapaMetrosOpcao && Object.keys(atual.mapaMetrosOpcao).length
       ? atual.mapaMetrosOpcao
       : def.mapaMetrosOpcao,
