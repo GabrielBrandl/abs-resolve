@@ -369,6 +369,8 @@ model CatalogoServico {
   tipoPreco    String              @default("fixo") @map("tipo_preco")
   garantiaDias Int                 @default(90) @map("garantia_dias")
   imagemUrl    String?             @map("imagem_url")
+  /** Galeria de imagens (URLs). A capa continua em imagemUrl. */
+  imagens      Json                @default("[]")
   ordem        Int                 @default(0)
   upsells      Json                @default("[]")
   relacionados Json                @default("[]")
@@ -424,6 +426,8 @@ model ProdutoEstoque {
   /** Cor/acabamento */
   cor           String?
   imagemUrl     String?  @map("imagem_url")
+  /** Galeria de imagens do produto/SKU (URLs). */
+  imagens       Json     @default("[]")
   custo         Decimal? @db.Decimal(12, 2)
   ativo         Boolean  @default(true)
   modeloId      String?  @map("modelo_id")

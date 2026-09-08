@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { estoqueAdminApi } from '../../services/modules.service';
 import type { EstoqueDashboard, MovimentacaoEstoque, ProdutoEstoque, StatusEstoque } from '../../types';
 import { formatCurrency, formatDate } from '../../types';
@@ -65,9 +65,12 @@ export function EstoqueAdminPage() {
     tipo: '',
     cor: '',
     imagemUrl: '',
+    imagens: [] as string[],
     custo: '',
     ativo: true,
   });
+  const [enviandoImg, setEnviandoImg] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const carregar = useCallback(() => {
     setLoading(true);
@@ -146,6 +149,7 @@ export function EstoqueAdminPage() {
         tipo: config.tipo || null,
         cor: config.cor || null,
         imagemUrl: config.imagemUrl || null,
+        imagens: config.imagens,
         custo: config.custo ? parseFloat(config.custo) : null,
         ativo: config.ativo,
       });
@@ -154,6 +158,58 @@ export function EstoqueAdminPage() {
       carregar();
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
+    }
+  };
+
+  const enviarImagens = async (files: FileList | File[]) => {
+    if (!modalConfig) return;
+    const lista = Array.from(files).filter(Boolean);
+    if (!lista.length) return;
+    setEnviandoImg(true);
+    try {
+      const atualizado = await estoqueAdminApi.uploadImagens(modalConfig.id, lista);
+      const imagens = Array.isArray(atualizado.imagens) ? atualizado.imagens : [];
+      setConfig((c) => ({ ...c, imagemUrl: atualizado.imagemUrl || '', imagens }));
+      setModalConfig(atualizado);
+      toast(`${lista.length} imagem(ns) adicionada(s)`, 'success');
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao enviar imagens', 'error');
+    } finally {
+      setEnviandoImg(false);
+    }
+  };
+
+  const removerFoto = async (url: string) => {
+    if (!modalConfig) return;
+    try {
+      const atualizado = await estoqueAdminApi.removerImagem(modalConfig.id, url);
+      const imagens = Array.isArray(atualizado.imagens) ? atualizado.imagens : [];
+      setConfig((c) => ({ ...c, imagemUrl: atualizado.imagemUrl || '', imagens }));
+      setModalConfig(atualizado);
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao remover', 'error');
+    }
+  };
+
+  const tornarCapa = async (url: string) => {
+    if (!modalConfig) return;
+    const imagens = [url, ...config.imagens.filter((u) => u !== url)];
+    try {
+      const atualizado = await estoqueAdminApi.atualizar(modalConfig.id, {
+        imagemUrl: url,
+        imagens,
+      });
+      setConfig((c) => ({
+        ...c,
+        imagemUrl: atualizado.imagemUrl || url,
+        imagens: Array.isArray(atualizado.imagens) ? atualizado.imagens : imagens,
+      }));
+      setModalConfig(atualizado);
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao definir capa', 'error');
     }
   };
 
@@ -186,6 +242,12 @@ export function EstoqueAdminPage() {
 
   const abrirConfig = (p: ProdutoEstoque) => {
     setModalConfig(p);
+    const imagens =
+      Array.isArray(p.imagens) && p.imagens.length
+        ? p.imagens
+        : p.imagemUrl
+          ? [p.imagemUrl]
+          : [];
     setConfig({
       nome: p.nome,
       minimo: p.minimo,
@@ -195,6 +257,7 @@ export function EstoqueAdminPage() {
       tipo: p.tipo || '',
       cor: p.cor || '',
       imagemUrl: p.imagemUrl || '',
+      imagens,
       custo: p.custo != null ? String(p.custo) : '',
       ativo: p.ativo !== false,
     });
@@ -379,7 +442,70 @@ export function EstoqueAdminPage() {
           <Input label="Tipo / categoria" value={config.tipo} onChange={(e) => setConfig({ ...config, tipo: e.target.value })} placeholder="gourmet" />
           <Input label="Cor / acabamento" value={config.cor} onChange={(e) => setConfig({ ...config, cor: e.target.value })} placeholder="preto" />
         </div>
-        <Input label="URL da foto" value={config.imagemUrl} onChange={(e) => setConfig({ ...config, imagemUrl: e.target.value })} />
+        <div className="mb-3">
+          <label className="mb-1 block text-sm font-medium text-slate-700">Galeria de imagens</label>
+          <p className="mb-2 text-xs text-slate-500">Várias fotos por produto. A capa aparece nos cards e na vitrine.</p>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {(config.imagens.length ? config.imagens : config.imagemUrl ? [config.imagemUrl] : []).map((url) => (
+              <div key={url} className="relative w-20">
+                <img
+                  src={url}
+                  alt=""
+                  className={`h-20 w-20 rounded-lg border bg-white object-contain p-0.5 ${
+                    config.imagemUrl === url ? 'border-[#002d62] ring-2 ring-[#002d62]/30' : 'border-slate-200'
+                  }`}
+                />
+                <div className="mt-1 flex flex-col gap-0.5">
+                  {config.imagemUrl !== url ? (
+                    <button type="button" className="text-[10px] font-bold text-[#1d4ed8]" onClick={() => void tornarCapa(url)}>
+                      Capa
+                    </button>
+                  ) : (
+                    <span className="text-[10px] font-bold text-emerald-700">Capa</span>
+                  )}
+                  <button type="button" className="text-[10px] font-bold text-red-600" onClick={() => void removerFoto(url)}>
+                    Remover
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!config.imagens.length && !config.imagemUrl && (
+              <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400">
+                Sem imagens
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = e.target.files;
+                if (files?.length) void enviarImagens(files);
+                e.target.value = '';
+              }}
+            />
+            <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={enviandoImg || !modalConfig}>
+              {enviandoImg ? 'Enviando...' : 'Adicionar imagens'}
+            </Button>
+            <p className="text-xs text-slate-400">PNG, JPG ou WebP · várias de uma vez</p>
+          </div>
+          <Input
+            label="URL da capa (opcional)"
+            value={config.imagemUrl}
+            onChange={(e) =>
+              setConfig((c) => {
+                const url = e.target.value;
+                const imgs = [...c.imagens];
+                if (url && !imgs.includes(url)) imgs.unshift(url);
+                return { ...c, imagemUrl: url, imagens: imgs };
+              })
+            }
+          />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Input label="Custo (R$)" type="number" step="0.01" value={config.custo} onChange={(e) => setConfig({ ...config, custo: e.target.value })} />
           <Input label="Preço de venda (R$)" type="number" step="0.01" value={config.precoUnitario} onChange={(e) => setConfig({ ...config, precoUnitario: e.target.value })} />

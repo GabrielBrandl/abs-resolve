@@ -61,6 +61,23 @@ export function assertSlotNaoRetroativo(dataISO: string, horarioInicio: string) 
   }
 }
 
+/**
+ * Antecedência mínima no agendamento do cliente (loja / checkout).
+ * Pedidos não entram no mesmo dia: manhã → tarde no mesmo dia não basta;
+ * a equipe precisa de pelo menos o próximo dia útil de agenda.
+ */
+export const ANTECEDENCIA_DIAS_CLIENTE = 1;
+
+export function assertAntecedenciaCliente(dataISO: string) {
+  const hojeISO = dataLocalISO(new Date());
+  const minimaISO = addDaysISO(hojeISO, ANTECEDENCIA_DIAS_CLIENTE);
+  if (dataISO < minimaISO) {
+    throw new Error(
+      'Agendamento disponível a partir de amanhã. Assim a equipe organiza o atendimento com segurança.'
+    );
+  }
+}
+
 function labelDia(offset: number, dataISO: string) {
   if (offset === 0) return 'Hoje';
   if (offset === 1) return 'Amanhã';
@@ -103,8 +120,10 @@ export async function listarHorariosDisponiveis(pontosNecessarios: number, dias 
   const hojeISO = dataLocalISO(new Date());
   let proximaDisponibilidade: string | null = null;
   const agora = Date.now();
+  // Cliente: nunca no mesmo dia (pedido de manhã não agenda manhã/tarde de hoje)
+  const diaInicial = ANTECEDENCIA_DIAS_CLIENTE;
 
-  for (let d = 0; d < dias; d++) {
+  for (let d = diaInicial; d <= dias; d++) {
     const dataISO = addDaysISO(hojeISO, d);
     const capacidade = await capacidadeTotalDia(dataISO);
     if (capacidade === 0) continue;
@@ -137,7 +156,7 @@ export async function listarHorariosDisponiveis(pontosNecessarios: number, dias 
   }
 
   if (slots.length === 0) {
-    for (let d = dias; d < dias + 14; d++) {
+    for (let d = dias + 1; d <= dias + 14; d++) {
       const dataISO = addDaysISO(hojeISO, d);
       const capacidade = await capacidadeTotalDia(dataISO);
       const usados = await pontosUsadosDia(dataISO);

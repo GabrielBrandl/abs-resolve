@@ -46,6 +46,25 @@ export class EstoqueAdminController {
     }
   }
 
+  async uploadImagens(req: Request, res: Response) {
+    try {
+      const files = (req.files as Express.Multer.File[]) || [];
+      if (!files.length) return error(res, 'Nenhuma imagem enviada', 400);
+      return success(res, await estoqueService.adicionarImagens(paramId(req.params.id), files));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async removerImagem(req: Request, res: Response) {
+    try {
+      const url = String(req.body?.url || req.query.url || '');
+      return success(res, await estoqueService.removerImagem(paramId(req.params.id), url));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async movimentar(req: Request, res: Response) {
     try {
       const { tipo, quantidade, motivo } = req.body as {

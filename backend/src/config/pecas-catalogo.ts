@@ -6,6 +6,7 @@ export type PecaCatalogoDef = {
   precoTexto: string;
   descricao: string;
   imagemUrl: string;
+  imagens?: string[];
   servicoRelacionado: string;
   keywords: string[];
 };

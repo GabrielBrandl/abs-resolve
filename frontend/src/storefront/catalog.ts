@@ -13,6 +13,8 @@ export type ServicoLoja = {
   descricao: string | null;
   garantiaDias: number;
   imagemUrl: string | null;
+  /** Galeria (capa + extras). */
+  imagens?: string[] | null;
   pontos?: number;
   relacionados?: string[];
   tipo?: 'servico' | 'peca';
@@ -59,17 +61,49 @@ const FOTO_CATEGORIA: Record<string, string> = {
   pecas: '/opcoes/troca-tomada/tipoTomada/simples.webp',
 };
 
-export function fotoServico(s: { slug?: string; categoria?: string; imagemUrl?: string | null }) {
+export function fotoServico(s: {
+  slug?: string;
+  categoria?: string;
+  imagemUrl?: string | null;
+  imagens?: string[] | null;
+}) {
+  const galeria = galeriaServico(s);
+  if (galeria[0]) return galeria[0];
   const slug = s.slug || '';
   if (slug.includes('ar') && slug.includes('caixa')) return '/servicos/limpeza-ar-split.webp';
-  if (s.imagemUrl && !s.imagemUrl.includes('undefined')) return s.imagemUrl;
-  if (slug.startsWith('peca-')) return s.imagemUrl || FOTO_CATEGORIA.pecas;
+  if (slug.startsWith('peca-')) return FOTO_CATEGORIA.pecas;
   if (slug) return `/servicos/${slug}.webp`;
   return FOTO_CATEGORIA[s.categoria || ''] || '/servicos/troca-tomada.webp';
 }
 
+/** Lista completa de fotos do serviço/peça (capa + galeria). */
+export function galeriaServico(s: {
+  slug?: string;
+  categoria?: string;
+  imagemUrl?: string | null;
+  imagens?: string[] | null;
+}): string[] {
+  const lista: string[] = [];
+  const push = (u?: string | null) => {
+    const url = String(u || '').trim();
+    if (!url || url.includes('undefined')) return;
+    if (!lista.includes(url)) lista.push(url);
+  };
+  if (Array.isArray(s.imagens)) {
+    for (const u of s.imagens) push(u);
+  }
+  push(s.imagemUrl);
+  if (s.imagemUrl && lista.includes(s.imagemUrl)) {
+    return [s.imagemUrl, ...lista.filter((u) => u !== s.imagemUrl)];
+  }
+  if (lista.length) return lista;
+  const fallback = fallbackFotoServico(s);
+  return fallback ? [fallback] : [];
+}
+
 export function fallbackFotoServico(s: { slug?: string; categoria?: string }) {
   if (s.categoria && FOTO_CATEGORIA[s.categoria]) return FOTO_CATEGORIA[s.categoria];
+  if (s.slug?.startsWith('peca-')) return FOTO_CATEGORIA.pecas;
   if (s.slug) return `/servicos/${s.slug}.webp`;
   return '/servicos/limpeza-ar-split.webp';
 }
@@ -98,6 +132,7 @@ export function mergeCatalog(api: CategoriaLoja[] = []): CategoriaLoja[] {
       nome: s.nome || prev?.nome || s.slug,
       descricao: s.descricao || prev?.descricao || null,
       imagemUrl: fotoServico({ ...prev, ...s }),
+      imagens: galeriaServico({ ...prev, ...s }),
       precoMinimo: s.precoMinimo ?? prev?.precoMinimo ?? null,
       precoTexto: s.precoTexto || prev?.precoTexto || null,
       tipoPreco: s.tipoPreco || prev?.tipoPreco || 'fixo',
@@ -122,7 +157,24 @@ export function mergeCatalog(api: CategoriaLoja[] = []): CategoriaLoja[] {
     }))
     .filter((c) => c.servicos.length);
 
-  const pecas = PECAS_CATALOGO.map((p) => ({ ...p, tipo: 'peca' as const }));
+  const pecasApi = api.find((c) => c.slug === 'pecas')?.servicos || [];
+  const pecasBySlug = new Map<string, ServicoLoja>();
+  for (const p of [...PECAS_CATALOGO.map((x) => ({ ...x, tipo: 'peca' as const })), ...pecasApi]) {
+    const prev = pecasBySlug.get(p.slug);
+    pecasBySlug.set(p.slug, {
+      ...prev,
+      ...p,
+      tipo: 'peca',
+      categoria: 'pecas',
+      imagemUrl: fotoServico({ ...prev, ...p }),
+      imagens: galeriaServico({ ...prev, ...p }),
+      precoMinimo: p.precoMinimo ?? prev?.precoMinimo ?? null,
+      precoTexto: p.precoTexto || prev?.precoTexto || null,
+      keywords: Array.from(new Set([...(prev?.keywords || []), ...(p.keywords || [])])),
+      servicoRelacionado: p.servicoRelacionado || prev?.servicoRelacionado,
+    });
+  }
+  const pecas = [...pecasBySlug.values()];
 
   return [
     ...cats,

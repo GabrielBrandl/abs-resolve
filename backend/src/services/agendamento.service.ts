@@ -126,8 +126,9 @@ export class AgendamentoService {
     });
     if (!ag) throw new Error('Agendamento não elegível para reagendamento');
 
-    const { reservarCapacidade, assertSlotNaoRetroativo } = await import('../engines/capacity.engine.js');
+    const { reservarCapacidade, assertSlotNaoRetroativo, assertAntecedenciaCliente } = await import('../engines/capacity.engine.js');
     assertSlotNaoRetroativo(data.data, data.horarioInicio);
+    assertAntecedenciaCliente(data.data);
 
     await prisma.agendamento.update({
       where: { id: agendamentoId },

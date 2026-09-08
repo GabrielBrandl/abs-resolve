@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma.js';
+import { Prisma } from '@prisma/client';
 import { toNumber } from '../utils/helpers.js';
 import { PECAS_CATALOGO, isPecaSlug } from '../config/pecas-catalogo.js';
 import {
@@ -7,6 +8,8 @@ import {
   findMaterialVariante,
   isMaterialSku,
 } from '../config/materiais-catalogo.js';
+import { storageService } from './storage.service.js';
+import { normalizarGaleria, capaDaGaleria } from '../utils/galeria-imagens.js';
 
 export type StatusEstoque = 'ok' | 'minimo' | 'critico' | 'ruptura';
 
@@ -32,10 +35,13 @@ export class EstoqueService {
   async enriquecer(produto: Awaited<ReturnType<EstoqueService['listar']>>[number]) {
     const status = await this.statusAlerta(produto);
     const disponivel = this.disponivel(produto);
+    const imagens = normalizarGaleria(produto.imagemUrl, produto.imagens);
     return {
       ...produto,
       precoUnitario: produto.precoUnitario ? toNumber(produto.precoUnitario) : null,
       custo: produto.custo ? toNumber(produto.custo) : null,
+      imagemUrl: imagens[0] || produto.imagemUrl || null,
+      imagens,
       disponivel,
       status,
       valorEstoque: produto.precoUnitario ? toNumber(produto.precoUnitario) * produto.quantidade : null,
@@ -133,6 +139,9 @@ export class EstoqueService {
         tipo: data.tipo?.trim() || null,
         cor: data.cor?.trim() || null,
         imagemUrl: data.imagemUrl?.trim() || null,
+        imagens: data.imagemUrl?.trim()
+          ? ([data.imagemUrl.trim()] as Prisma.InputJsonValue)
+          : ([] as Prisma.InputJsonValue),
         custo: data.custo ?? null,
         ativo: data.ativo ?? true,
         modeloId: data.modeloId?.trim() || null,
@@ -164,11 +173,16 @@ export class EstoqueService {
       tipo?: string | null;
       cor?: string | null;
       imagemUrl?: string | null;
+      imagens?: string[];
       custo?: number | null;
       ativo?: boolean;
       modeloId?: string | null;
     }
   ) {
+    const galeria =
+      data.imagens !== undefined
+        ? normalizarGaleria(data.imagemUrl, data.imagens)
+        : undefined;
     const produto = await prisma.produtoEstoque.update({
       where: { id },
       data: {
@@ -180,12 +194,49 @@ export class EstoqueService {
         ...(data.tipo !== undefined && { tipo: data.tipo || null }),
         ...(data.cor !== undefined && { cor: data.cor || null }),
         ...(data.imagemUrl !== undefined && { imagemUrl: data.imagemUrl || null }),
+        ...(galeria !== undefined && {
+          imagens: galeria as Prisma.InputJsonValue,
+          imagemUrl: capaDaGaleria(data.imagemUrl ?? galeria[0], galeria),
+        }),
         ...(data.custo !== undefined && { custo: data.custo }),
         ...(data.ativo !== undefined && { ativo: data.ativo }),
         ...(data.modeloId !== undefined && { modeloId: data.modeloId || null }),
       },
     });
     return this.enriquecer(produto);
+  }
+
+  async adicionarImagens(id: string, files: Express.Multer.File[]) {
+    const produto = await prisma.produtoEstoque.findUnique({ where: { id } });
+    if (!produto) throw new Error('Produto não encontrado');
+    if (!files?.length) throw new Error('Nenhuma imagem enviada');
+
+    const galeria = normalizarGaleria(produto.imagemUrl, produto.imagens);
+    for (const file of files) {
+      const { url } = await storageService.upload('estoque', file);
+      if (!galeria.includes(url)) galeria.push(url);
+    }
+    const capa = capaDaGaleria(produto.imagemUrl || galeria[0], galeria);
+    const atualizado = await prisma.produtoEstoque.update({
+      where: { id },
+      data: { imagemUrl: capa, imagens: galeria as Prisma.InputJsonValue },
+    });
+    return this.enriquecer(atualizado);
+  }
+
+  async removerImagem(id: string, url: string) {
+    const produto = await prisma.produtoEstoque.findUnique({ where: { id } });
+    if (!produto) throw new Error('Produto não encontrado');
+    const alvo = String(url || '').trim();
+    const galeria = normalizarGaleria(produto.imagemUrl, produto.imagens).filter((u) => u !== alvo);
+    const atualizado = await prisma.produtoEstoque.update({
+      where: { id },
+      data: {
+        imagemUrl: galeria[0] || null,
+        imagens: galeria as Prisma.InputJsonValue,
+      },
+    });
+    return this.enriquecer(atualizado);
   }
 
   async movimentar(
@@ -282,14 +333,19 @@ export class EstoqueService {
 
     for (const peca of PECAS_CATALOGO) {
       const existente = await prisma.produtoEstoque.findUnique({ where: { sku: peca.slug } });
+      const galeriaPeca = normalizarGaleria(peca.imagemUrl, (peca as { imagens?: string[] }).imagens);
       if (existente) {
+        const galeriaAtual = normalizarGaleria(existente.imagemUrl, existente.imagens);
         await prisma.produtoEstoque.update({
           where: { id: existente.id },
           data: {
             nome: peca.nome,
             servicoSlug: peca.servicoRelacionado,
             precoUnitario: peca.precoMinimo,
-            imagemUrl: peca.imagemUrl,
+            // Não sobrescreve galeria já editada no admin
+            ...(galeriaAtual.length === 0 && galeriaPeca.length
+              ? { imagemUrl: galeriaPeca[0], imagens: galeriaPeca as Prisma.InputJsonValue }
+              : {}),
           },
         });
         atualizados += 1;
@@ -301,7 +357,8 @@ export class EstoqueService {
             quantidade: 0,
             servicoSlug: peca.servicoRelacionado,
             precoUnitario: peca.precoMinimo,
-            imagemUrl: peca.imagemUrl,
+            imagemUrl: galeriaPeca[0] || peca.imagemUrl || null,
+            imagens: galeriaPeca as Prisma.InputJsonValue,
             ativo: true,
           },
         });
@@ -311,7 +368,9 @@ export class EstoqueService {
 
     for (const mat of listarTodasVariantesMateriais()) {
       const existente = await prisma.produtoEstoque.findUnique({ where: { sku: mat.sku } });
+      const galeriaMat = normalizarGaleria(mat.imagemUrl, (mat as { imagens?: string[] }).imagens);
       if (existente) {
+        const galeriaAtual = normalizarGaleria(existente.imagemUrl, existente.imagens);
         await prisma.produtoEstoque.update({
           where: { id: existente.id },
           data: {
@@ -320,8 +379,10 @@ export class EstoqueService {
             precoUnitario: mat.preco,
             tipo: mat.tipo,
             cor: mat.cor,
-            imagemUrl: mat.imagemUrl,
             modeloId: mat.modeloId,
+            ...(galeriaAtual.length === 0 && galeriaMat.length
+              ? { imagemUrl: galeriaMat[0], imagens: galeriaMat as Prisma.InputJsonValue }
+              : {}),
           },
         });
         atualizados += 1;
@@ -335,7 +396,8 @@ export class EstoqueService {
             precoUnitario: mat.preco,
             tipo: mat.tipo,
             cor: mat.cor,
-            imagemUrl: mat.imagemUrl,
+            imagemUrl: galeriaMat[0] || mat.imagemUrl || null,
+            imagens: galeriaMat as Prisma.InputJsonValue,
             modeloId: mat.modeloId,
             ativo: true,
           },
@@ -384,12 +446,17 @@ export class EstoqueService {
           const disponivel = est ? this.disponivel(est) : v.estoqueInicial ?? 0;
           const ativo = est?.ativo ?? true;
           const preco = est?.precoUnitario != null ? toNumber(est.precoUnitario) : v.preco;
+          const imagens = normalizarGaleria(
+            est?.imagemUrl || v.imagemUrl,
+            est?.imagens ?? (v as { imagens?: string[] }).imagens
+          );
           return {
             sku: v.sku,
             cor: v.cor,
             labelCor: v.labelCor,
             preco,
-            imagemUrl: est?.imagemUrl || v.imagemUrl,
+            imagemUrl: imagens[0] || est?.imagemUrl || v.imagemUrl,
+            imagens,
             disponivel,
             ativo,
             disponivelParaCompra: ativo && disponivel > 0,

@@ -16,6 +16,7 @@ import {
   relatedSameCategory,
   type ServicoLoja,
 } from '../../storefront/catalog';
+import { ProductImageGallery } from '../../components/loja/ProductImageGallery';
 import { WHATSAPP_LINK } from '../../storefront/constants';
 import { findPeca, isPecaSlug, itemPath, pecasDoServico } from '../../storefront/pecas';
 import { totalComDescontoAPartirDaSegunda, DESCONTO_SEGUNDA_UNIDADE_PERCENT } from '../../utils/desconto-quantidade';
@@ -35,6 +36,7 @@ type MaterialVariante = {
   labelCor: string;
   preco: number;
   imagemUrl: string;
+  imagens?: string[];
   disponivel: number;
   ativo: boolean;
   disponivelParaCompra: boolean;
@@ -345,12 +347,35 @@ export function ServicePage() {
   const pecas = useMemo(() => pecasDoServico(slug).slice(0, 4), [slug]);
 
   const inclusos = useMemo(() => {
-    const base = [...INCLUSOS_PADRAO];
-    if (servico?.descricao?.toLowerCase().includes('fornecimento')) {
-      base.unshift('Fornecimento da peça padrão (se escolher ABS)');
+    const dias = servico?.garantiaDias || 90;
+    const base = INCLUSOS_PADRAO.map((item) =>
+      item.startsWith('Garantia') ? `Garantia de ${dias} dias` : item
+    );
+    if (valorPecaCatalogo > 0) {
+      const nomePeca =
+        precoCalc?.pecaNome ||
+        (modeloSel && varianteSel
+          ? `${materiaisCfg?.labelProduto || 'Material'} ${modeloSel.nome} (${varianteSel.labelCor})`
+          : materiaisCfg?.labelProduto || 'Peça/material');
+      base.unshift(`${nomePeca} — fornecido pela ABS`);
+    } else {
+      const perguntaForn = (fluxo?.perguntas || []).find(isFornecimento);
+      const respForn = perguntaForn ? respostas[perguntaForn.id] : '';
+      if (respForn === 'cliente' || respForn === 'sim') {
+        base.unshift('Peça/material do cliente (sem custo de peça neste pedido)');
+      }
     }
     return base;
-  }, [servico?.descricao]);
+  }, [
+    servico?.garantiaDias,
+    valorPecaCatalogo,
+    precoCalc?.pecaNome,
+    modeloSel,
+    varianteSel,
+    materiaisCfg?.labelProduto,
+    fluxo?.perguntas,
+    respostas,
+  ]);
 
   useEffect(() => {
     if (!servico) return;
@@ -508,17 +533,25 @@ export function ServicePage() {
       />
 
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.05fr_1fr_21rem]">
-        <div className="overflow-hidden rounded-[12px] bg-white shadow-sm">
-          <img
-            src={
-              precisaMaterial && varianteSel
-                ? varianteSel.imagemUrl
-                : `${fotoServico(servico)}${fotoServico(servico).includes('?') ? '&' : '?'}v=3`
-            }
-            alt={servico.nome}
-            className="h-[280px] w-full object-cover object-center"
-          />
-          <TrustStrip garantiaDias={servico.garantiaDias || 90} />
+        <div>
+          {precisaMaterial && varianteSel ? (
+            <>
+              <ProductImageGallery
+                item={{
+                  slug: varianteSel.sku,
+                  nome: `${modeloSel?.nome || servico.nome} — ${varianteSel.labelCor}`,
+                  imagemUrl: varianteSel.imagemUrl,
+                  imagens: varianteSel.imagens,
+                }}
+              />
+              <TrustStrip garantiaDias={servico.garantiaDias || 90} />
+            </>
+          ) : (
+            <>
+              <ProductImageGallery item={servico} />
+              <TrustStrip garantiaDias={servico.garantiaDias || 90} />
+            </>
+          )}
         </div>
 
         <div>
@@ -540,20 +573,6 @@ export function ServicePage() {
             <p className="mt-1 text-xs text-slate-500">Mão de obra (peças à parte, se escolher ABS)</p>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">{servico.descricao}</p>
-
-          <div className="mt-5 rounded-[12px] border border-[#e6e8ee] bg-white p-4">
-            <p className="text-sm font-black text-[#111827]">O que está incluso no serviço</p>
-            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-              {inclusos.map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm text-slate-700">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-black text-emerald-700">
-                    ✓
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
 
           <div className="mt-6 space-y-5">
             {visiveis.map((p, idx) => {
@@ -763,42 +782,68 @@ export function ServicePage() {
               )}
             </div>
 
-            <div className="mt-3 space-y-2 border-b border-slate-100 pb-3 text-sm">
+            <div className="mt-3 rounded-lg bg-[#f8fafc] p-3">
+              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                O que está incluso
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                {inclusos.map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-xs leading-snug text-slate-700">
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[9px] font-black text-emerald-700">
+                      ✓
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <p className="mt-4 text-[11px] font-black uppercase tracking-wide text-slate-500">
+              Valores discriminados
+            </p>
+            <div className="mt-2 space-y-2 border-b border-slate-100 pb-3 text-sm">
               <div className="flex justify-between gap-2">
                 <span className="text-slate-600">
-                  {servico.nome}{' '}
-                  <span className="text-xs text-slate-400">
-                    (mão de obra{qty > 1 ? ` · ${qty} un.` : ''})
+                  Mão de obra
+                  <span className="block text-xs text-slate-400">
+                    {servico.nome}
+                    {qty > 1 ? ` · ${qty} un.` : ''}
                   </span>
                 </span>
                 <span className="text-right font-bold text-[#111827]">
-                  {descontoQtd > 0 && (
-                    <span className="mr-2 text-xs font-semibold text-slate-400 line-through">
-                      {money(valorServico + descontoQtd)}
+                  {laborLocal.economia > 0 && (
+                    <span className="mr-2 block text-xs font-semibold text-slate-400 line-through">
+                      {money(laborLocal.total + laborLocal.economia)}
                     </span>
                   )}
                   {money(valorServico)}
                 </span>
               </div>
-              {descontoQtd > 0 && (
-                <p className="text-xs font-semibold text-emerald-700">
-                  Desconto a partir da 2ª unidade: −{money(descontoQtd)}
-                </p>
-              )}
+
               {valorPecaCatalogo > 0 && (
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-600">
-                    {precoCalc?.pecaNome || materiaisCfg?.labelProduto || 'Peça'}
-                    <span className="block text-xs text-slate-400">× {qty} un.</span>
+                    Peça / material (ABS)
+                    <span className="block text-xs text-slate-400">
+                      {precoCalc?.pecaNome ||
+                        (modeloSel && varianteSel
+                          ? `${modeloSel.nome} — ${varianteSel.labelCor}`
+                          : materiaisCfg?.labelProduto || 'Fornecido pela empresa')}
+                      {qty > 1 ? ` · ${qty} un.` : ''}
+                    </span>
                   </span>
-                  <span className="font-bold text-[#111827]">{money(valorPecaCatalogo)}</span>
+                  <span className="text-right font-bold text-[#111827]">{money(valorPecaCatalogo)}</span>
                 </div>
               )}
-              {precisaMaterial && varianteSel && modeloSel && !(precoCalc?.valorPeca) && (
+
+              {precisaMaterial && varianteSel && modeloSel && valorPecaCatalogo <= 0 && (
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-600">
-                    {materiaisCfg?.labelProduto} {modeloSel.nome}
-                    <span className="block text-xs text-slate-400">{varianteSel.labelCor} × {qty}</span>
+                    {materiaisCfg?.labelProduto} (ABS)
+                    <span className="block text-xs text-slate-400">
+                      {modeloSel.nome} — {varianteSel.labelCor}
+                      {qty > 1 ? ` · ${qty}` : ''}
+                    </span>
                   </span>
                   <span className="font-bold text-[#111827]">
                     {money(
@@ -811,17 +856,53 @@ export function ServicePage() {
                   </span>
                 </div>
               )}
+
+              {!valorPecaCatalogo &&
+                (() => {
+                  const perguntaForn = (fluxo?.perguntas || []).find(isFornecimento);
+                  const respForn = perguntaForn ? respostas[perguntaForn.id] : '';
+                  if (respForn !== 'cliente' && respForn !== 'sim') return null;
+                  return (
+                    <div className="flex justify-between gap-2 text-slate-500">
+                      <span>
+                        Peça do cliente
+                        <span className="block text-xs">Você já possui — sem cobrança de peça</span>
+                      </span>
+                      <span className="font-bold">{money(0)}</span>
+                    </div>
+                  );
+                })()}
+
+              {Array.isArray(precoCalc?.breakdown) &&
+                precoCalc!.breakdown
+                  .filter(
+                    (b) =>
+                      b.valor > 0 &&
+                      !/mão de obra|mao de obra|peça|peca|material|total|desconto/i.test(b.label)
+                  )
+                  .map((b) => (
+                    <div key={b.label} className="flex justify-between gap-2">
+                      <span className="text-slate-600">{b.label}</span>
+                      <span className="font-bold text-[#111827]">{money(b.valor)}</span>
+                    </div>
+                  ))}
+
+              {descontoQtd > 0 && (
+                <p className="text-xs font-semibold text-emerald-700">
+                  Desconto a partir da 2ª unidade: −{money(descontoQtd)}
+                </p>
+              )}
             </div>
 
             <p className="mt-3 text-[13px] font-semibold text-slate-500">
-              Total{qty > 1 ? ` · ${qty} unidades` : ''}
+              Total a pagar{qty > 1 ? ` · ${qty} unidades` : ''}
             </p>
             <p className="text-[30px] font-black text-[#002d62]">{money(total)}</p>
-            {qty > 1 && (
-              <p className="mt-1 text-xs text-slate-500">
-                O valor sobe com a quantidade (com desconto a partir da 2ª unidade).
-              </p>
-            )}
+            <p className="mt-1 text-[11px] leading-snug text-slate-500">
+              {valorPecaCatalogo > 0
+                ? 'Inclui mão de obra + peça/material fornecido pela ABS, conforme as opções escolhidas.'
+                : 'Valor da mão de obra. Peças da ABS só entram no total se você escolher fornecimento pela empresa.'}
+            </p>
             {erroPerguntas && (
               <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{erroPerguntas}</p>
             )}

@@ -1413,6 +1413,9 @@ export function AgendarServicoPage() {
         <Card>
           <h3 className="mb-2 font-bold text-primary-800">Escolha o horário de atendimento</h3>
           <p className="mb-4 text-sm text-green-600">✓ Pagamento confirmado</p>
+          <p className="mb-4 text-sm text-slate-600">
+            O atendimento começa a partir de <strong>amanhã</strong>, para a equipe organizar a visita com segurança.
+          </p>
           {slots.length === 0 ? (
             <p className="text-slate-500">Próxima disponibilidade: {proxima || 'Em breve'}</p>
           ) : (

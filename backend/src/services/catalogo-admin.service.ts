@@ -8,6 +8,7 @@ import { fluxoConfigService } from './fluxo-config.service.js';
 import { gerarNumeroPedido } from '../utils/helpers.js';
 import { HORARIOS_PADRAO } from '../config/catalogo.js';
 import { notificacaoService } from './notificacao.service.js';
+import { normalizarGaleria, capaDaGaleria } from '../utils/galeria-imagens.js';
 
 export type CriarAgendamentoOperacionalInput = {
   clienteId: string;
@@ -184,6 +185,7 @@ export class CatalogoAdminService {
     ativo: boolean;
     ordem: number;
     imagemUrl: string;
+    imagens: string[];
     relacionados: string[];
   }>) {
     const atual = await prisma.catalogoServico.findUnique({ where: { id } });
@@ -208,6 +210,13 @@ export class CatalogoAdminService {
         ...(data.ativo !== undefined && { ativo: data.ativo }),
         ...(data.ordem !== undefined && { ordem: data.ordem }),
         ...(data.imagemUrl !== undefined && { imagemUrl: data.imagemUrl }),
+        ...(data.imagens !== undefined && {
+          imagens: Array.isArray(data.imagens) ? data.imagens : [],
+          imagemUrl:
+            data.imagemUrl ||
+            (Array.isArray(data.imagens) && data.imagens[0]) ||
+            undefined,
+        }),
         ...(data.relacionados !== undefined && {
           relacionados: Array.isArray(data.relacionados)
             ? data.relacionados.filter((s) => typeof s === 'string' && s && s !== atual.slug)
@@ -224,7 +233,72 @@ export class CatalogoAdminService {
     if (!servico) throw new Error('Serviço não encontrado');
 
     const { url } = await storageService.upload(`catalogo`, file);
-    return prisma.catalogoServico.update({ where: { id }, data: { imagemUrl: url } });
+    const galeria = normalizarGaleria(servico.imagemUrl, servico.imagens);
+    if (!galeria.includes(url)) galeria.push(url);
+    const capa = capaDaGaleria(servico.imagemUrl || url, galeria);
+
+    return prisma.catalogoServico.update({
+      where: { id },
+      data: {
+        imagemUrl: capa,
+        imagens: galeria as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  async adicionarImagens(id: string, files: Express.Multer.File[]) {
+    const servico = await prisma.catalogoServico.findUnique({ where: { id } });
+    if (!servico) throw new Error('Serviço não encontrado');
+    if (!files?.length) throw new Error('Nenhuma imagem enviada');
+
+    const galeria = normalizarGaleria(servico.imagemUrl, servico.imagens);
+    for (const file of files) {
+      const { url } = await storageService.upload('catalogo', file);
+      if (!galeria.includes(url)) galeria.push(url);
+    }
+    const capa = capaDaGaleria(servico.imagemUrl || galeria[0], galeria);
+
+    return prisma.catalogoServico.update({
+      where: { id },
+      data: {
+        imagemUrl: capa,
+        imagens: galeria as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  async removerImagem(id: string, url: string) {
+    const servico = await prisma.catalogoServico.findUnique({ where: { id } });
+    if (!servico) throw new Error('Serviço não encontrado');
+    const alvo = String(url || '').trim();
+    if (!alvo) throw new Error('URL da imagem obrigatória');
+
+    const galeria = normalizarGaleria(servico.imagemUrl, servico.imagens).filter((u) => u !== alvo);
+    const capa = galeria[0] || null;
+
+    return prisma.catalogoServico.update({
+      where: { id },
+      data: {
+        imagemUrl: capa,
+        imagens: galeria as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  async definirCapa(id: string, url: string) {
+    const servico = await prisma.catalogoServico.findUnique({ where: { id } });
+    if (!servico) throw new Error('Serviço não encontrado');
+    const alvo = String(url || '').trim();
+    const galeria = normalizarGaleria(servico.imagemUrl, servico.imagens);
+    if (!galeria.includes(alvo)) throw new Error('Imagem não pertence a este serviço');
+    const ordenada = [alvo, ...galeria.filter((u) => u !== alvo)];
+    return prisma.catalogoServico.update({
+      where: { id },
+      data: {
+        imagemUrl: alvo,
+        imagens: ordenada as Prisma.InputJsonValue,
+      },
+    });
   }
 
   /** Desativa o serviço (mantém histórico). */

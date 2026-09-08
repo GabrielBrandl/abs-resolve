@@ -21,13 +21,14 @@ import {
   MINIMO_PECAS_ISENTO_ENTREGA,
   calcularTaxaEntrega,
 } from '../utils/carrinho-regras.js';
-import { listarHorariosDisponiveis, reservarCapacidade, assertSlotNaoRetroativo } from '../engines/capacity.engine.js';
+import { listarHorariosDisponiveis, reservarCapacidade, assertSlotNaoRetroativo, assertAntecedenciaCliente } from '../engines/capacity.engine.js';
 import { analisarFotos, custosParaServico } from '../services/ia-diagnostico.service.js';
 import { notificacaoService } from './notificacao.service.js';
 import { descricaoServicosDaSolicitacao } from '../utils/solicitacao-descricao.js';
 import { formatarRespostasItem } from '../utils/fluxo-respostas.js';
 import { storageService } from './storage.service.js';
 import { pagamentosService } from './pagamentos.service.js';
+import { normalizarGaleria, capaDaGaleria } from '../utils/galeria-imagens.js';
 
 function descontoPixPercent(): number {
   // Desconto automático no PIX desativado — permanece cashback / fidelidade 2ª compra.
@@ -135,6 +136,10 @@ export class SolicitacaoService {
       const bySlug = new Map(SERVICOS_CATALOGO.map((s) => [s.slug, { ...s }]));
       for (const s of servicos) {
         const def = bySlug.get(s.slug);
+        const imagens = normalizarGaleria(
+          s.imagemUrl || def?.imagemUrl,
+          (s as { imagens?: unknown }).imagens ?? def?.imagens
+        );
         bySlug.set(s.slug, {
           ...def,
           ...s,
@@ -143,9 +148,10 @@ export class SolicitacaoService {
           precoTexto: def?.precoTexto || s.precoTexto,
           tipoPreco: def?.tipoPreco || s.tipoPreco,
           categoria: def?.categoria || String(s.categoria || '').toLowerCase(),
-          imagemUrl: s.imagemUrl || def?.imagemUrl,
+          imagemUrl: capaDaGaleria(s.imagemUrl || def?.imagemUrl, imagens) || def?.imagemUrl || null,
+          imagens,
           descricao: s.descricao || def?.descricao,
-        } as (typeof SERVICOS_CATALOGO)[number]);
+        } as (typeof SERVICOS_CATALOGO)[number] & { imagens: string[] });
       }
       const all = [...bySlug.values()];
       const categorias = CATEGORIAS.map((cat) => ({
@@ -153,18 +159,32 @@ export class SolicitacaoService {
         servicos: all.filter((s) => s.categoria === cat.slug),
       })).filter((c) => c.servicos.length > 0);
 
+      const estoquePecas = await prisma.produtoEstoque.findMany({
+        where: { sku: { in: PECAS_CATALOGO.map((p) => p.slug) } },
+      });
+      const estoqueBySku = new Map(estoquePecas.map((e) => [e.sku, e]));
+
       const pecasCategoria = {
         slug: 'pecas',
         nome: 'Peças avulsas',
         icone: '🔩',
         cor: '#002d62',
-        servicos: PECAS_CATALOGO.map((p) => ({
-          ...p,
-          categoria: 'pecas',
-          tipoPreco: 'fixo' as const,
-          garantiaDias: 90,
-          tipo: 'peca' as const,
-        })),
+        servicos: PECAS_CATALOGO.map((p) => {
+          const est = estoqueBySku.get(p.slug);
+          const imagens = normalizarGaleria(
+            est?.imagemUrl || p.imagemUrl,
+            est?.imagens ?? (p as { imagens?: string[] }).imagens
+          );
+          return {
+            ...p,
+            categoria: 'pecas',
+            tipoPreco: 'fixo' as const,
+            garantiaDias: 90,
+            tipo: 'peca' as const,
+            imagemUrl: imagens[0] || p.imagemUrl,
+            imagens,
+          };
+        }),
       };
 
       return {
@@ -819,6 +839,7 @@ export class SolicitacaoService {
 
     const pontos = pontosSolicitacao(sol);
     assertSlotNaoRetroativo(data.data, data.horarioInicio);
+    assertAntecedenciaCliente(data.data);
     const dataAgenda = data.data;
 
     const agendamento = await reservarCapacidade(

@@ -130,6 +130,11 @@ export function CatalogoAdminPage() {
 
   const iniciarEdicao = (s: CatalogoServicoAdmin) => {
     setEditId(s.id);
+    const imagens = Array.isArray(s.imagens) && s.imagens.length
+      ? s.imagens
+      : s.imagemUrl
+        ? [s.imagemUrl]
+        : [];
     setForm({
       nome: s.nome,
       precoMinimo: Number(s.precoMinimo),
@@ -140,6 +145,7 @@ export function CatalogoAdminPage() {
       garantiaDias: s.garantiaDias,
       ativo: s.ativo,
       imagemUrl: s.imagemUrl,
+      imagens,
       relacionados: Array.isArray(s.relacionados) ? s.relacionados : [],
     });
   };
@@ -162,18 +168,47 @@ export function CatalogoAdminPage() {
     }
   };
 
-  const enviarImagem = async (file: File) => {
+  const enviarVariasImagens = async (files: FileList | File[]) => {
     if (!editId) return;
+    const lista = Array.from(files);
+    if (!lista.length) return;
     setEnviandoImg(true);
     try {
-      const atualizado = await catalogoAdminApi.uploadImagem(editId, file);
-      setForm((f) => ({ ...f, imagemUrl: atualizado.imagemUrl }));
-      toast('Imagem atualizada!', 'success');
+      const atualizado = await catalogoAdminApi.uploadImagens(editId, lista);
+      const imagens = Array.isArray(atualizado.imagens) ? atualizado.imagens : [];
+      setForm((f) => ({ ...f, imagemUrl: atualizado.imagemUrl, imagens }));
+      toast(`${lista.length} imagem(ns) adicionada(s)!`, 'success');
       carregar();
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao enviar imagem', 'error');
+      toast(e instanceof Error ? e.message : 'Erro ao enviar imagens', 'error');
     } finally {
       setEnviandoImg(false);
+    }
+  };
+
+  const removerFoto = async (url: string) => {
+    if (!editId) return;
+    try {
+      const atualizado = await catalogoAdminApi.removerImagem(editId, url);
+      const imagens = Array.isArray(atualizado.imagens) ? atualizado.imagens : [];
+      setForm((f) => ({ ...f, imagemUrl: atualizado.imagemUrl, imagens }));
+      toast('Imagem removida', 'success');
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao remover', 'error');
+    }
+  };
+
+  const tornarCapa = async (url: string) => {
+    if (!editId) return;
+    try {
+      const atualizado = await catalogoAdminApi.definirCapa(editId, url);
+      const imagens = Array.isArray(atualizado.imagens) ? atualizado.imagens : [];
+      setForm((f) => ({ ...f, imagemUrl: atualizado.imagemUrl, imagens }));
+      toast('Capa atualizada', 'success');
+      carregar();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao definir capa', 'error');
     }
   };
 
@@ -379,36 +414,69 @@ export function CatalogoAdminPage() {
       <Modal open={!!editId} onClose={() => setEditId(null)} title="Editar serviço">
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-sm font-medium">Imagem do serviço</label>
-            <div className="flex items-center gap-3">
-              {form.imagemUrl ? (
-                <img src={form.imagemUrl} alt="Prévia" className="h-20 w-20 rounded-lg border border-slate-200 bg-white object-contain p-1" />
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400">Sem imagem</div>
+            <label className="mb-1 block text-sm font-medium">Galeria de imagens</label>
+            <p className="mb-2 text-xs text-slate-500">Adicione várias fotos. A primeira (ou a marcada como capa) aparece nos cards.</p>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {(form.imagens?.length ? form.imagens : form.imagemUrl ? [form.imagemUrl] : []).map((url) => (
+                <div key={url} className="relative w-20">
+                  <img
+                    src={url}
+                    alt=""
+                    className={`h-20 w-20 rounded-lg border bg-white object-contain p-0.5 ${
+                      form.imagemUrl === url ? 'border-[#002d62] ring-2 ring-[#002d62]/30' : 'border-slate-200'
+                    }`}
+                  />
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    {form.imagemUrl !== url && (
+                      <button type="button" className="text-[10px] font-bold text-[#1d4ed8]" onClick={() => void tornarCapa(url)}>
+                        Capa
+                      </button>
+                    )}
+                    {form.imagemUrl === url && (
+                      <span className="text-[10px] font-bold text-emerald-700">Capa</span>
+                    )}
+                    <button type="button" className="text-[10px] font-bold text-red-600" onClick={() => void removerFoto(url)}>
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {!form.imagens?.length && !form.imagemUrl && (
+                <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400">
+                  Sem imagens
+                </div>
               )}
-              <div className="flex-1">
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) enviarImagem(file);
-                    e.target.value = '';
-                  }}
-                />
-                <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={enviandoImg}>
-                  {enviandoImg ? 'Enviando...' : 'Trocar imagem'}
-                </Button>
-                <p className="mt-1 text-xs text-slate-400">PNG, JPG ou WebP (até 10MB).</p>
-              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = e.target.files;
+                  if (files?.length) void enviarVariasImagens(files);
+                  e.target.value = '';
+                }}
+              />
+              <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={enviandoImg}>
+                {enviandoImg ? 'Enviando...' : 'Adicionar imagens'}
+              </Button>
+              <p className="text-xs text-slate-400">PNG, JPG ou WebP (até 10MB cada). Várias de uma vez.</p>
             </div>
             <input
               className="mt-2 w-full rounded-lg border px-3 py-2 text-xs text-slate-500"
-              placeholder="Ou cole a URL de uma imagem"
+              placeholder="Ou cole a URL de uma imagem e salve o serviço"
               value={form.imagemUrl || ''}
-              onChange={(e) => setForm((f) => ({ ...f, imagemUrl: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => {
+                  const url = e.target.value;
+                  const imgs = [...(f.imagens || [])];
+                  if (url && !imgs.includes(url)) imgs.unshift(url);
+                  return { ...f, imagemUrl: url, imagens: imgs };
+                })
+              }
             />
           </div>
           <div>

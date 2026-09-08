@@ -288,6 +288,7 @@ export const solicitacaoApi = {
           labelCor: string;
           preco: number;
           imagemUrl: string;
+          imagens?: string[];
           disponivel: number;
           ativo: boolean;
           disponivelParaCompra: boolean;
@@ -397,6 +398,21 @@ export const catalogoAdminApi = {
     if (!data.success) throw new Error(data.error);
     return data.data!;
   },
+  uploadImagens: async (id: string, files: File[]) => {
+    const form = new FormData();
+    files.forEach((f) => form.append('imagens', f));
+    const { data } = await api.post<ApiResponse<CatalogoServicoAdmin>>(
+      `/admin/catalogo/servicos/${id}/imagens`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    if (!data.success) throw new Error(data.error);
+    return data.data!;
+  },
+  removerImagem: (id: string, url: string) =>
+    del<CatalogoServicoAdmin>(`/admin/catalogo/servicos/${id}/imagem?url=${encodeURIComponent(url)}`),
+  definirCapa: (id: string, url: string) =>
+    patch<CatalogoServicoAdmin>(`/admin/catalogo/servicos/${id}/capa`, { url }),
   config: () => get<Record<string, number>>('/admin/catalogo/config'),
   atualizarConfig: (body: Record<string, number>) => put('/admin/catalogo/config', body),
   estoque: () => get<ProdutoEstoque[]>('/admin/catalogo/estoque'),
@@ -593,10 +609,22 @@ export const estoqueAdminApi = {
     tipo?: string | null;
     cor?: string | null;
     imagemUrl?: string | null;
+    imagens?: string[];
     custo?: number | null;
     ativo?: boolean;
     modeloId?: string | null;
   }) => patch<ProdutoEstoque>(`/admin/estoque/${id}`, body),
+  uploadImagens: async (id: string, files: File[]) => {
+    const form = new FormData();
+    files.forEach((f) => form.append('imagens', f));
+    const { data } = await api.post<ApiResponse<ProdutoEstoque>>(`/admin/estoque/${id}/imagens`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    if (!data.success) throw new Error(data.error);
+    return data.data!;
+  },
+  removerImagem: (id: string, url: string) =>
+    del<ProdutoEstoque>(`/admin/estoque/${id}/imagem?url=${encodeURIComponent(url)}`),
   movimentar: (id: string, body: {
     tipo: 'entrada' | 'saida' | 'ajuste';
     quantidade: number;

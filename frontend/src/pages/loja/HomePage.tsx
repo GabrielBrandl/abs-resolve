@@ -53,16 +53,16 @@ export function HomePage() {
         <Link
           to="/busca"
           className="block overflow-hidden rounded-[14px] shadow-[0_10px_30px_rgba(0,45,98,0.18)]"
-          aria-label={`Programa de Cashback ABS Resolve — até ${cashbackPct}`}
+          aria-label="ABS Resolve — solicitar orçamento agora"
         >
           <img
-            src="/hero-cashback.jpg"
-            alt={`Programa de Cashback ABS Resolve — até ${cashbackPct} de cashback em serviços`}
-            width={1200}
-            height={520}
+            src="/hero-home.jpg"
+            alt="ABS Resolve — Sua casa em boas mãos. Serviços residenciais com preço na hora, agendamento online e garantia."
+            width={1600}
+            height={700}
             fetchPriority="high"
             decoding="async"
-            className="h-auto w-full object-cover"
+            className="h-auto w-full object-cover object-left"
           />
         </Link>
 

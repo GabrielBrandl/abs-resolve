@@ -61,6 +61,37 @@ export class CatalogoAdminController {
     }
   }
 
+  async uploadImagens(req: Request, res: Response) {
+    try {
+      const files = (req.files as Express.Multer.File[]) || [];
+      if (!files.length) return error(res, 'Nenhuma imagem enviada', 400);
+      const data = await catalogoAdminService.adicionarImagens(paramId(req.params.id), files);
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async removerImagem(req: Request, res: Response) {
+    try {
+      const url = String(req.body?.url || req.query.url || '');
+      const data = await catalogoAdminService.removerImagem(paramId(req.params.id), url);
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async definirCapa(req: Request, res: Response) {
+    try {
+      const url = String(req.body?.url || '');
+      const data = await catalogoAdminService.definirCapa(paramId(req.params.id), url);
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async config(_req: Request, res: Response) {
     try {
       return success(res, await catalogoAdminService.getConfig());

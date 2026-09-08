@@ -400,6 +400,7 @@ export interface CatalogoServicoAdmin {
   ativo: boolean;
   ordem: number;
   imagemUrl: string | null;
+  imagens?: string[] | null;
   relacionados?: string[];
 }
 
@@ -517,6 +518,7 @@ export interface ProdutoEstoque {
   tipo?: string | null;
   cor?: string | null;
   imagemUrl?: string | null;
+  imagens?: string[] | null;
   ativo?: boolean;
   modeloId?: string | null;
   valorEstoque?: number | null;

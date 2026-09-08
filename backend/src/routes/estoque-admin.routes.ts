@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { estoqueAdminController } from '../controllers/estoque-admin.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { checkRole } from '../middlewares/role.middleware.js';
+import { upload } from '../middlewares/upload.middleware.js';
 
 const router = Router();
 
@@ -14,6 +15,8 @@ router.get('/', (req, res) => estoqueAdminController.listar(req, res));
 router.post('/', checkRole('admin'), (req, res) => estoqueAdminController.criar(req, res));
 router.get('/:id', (req, res) => estoqueAdminController.buscar(req, res));
 router.patch('/:id', (req, res) => estoqueAdminController.atualizar(req, res));
+router.post('/:id/imagens', upload.array('imagens', 12), (req, res) => estoqueAdminController.uploadImagens(req, res));
+router.delete('/:id/imagem', (req, res) => estoqueAdminController.removerImagem(req, res));
 router.post('/:id/movimentar', (req, res) => estoqueAdminController.movimentar(req, res));
 router.post('/:id/liberar-reserva', (req, res) => estoqueAdminController.liberarReserva(req, res));
 router.get('/:id/historico', (req, res) => estoqueAdminController.historico(req, res));

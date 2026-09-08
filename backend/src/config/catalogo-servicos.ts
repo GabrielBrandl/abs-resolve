@@ -21,6 +21,8 @@ export interface ServicoCatalogoDef {
   pontos: number;
   ordem: number;
   imagemUrl: string;
+  /** Galeria opcional (além da capa). */
+  imagens?: string[];
 }
 
 export const SERVICOS_CATALOGO: ServicoCatalogoDef[] = [

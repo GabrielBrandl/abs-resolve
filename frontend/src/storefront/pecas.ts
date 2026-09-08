@@ -8,6 +8,7 @@ export type PecaLoja = {
   descricao: string;
   garantiaDias: number;
   imagemUrl: string;
+  imagens?: string[];
   tipo: 'peca';
   servicoRelacionado: string;
   keywords: string[];
