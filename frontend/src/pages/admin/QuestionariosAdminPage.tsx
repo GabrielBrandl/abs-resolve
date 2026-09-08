@@ -45,7 +45,7 @@ function sincronizarFaixas(
         label: op.label,
         ajusteCapacidade: existente?.ajusteCapacidade ?? 0,
         valorKitInicial: existente?.valorKitInicial ?? 0,
-        metrosInclusos: existente?.metrosInclusos ?? composto.metrosInclusosPadrao ?? 3,
+        metrosInclusos: existente?.metrosInclusos ?? composto.metrosInclusosPadrao ?? 2,
         precoPorMetroExtra: existente?.precoPorMetroExtra ?? 0,
       };
     }),
@@ -202,7 +202,9 @@ export function QuestionariosAdminPage() {
                 </label>
                 {config.modoPreco === 'personalizado' && (
                   <label className="block text-sm">
-                    <span className="mb-1 block font-medium text-slate-700">Preço base (R$)</span>
+                    <span className="mb-1 block font-medium text-slate-700">
+                      Preço-base / mão de obra (R$)
+                    </span>
                     <input
                       type="number"
                       min={0}
@@ -216,6 +218,9 @@ export function QuestionariosAdminPage() {
                         })
                       }
                     />
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Só mão de obra da instalação. Não inclui kit nem metros de material.
+                    </span>
                   </label>
                 )}
               </div>
@@ -273,14 +278,16 @@ export function QuestionariosAdminPage() {
                         opcoesAbsFornece: base.opcoesAbsFornece?.length
                           ? base.opcoesAbsFornece
                           : ['abs-fornece-kit'],
-                        metrosInclusosPadrao: base.metrosInclusosPadrao ?? 3,
                         mapaMetrosOpcao: base.mapaMetrosOpcao || {
+                          'ate-2m': 2,
                           'ate-3m': 3,
                           '3m-5m': 5,
                           '5m-7m': 7,
                           'acima-7m': 8,
-                          'nao-sei': 3,
+                          'nao-sei': 2,
                         },
+                        metrosInclusosPadrao: base.metrosInclusosPadrao ?? 2,
+                        labelMaterialIncluso: 'Metros inclusos no kit de material',
                       };
                       if (e.target.checked) {
                         next = sincronizarFaixas(config, next);
@@ -297,18 +304,22 @@ export function QuestionariosAdminPage() {
                   />
                   <span>
                     <span className="block font-bold text-[#002d62]">
-                      Preço composto (capacidade × metragem × fornecimento)
+                      Preço composto — mão de obra × material (capacidade + metragem + fornecimento)
                     </span>
                     <span className="text-xs text-slate-600">
-                      Preço-base = mão de obra. Material (kit + metros) só entra se a ABS fornecer.
-                      Cliente com material próprio não paga kit nem metro.
+                      Fórmula: mão de obra (preço-base + ajustes) + kit ABS + metros adicionais + outros
+                      adicionais. Material só entra se a ABS fornecer.
                     </span>
                   </span>
                 </label>
 
                 {config.precoComposto?.ativo && (
-                  <div className="mt-4 space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="mt-4 space-y-5">
+                    <div className="rounded-lg border border-[#dbe7f5] bg-white p-3">
+                      <p className="mb-3 text-xs font-black uppercase tracking-wide text-[#002d62]">
+                        1. Perguntas do cálculo
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-3">
                       <label className="block text-sm">
                         <span className="mb-1 block font-medium text-slate-700">Pergunta da capacidade</span>
                         <select
@@ -349,7 +360,9 @@ export function QuestionariosAdminPage() {
                         </select>
                       </label>
                       <label className="block text-sm">
-                        <span className="mb-1 block font-medium text-slate-700">Quem fornece o material?</span>
+                        <span className="mb-1 block font-medium text-slate-700">
+                          Pergunta do fornecimento do material
+                        </span>
                         <select
                           className="w-full rounded-lg border border-abs-gray px-3 py-2 bg-white"
                           value={config.precoComposto.perguntaFornecimentoId || ''}
@@ -363,7 +376,7 @@ export function QuestionariosAdminPage() {
                             })
                           }
                         >
-                          <option value="">(não condicionar)</option>
+                          <option value="">Selecione…</option>
                           {config.perguntas.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.titulo}
@@ -371,12 +384,12 @@ export function QuestionariosAdminPage() {
                           ))}
                         </select>
                       </label>
-                    </div>
+                      </div>
 
                     {config.precoComposto.perguntaFornecimentoId && (
-                      <div>
+                      <div className="mt-3">
                         <p className="mb-2 text-sm font-medium text-slate-700">
-                          Opções em que a ABS fornece o material (cobra kit + metros)
+                          Opções = ABS fornece material (cobra kit + metros)
                         </p>
                         <div className="flex flex-wrap gap-3">
                           {(
@@ -407,17 +420,27 @@ export function QuestionariosAdminPage() {
                             );
                           })}
                         </div>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Se o cliente marcar que já possui o material, kit e metragem de material ficam R$ 0.
+                        </p>
                       </div>
                     )}
+                    </div>
 
-                    <label className="block max-w-xs text-sm">
-                      <span className="mb-1 block font-medium text-slate-700">Metros inclusos no kit (padrão)</span>
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3">
+                      <p className="mb-3 text-xs font-black uppercase tracking-wide text-emerald-800">
+                        2. Material ABS por capacidade (não entra no preço-base)
+                      </p>
+                    <label className="mb-3 block max-w-xs text-sm">
+                      <span className="mb-1 block font-medium text-slate-700">
+                        Metros inclusos no kit de material (padrão)
+                      </span>
                       <input
                         type="number"
                         min={0}
                         step={0.5}
                         className="w-full rounded-lg border border-abs-gray px-3 py-2 bg-white"
-                        value={config.precoComposto.metrosInclusosPadrao ?? 3}
+                        value={config.precoComposto.metrosInclusosPadrao ?? 2}
                         onChange={(e) => {
                           const v = Number(e.target.value) || 0;
                           setConfig({
@@ -429,12 +452,15 @@ export function QuestionariosAdminPage() {
                           });
                         }}
                       />
+                      <span className="mt-1 block text-xs text-slate-500">
+                        Ex.: kit ABS cobre até 2 m; acima disso cobra metro adicional.
+                      </span>
                     </label>
 
                     <div>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <p className="text-sm font-bold text-[#002d62]">
-                          Tabela por capacidade (ajuste + kit + metros)
+                          Kit inicial + metros inclusos no kit + R$/metro extra
                         </p>
                         <Button
                           className="text-xs"
@@ -454,9 +480,9 @@ export function QuestionariosAdminPage() {
                             <tr>
                               <th className="px-3 py-2">Capacidade</th>
                               <th className="px-3 py-2">Ajuste mão de obra (R$)</th>
-                              <th className="px-3 py-2">Kit inicial ABS (R$)</th>
-                              <th className="px-3 py-2">Metros no kit</th>
-                              <th className="px-3 py-2">R$ / metro extra</th>
+                              <th className="px-3 py-2">Valor do kit inicial (R$)</th>
+                              <th className="px-3 py-2">Metros inclusos no kit</th>
+                              <th className="px-3 py-2">Valor do metro adicional (R$)</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -507,11 +533,14 @@ export function QuestionariosAdminPage() {
                         </table>
                       </div>
                     </div>
+                    </div>
 
-                    <div>
-                      <p className="mb-2 text-sm font-bold text-[#002d62]">Mapa das opções de metragem → metros</p>
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">
+                        3. Mapa das respostas de distância → metros
+                      </p>
                       <p className="mb-2 text-xs text-slate-500">
-                        Cada opção da pergunta de metragem precisa corresponder a um número de metros (ex.: “até 5 m” → 5).
+                        Cada opção da pergunta de metragem precisa corresponder a um número de metros.
                       </p>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {(

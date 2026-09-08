@@ -59,17 +59,18 @@ export function defaultPrecoCompostoArSplit(): PrecoCompostoConfig {
     perguntaFornecimentoId: 'materiaisInstalacaoAr',
     opcoesAbsFornece: ['abs-fornece-kit'],
     mapaMetrosOpcao: {
+      'ate-2m': 2,
       'ate-3m': 3,
       '3m-5m': 5,
       '5m-7m': 7,
       'acima-7m': 8,
-      'nao-sei': 3,
+      'nao-sei': 2,
     },
-    metrosInclusosPadrao: 3,
+    metrosInclusosPadrao: 2,
     labelMaoDeObra: 'Mão de obra — instalação split',
     labelAjusteCapacidade: 'Ajuste por capacidade',
     labelKitInicial: 'Kit/material inicial ABS',
-    labelMaterialIncluso: 'Metros do kit inclusos',
+    labelMaterialIncluso: 'Metros inclusos no kit de material',
     labelMetrosExtras: 'Metros adicionais de material',
     labelClienteFornece: 'Material do cliente (sem cobrança de kit/metros)',
     faixas: [
@@ -77,43 +78,81 @@ export function defaultPrecoCompostoArSplit(): PrecoCompostoConfig {
         opcaoId: 'ate-12000',
         label: 'Até 12.000 BTUs',
         ajusteCapacidade: 0,
-        valorKitInicial: 0,
-        metrosInclusos: 3,
+        valorKitInicial: 200,
+        metrosInclusos: 2,
         precoPorMetroExtra: 55,
       },
       {
         opcaoId: '12001-18000',
         label: '12.001 a 18.000 BTUs',
         ajusteCapacidade: 100,
-        valorKitInicial: 0,
-        metrosInclusos: 3,
+        valorKitInicial: 200,
+        metrosInclusos: 2,
         precoPorMetroExtra: 70,
       },
       {
         opcaoId: '18001-24000',
         label: '18.001 a 24.000 BTUs',
         ajusteCapacidade: 200,
-        valorKitInicial: 0,
-        metrosInclusos: 3,
+        valorKitInicial: 250,
+        metrosInclusos: 2,
         precoPorMetroExtra: 85,
       },
       {
         opcaoId: 'acima-24000',
         label: 'Acima de 24.000 BTUs',
         ajusteCapacidade: 200,
-        valorKitInicial: 0,
-        metrosInclusos: 3,
+        valorKitInicial: 250,
+        metrosInclusos: 2,
         precoPorMetroExtra: 100,
       },
       {
         opcaoId: 'nao-sei',
         label: 'Não sei a capacidade',
         ajusteCapacidade: 0,
-        valorKitInicial: 0,
-        metrosInclusos: 3,
+        valorKitInicial: 200,
+        metrosInclusos: 2,
         precoPorMetroExtra: 70,
       },
     ],
+  };
+}
+
+/** Completa configs antigas (sem fornecimento/kit) sem apagar valores já salvos. */
+export function enriquecerPrecoComposto(slug: string, raw: unknown): PrecoCompostoConfig {
+  const atual = normalizarPrecoComposto(raw);
+  if (slug !== 'instalacao-ar-split' || !atual.ativo) return atual;
+
+  const def = defaultPrecoCompostoArSplit();
+  const prevFaixas = new Map(atual.faixas.map((f) => [f.opcaoId, f]));
+  const faixas =
+    atual.faixas.length > 0
+      ? atual.faixas.map((f) => ({
+          ...f,
+          ajusteCapacidade: f.ajusteCapacidade ?? 0,
+          valorKitInicial: f.valorKitInicial ?? 0,
+          metrosInclusos: f.metrosInclusos > 0 ? f.metrosInclusos : def.metrosInclusosPadrao || 2,
+        }))
+      : def.faixas.map((f) => prevFaixas.get(f.opcaoId) || f);
+
+  return {
+    ...def,
+    ...atual,
+    perguntaCapacidadeId: atual.perguntaCapacidadeId || def.perguntaCapacidadeId,
+    perguntaMetrosId: atual.perguntaMetrosId || def.perguntaMetrosId,
+    perguntaFornecimentoId: atual.perguntaFornecimentoId || def.perguntaFornecimentoId,
+    opcoesAbsFornece: atual.opcoesAbsFornece?.length ? atual.opcoesAbsFornece : def.opcoesAbsFornece,
+    mapaMetrosOpcao: atual.mapaMetrosOpcao && Object.keys(atual.mapaMetrosOpcao).length
+      ? atual.mapaMetrosOpcao
+      : def.mapaMetrosOpcao,
+    metrosInclusosPadrao: atual.metrosInclusosPadrao ?? def.metrosInclusosPadrao,
+    labelMaoDeObra: atual.labelMaoDeObra || def.labelMaoDeObra,
+    labelAjusteCapacidade: atual.labelAjusteCapacidade || def.labelAjusteCapacidade,
+    labelKitInicial: atual.labelKitInicial || def.labelKitInicial,
+    labelMaterialIncluso: 'Metros inclusos no kit de material',
+    labelMetrosExtras: atual.labelMetrosExtras || def.labelMetrosExtras,
+    labelClienteFornece: atual.labelClienteFornece || def.labelClienteFornece,
+    faixas,
   };
 }
 

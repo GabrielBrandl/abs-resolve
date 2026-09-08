@@ -738,7 +738,8 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         opcao('escritorio', 'Escritório'),
       ]),
       pergunta('distanciaEvapCond', 'Metragem aproximada da instalação (evaporadora → condensadora)', [
-        opcao('ate-3m', 'Até 3 metros (incluso)'),
+        opcao('ate-2m', 'Até 2 metros (incluso no kit ABS)'),
+        opcao('ate-3m', 'Até 3 metros'),
         opcao('3m-5m', 'Até 5 metros'),
         opcao('5m-7m', 'Até 7 metros'),
         opcao('acima-7m', 'Acima de 7 metros'),

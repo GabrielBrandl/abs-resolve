@@ -8,6 +8,7 @@ import {
 } from '../config/fluxo-servicos.js';
 import {
   defaultPrecoCompostoArSplit,
+  enriquecerPrecoComposto,
   normalizarPrecoComposto,
   PRECO_COMPOSTO_VAZIO,
   type PrecoCompostoConfig,
@@ -183,7 +184,7 @@ export class FluxoConfigService {
         modoPreco: row.modoPreco,
         precoBase: row.precoBase != null ? Number(row.precoBase) : null,
         itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
-        precoComposto: normalizarPrecoComposto(row.precoComposto),
+        precoComposto: enriquecerPrecoComposto(row.slug, row.precoComposto),
         perguntaQuantidadeId: row.perguntaQuantidadeId,
         multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
       });
@@ -249,7 +250,7 @@ export class FluxoConfigService {
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
       itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco),
-      precoComposto: normalizarPrecoComposto(row.precoComposto),
+      precoComposto: enriquecerPrecoComposto(row.slug, row.precoComposto),
       perguntaQuantidadeId: row.perguntaQuantidadeId,
       multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     };
@@ -392,7 +393,7 @@ export class FluxoConfigService {
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
       itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
-      precoComposto: normalizarPrecoComposto(row.precoComposto),
+      precoComposto: enriquecerPrecoComposto(row.slug, row.precoComposto),
       perguntaQuantidadeId: row.perguntaQuantidadeId,
       multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     };
