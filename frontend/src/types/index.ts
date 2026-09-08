@@ -491,6 +491,8 @@ export interface ItemPrecoConfig {
 export interface FaixaPrecoComposto {
   opcaoId: string;
   label?: string;
+  ajusteCapacidade?: number;
+  valorKitInicial?: number;
   metrosInclusos: number;
   precoPorMetroExtra: number;
 }
@@ -499,12 +501,17 @@ export interface PrecoCompostoConfig {
   ativo: boolean;
   perguntaCapacidadeId: string;
   perguntaMetrosId: string;
+  perguntaFornecimentoId?: string;
+  opcoesAbsFornece?: string[];
   mapaMetrosOpcao?: Record<string, number>;
   metrosNumericos?: boolean;
   metrosInclusosPadrao?: number;
   labelMaoDeObra?: string;
+  labelAjusteCapacidade?: string;
+  labelKitInicial?: string;
   labelMaterialIncluso?: string;
   labelMetrosExtras?: string;
+  labelClienteFornece?: string;
   faixas: FaixaPrecoComposto[];
 }
 

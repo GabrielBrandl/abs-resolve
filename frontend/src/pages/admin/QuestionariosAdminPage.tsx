@@ -21,6 +21,8 @@ function precoCompostoVazio(): PrecoCompostoConfig {
     ativo: false,
     perguntaCapacidadeId: '',
     perguntaMetrosId: '',
+    perguntaFornecimentoId: '',
+    opcoesAbsFornece: [],
     mapaMetrosOpcao: {},
     metrosInclusosPadrao: 3,
     faixas: [],
@@ -41,6 +43,8 @@ function sincronizarFaixas(
       return {
         opcaoId: op.id,
         label: op.label,
+        ajusteCapacidade: existente?.ajusteCapacidade ?? 0,
+        valorKitInicial: existente?.valorKitInicial ?? 0,
         metrosInclusos: existente?.metrosInclusos ?? composto.metrosInclusosPadrao ?? 3,
         precoPorMetroExtra: existente?.precoPorMetroExtra ?? 0,
       };
@@ -265,6 +269,10 @@ export function QuestionariosAdminPage() {
                         ativo: e.target.checked,
                         perguntaCapacidadeId: base.perguntaCapacidadeId || 'capacidadeBtu',
                         perguntaMetrosId: base.perguntaMetrosId || 'distanciaEvapCond',
+                        perguntaFornecimentoId: base.perguntaFornecimentoId || 'materiaisInstalacaoAr',
+                        opcoesAbsFornece: base.opcoesAbsFornece?.length
+                          ? base.opcoesAbsFornece
+                          : ['abs-fornece-kit'],
                         metrosInclusosPadrao: base.metrosInclusosPadrao ?? 3,
                         mapaMetrosOpcao: base.mapaMetrosOpcao || {
                           'ate-3m': 3,
@@ -289,18 +297,18 @@ export function QuestionariosAdminPage() {
                   />
                   <span>
                     <span className="block font-bold text-[#002d62]">
-                      Preço composto (capacidade × metragem)
+                      Preço composto (capacidade × metragem × fornecimento)
                     </span>
                     <span className="text-xs text-slate-600">
-                      Use quando o valor do material depende de duas respostas (ex.: BTUs + metros).
-                      Metros inclusos no preço-base; metros extras cobrados conforme a faixa de capacidade.
+                      Preço-base = mão de obra. Material (kit + metros) só entra se a ABS fornecer.
+                      Cliente com material próprio não paga kit nem metro.
                     </span>
                   </span>
                 </label>
 
                 {config.precoComposto?.ativo && (
                   <div className="mt-4 space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <label className="block text-sm">
                         <span className="mb-1 block font-medium text-slate-700">Pergunta da capacidade</span>
                         <select
@@ -340,10 +348,70 @@ export function QuestionariosAdminPage() {
                           ))}
                         </select>
                       </label>
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-medium text-slate-700">Quem fornece o material?</span>
+                        <select
+                          className="w-full rounded-lg border border-abs-gray px-3 py-2 bg-white"
+                          value={config.precoComposto.perguntaFornecimentoId || ''}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              precoComposto: {
+                                ...config.precoComposto!,
+                                perguntaFornecimentoId: e.target.value,
+                              },
+                            })
+                          }
+                        >
+                          <option value="">(não condicionar)</option>
+                          {config.perguntas.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.titulo}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
 
+                    {config.precoComposto.perguntaFornecimentoId && (
+                      <div>
+                        <p className="mb-2 text-sm font-medium text-slate-700">
+                          Opções em que a ABS fornece o material (cobra kit + metros)
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                          {(
+                            config.perguntas.find((p) => p.id === config.precoComposto?.perguntaFornecimentoId)
+                              ?.opcoes || []
+                          ).map((op) => {
+                            const checked = (config.precoComposto?.opcoesAbsFornece || []).includes(op.id);
+                            return (
+                              <label key={op.id} className="flex items-center gap-2 text-sm text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    const atual = new Set(config.precoComposto?.opcoesAbsFornece || []);
+                                    if (e.target.checked) atual.add(op.id);
+                                    else atual.delete(op.id);
+                                    setConfig({
+                                      ...config,
+                                      precoComposto: {
+                                        ...config.precoComposto!,
+                                        opcoesAbsFornece: [...atual],
+                                      },
+                                    });
+                                  }}
+                                />
+                                {op.label}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <label className="block max-w-xs text-sm">
-                      <span className="mb-1 block font-medium text-slate-700">Metros inclusos (padrão)</span>
+                      <span className="mb-1 block font-medium text-slate-700">Metros inclusos no kit (padrão)</span>
                       <input
                         type="number"
                         min={0}
@@ -357,10 +425,6 @@ export function QuestionariosAdminPage() {
                             precoComposto: {
                               ...config.precoComposto!,
                               metrosInclusosPadrao: v,
-                              faixas: config.precoComposto!.faixas.map((f) => ({
-                                ...f,
-                                metrosInclusos: f.metrosInclusos || v,
-                              })),
                             },
                           });
                         }}
@@ -369,7 +433,9 @@ export function QuestionariosAdminPage() {
 
                     <div>
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-sm font-bold text-[#002d62]">Valor do metro adicional por capacidade</p>
+                        <p className="text-sm font-bold text-[#002d62]">
+                          Tabela por capacidade (ajuste + kit + metros)
+                        </p>
                         <Button
                           className="text-xs"
                           onClick={() =>
@@ -387,7 +453,9 @@ export function QuestionariosAdminPage() {
                           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                             <tr>
                               <th className="px-3 py-2">Capacidade</th>
-                              <th className="px-3 py-2">Metros inclusos</th>
+                              <th className="px-3 py-2">Ajuste mão de obra (R$)</th>
+                              <th className="px-3 py-2">Kit inicial ABS (R$)</th>
+                              <th className="px-3 py-2">Metros no kit</th>
                               <th className="px-3 py-2">R$ / metro extra</th>
                             </tr>
                           </thead>
@@ -397,51 +465,40 @@ export function QuestionariosAdminPage() {
                                 <td className="px-3 py-2 font-medium text-slate-800">
                                   {faixa.label || faixa.opcaoId}
                                 </td>
-                                <td className="px-3 py-2">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step={0.5}
-                                    className="w-24 rounded border border-abs-gray px-2 py-1"
-                                    value={faixa.metrosInclusos}
-                                    onChange={(e) => {
-                                      const faixas = [...config.precoComposto!.faixas];
-                                      faixas[idx] = {
-                                        ...faixa,
-                                        metrosInclusos: Number(e.target.value) || 0,
-                                      };
-                                      setConfig({
-                                        ...config,
-                                        precoComposto: { ...config.precoComposto!, faixas },
-                                      });
-                                    }}
-                                  />
-                                </td>
-                                <td className="px-3 py-2">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step={0.01}
-                                    className="w-28 rounded border border-abs-gray px-2 py-1"
-                                    value={faixa.precoPorMetroExtra}
-                                    onChange={(e) => {
-                                      const faixas = [...config.precoComposto!.faixas];
-                                      faixas[idx] = {
-                                        ...faixa,
-                                        precoPorMetroExtra: Number(e.target.value) || 0,
-                                      };
-                                      setConfig({
-                                        ...config,
-                                        precoComposto: { ...config.precoComposto!, faixas },
-                                      });
-                                    }}
-                                  />
-                                </td>
+                                {(
+                                  [
+                                    ['ajusteCapacidade', faixa.ajusteCapacidade ?? 0],
+                                    ['valorKitInicial', faixa.valorKitInicial ?? 0],
+                                    ['metrosInclusos', faixa.metrosInclusos],
+                                    ['precoPorMetroExtra', faixa.precoPorMetroExtra],
+                                  ] as const
+                                ).map(([campo, valor]) => (
+                                  <td key={campo} className="px-3 py-2">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step={campo === 'metrosInclusos' ? 0.5 : 0.01}
+                                      className="w-24 rounded border border-abs-gray px-2 py-1"
+                                      value={valor}
+                                      onChange={(e) => {
+                                        const faixas = [...config.precoComposto!.faixas];
+                                        faixas[idx] = {
+                                          ...faixa,
+                                          [campo]: Number(e.target.value) || 0,
+                                        };
+                                        setConfig({
+                                          ...config,
+                                          precoComposto: { ...config.precoComposto!, faixas },
+                                        });
+                                      }}
+                                    />
+                                  </td>
+                                ))}
                               </tr>
                             ))}
                             {!config.precoComposto.faixas?.length && (
                               <tr>
-                                <td colSpan={3} className="px-3 py-3 text-slate-500">
+                                <td colSpan={5} className="px-3 py-3 text-slate-500">
                                   Selecione a pergunta de capacidade e clique em Sync opções.
                                 </td>
                               </tr>
@@ -454,7 +511,7 @@ export function QuestionariosAdminPage() {
                     <div>
                       <p className="mb-2 text-sm font-bold text-[#002d62]">Mapa das opções de metragem → metros</p>
                       <p className="mb-2 text-xs text-slate-500">
-                        Cada opção da pergunta de metragem precisa corresponder a um número de metros (ex.: “3m a 5m” → 5).
+                        Cada opção da pergunta de metragem precisa corresponder a um número de metros (ex.: “até 5 m” → 5).
                       </p>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {(

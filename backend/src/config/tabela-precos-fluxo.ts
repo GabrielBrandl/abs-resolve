@@ -211,7 +211,12 @@ function calcularPrecoPersonalizado(
   // Opções com preço adicional = adicionais (não misturar com material composto)
   for (const pergunta of fluxo.perguntas) {
     if (pergunta.id === qtdPerguntaId) continue;
-    if (usaComposto && (pergunta.id === composto!.perguntaCapacidadeId || pergunta.id === composto!.perguntaMetrosId)) {
+    if (
+      usaComposto &&
+      (pergunta.id === composto!.perguntaCapacidadeId ||
+        pergunta.id === composto!.perguntaMetrosId ||
+        pergunta.id === composto!.perguntaFornecimentoId)
+    ) {
       continue; // preço vem da tabela composta
     }
     const resp = resposta(respostas, pergunta.id);
@@ -229,18 +234,47 @@ function calcularPrecoPersonalizado(
 
   if (usaComposto) {
     const mat = calcularMaterialComposto(composto!, respostas, fluxo);
-    if (mat.metrosExtras > 0 && mat.valorExtras > 0) {
-      const label =
-        composto!.labelMetrosExtras ||
-        `Material adicional (${mat.metrosExtras} m × R$ ${mat.precoPorMetro.toFixed(2)} — ${mat.faixaLabel})`;
-      adicionarItem(breakdown, label, mat.valorExtras);
-      valorMaterial += mat.valorExtras;
-    } else if (mat.metrosRespondidos > 0) {
-      // Transparência: metros dentro do incluso não cobram material extra
+
+    if (mat.ajusteCapacidade > 0) {
       adicionarItem(
         breakdown,
-        composto!.labelMaterialIncluso ||
-          `Material incluso (até ${mat.metrosInclusos} m — ${mat.faixaLabel})`,
+        composto!.labelAjusteCapacidade
+          ? `${composto!.labelAjusteCapacidade} (${mat.faixaLabel})`
+          : `Ajuste por capacidade (${mat.faixaLabel})`,
+        mat.ajusteCapacidade
+      );
+      valorMaoDeObra += mat.ajusteCapacidade;
+    }
+
+    if (mat.cobraMaterial) {
+      if (mat.valorKit > 0) {
+        adicionarItem(
+          breakdown,
+          composto!.labelKitInicial
+            ? `${composto!.labelKitInicial} (${mat.faixaLabel})`
+            : `Kit/material inicial ABS (${mat.faixaLabel})`,
+          mat.valorKit
+        );
+        valorMaterial += mat.valorKit;
+      }
+      if (mat.metrosExtras > 0 && mat.valorExtras > 0) {
+        const label =
+          composto!.labelMetrosExtras ||
+          `Material adicional (${mat.metrosExtras} m × R$ ${mat.precoPorMetro.toFixed(2)} — ${mat.faixaLabel})`;
+        adicionarItem(breakdown, label, mat.valorExtras);
+        valorMaterial += mat.valorExtras;
+      } else if (mat.metrosRespondidos > 0 && mat.metrosInclusos > 0) {
+        adicionarItem(
+          breakdown,
+          composto!.labelMaterialIncluso ||
+            `Metros do kit inclusos (até ${mat.metrosInclusos} m — ${mat.faixaLabel})`,
+          0
+        );
+      }
+    } else if (mat.respondeuFornecimento) {
+      adicionarItem(
+        breakdown,
+        composto!.labelClienteFornece || 'Material do cliente (sem cobrança de kit/metros)',
         0
       );
     }
@@ -277,7 +311,11 @@ function calcularMaterialComposto(
   metrosExtras: number;
   precoPorMetro: number;
   valorExtras: number;
+  valorKit: number;
+  ajusteCapacidade: number;
   faixaLabel: string;
+  cobraMaterial: boolean;
+  respondeuFornecimento: boolean;
 } {
   const capacidadeId = resposta(respostas, composto.perguntaCapacidadeId);
   const metrosRaw = resposta(respostas, composto.perguntaMetrosId);
@@ -286,9 +324,10 @@ function calcularMaterialComposto(
     composto.faixas[0] ||
     null;
 
-  const metrosInclusos =
-    faixa?.metrosInclusos ?? composto.metrosInclusosPadrao ?? 0;
+  const metrosInclusos = faixa?.metrosInclusos ?? composto.metrosInclusosPadrao ?? 0;
   const precoPorMetro = faixa?.precoPorMetroExtra ?? 0;
+  const valorKit = Math.max(0, Number(faixa?.valorKitInicial) || 0);
+  const ajusteCapacidade = Math.max(0, Number(faixa?.ajusteCapacidade) || 0);
 
   let metrosRespondidos = 0;
   if (composto.metrosNumericos) {
@@ -296,7 +335,6 @@ function calcularMaterialComposto(
   } else if (metrosRaw && composto.mapaMetrosOpcao?.[metrosRaw] != null) {
     metrosRespondidos = composto.mapaMetrosOpcao[metrosRaw];
   } else if (metrosRaw) {
-    // fallback: tenta extrair número do id (ex.: 5m-7m → 5) ou label
     const fromMapaLegacy = parseQuantidadeOpcao(metrosRaw);
     metrosRespondidos = fromMapaLegacy ?? 0;
     const match = metrosRaw.match(/(\d+(?:[.,]\d+)?)\s*m/i);
@@ -310,8 +348,19 @@ function calcularMaterialComposto(
     capacidadeId ||
     'capacidade';
 
-  const metrosExtras = Math.max(0, metrosRespondidos - metrosInclusos);
-  const valorExtras = roundCurrency(metrosExtras * precoPorMetro);
+  const fornecimentoId = composto.perguntaFornecimentoId?.trim();
+  const respFornecimento = fornecimentoId ? resposta(respostas, fornecimentoId) : undefined;
+  const respondeuFornecimento = Boolean(respFornecimento);
+  const opcoesAbs = composto.opcoesAbsFornece?.length
+    ? composto.opcoesAbsFornece
+    : ['abs-fornece-kit', 'abs', 'abs-padrao', 'abs-premium'];
+  // Sem pergunta de fornecimento configurada → mantém cobrança de material (compat)
+  const cobraMaterial = !fornecimentoId
+    ? true
+    : Boolean(respFornecimento && opcoesAbs.includes(respFornecimento));
+
+  const metrosExtras = cobraMaterial ? Math.max(0, metrosRespondidos - metrosInclusos) : 0;
+  const valorExtras = cobraMaterial ? roundCurrency(metrosExtras * precoPorMetro) : 0;
 
   return {
     metrosRespondidos,
@@ -319,7 +368,11 @@ function calcularMaterialComposto(
     metrosExtras,
     precoPorMetro,
     valorExtras,
+    valorKit: cobraMaterial ? valorKit : 0,
+    ajusteCapacidade,
     faixaLabel,
+    cobraMaterial,
+    respondeuFornecimento,
   };
 }
 
