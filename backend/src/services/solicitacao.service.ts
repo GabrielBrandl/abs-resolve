@@ -214,7 +214,7 @@ export class SolicitacaoService {
   }
 
   calcularPrecoServico(slug: string, respostas: RespostasFluxo = {}, quantidade = 1) {
-    validarRespostasFluxo(slug, respostas);
+    // Orçamento na vitrine: não exige questionário completo (checkout ainda valida)
     return calcularPrecoFluxo(slug, respostas, quantidade);
   }
 

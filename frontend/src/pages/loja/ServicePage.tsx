@@ -255,15 +255,8 @@ export function ServicePage() {
     return modeloSel.variantes.find((v) => v.disponivelParaCompra) || modeloSel.variantes[0] || null;
   }, [modeloSel, skuSel]);
 
-  const materialOk = !precisaMaterial || Boolean(varianteSel?.disponivelParaCompra);
-
   const perguntasSemQty = visiveis.filter((p) => !isPerguntaQuantidade(p));
   const temPerguntaQty = visiveis.some(isPerguntaQuantidade);
-
-  const todasRespondidas =
-    (perguntasSemQty.length === 0 || perguntasSemQty.every((p) => Boolean(respostas[p.id]))) &&
-    (!temPerguntaQty || qty >= 1) &&
-    materialOk;
 
   // Mantém resposta de quantidade sincronizada com o stepper
   useEffect(() => {
@@ -271,13 +264,14 @@ export function ServicePage() {
     setRespostas((r) => (r.quantidade === String(qty) ? r : { ...r, quantidade: String(qty) }));
   }, [qty, temPerguntaQty]);
 
+  // Recalcula sempre que a quantidade (ou respostas) muda — o resumo precisa acompanhar
   useEffect(() => {
-    if (!slug || !todasRespondidas || (perguntasSemQty.length === 0 && !temPerguntaQty)) {
+    if (!slug) {
       setPrecoCalc(null);
       return;
     }
     let cancelled = false;
-    const respostasComQty = { ...respostas, ...(temPerguntaQty ? { quantidade: String(qty) } : {}) };
+    const respostasComQty = { ...respostas, ...(temPerguntaQty || qty > 1 ? { quantidade: String(qty) } : {}) };
     solicitacaoApi
       .calcularPreco({ slug, respostas: respostasComQty, quantidade: qty })
       .then((r) => {
@@ -289,15 +283,17 @@ export function ServicePage() {
     return () => {
       cancelled = true;
     };
-  }, [slug, respostas, qty, todasRespondidas, perguntasSemQty.length, temPerguntaQty]);
+  }, [slug, respostas, qty, temPerguntaQty]);
 
   const price = toMoneyNumber(servico?.precoMinimo);
+  // Fallback local: o total sobe com a qtd mesmo se a API atrasar/falhar
+  const laborLocal = totalComDescontoAPartirDaSegunda(price, qty, DESCONTO_SEGUNDA_UNIDADE_PERCENT);
   const valorServico = toMoneyNumber(
     precoCalc?.valorServico != null
       ? precoCalc.valorServico
-      : precoCalc
+      : precoCalc?.preco != null
         ? Math.max(0, toMoneyNumber(precoCalc.preco) - toMoneyNumber(precoCalc.valorPeca))
-        : price
+        : laborLocal.total
   );
   const valorPecaCatalogo = toMoneyNumber(
     precoCalc?.valorPeca != null
@@ -314,7 +310,6 @@ export function ServicePage() {
     (() => {
       const base =
         precoCalc?.preco != null ? toMoneyNumber(precoCalc.preco) : valorServico + valorPecaCatalogo;
-      // Materiais (torneira/chuveiro) não entram no cálculo do fluxo — somar à parte (com desconto 2ª+)
       const materialExtra =
         precoCalc?.preco != null &&
         precisaMaterial &&
@@ -333,6 +328,7 @@ export function ServicePage() {
     (() => {
       const api = toMoneyNumber(precoCalc?.descontoQuantidade);
       if (api > 0) return api;
+      if (precoCalc?.valorServico == null && qty > 1) return laborLocal.economia;
       if (precisaMaterial && varianteSel?.disponivelParaCompra && qty > 1) {
         return totalComDescontoAPartirDaSegunda(
           toMoneyNumber(varianteSel.preco),
@@ -530,10 +526,17 @@ export function ServicePage() {
           <h1 className="mt-1 text-[28px] font-black leading-tight text-[#111827]">{servico.nome}</h1>
           <Stars value={4.9} count={186} />
           <div className="mt-4 rounded-[10px] border border-[#e6e8ee] bg-[#f8fafc] p-4">
-            <p className="text-xs text-slate-500">A partir de</p>
+            <p className="text-xs text-slate-500">
+              {qty > 1 ? `Total mão de obra · ${qty} un.` : 'A partir de'}
+            </p>
             <p className="text-[32px] font-black text-[#002d62]">
               {money(valorServico || servico.precoMinimo || 0)}
             </p>
+            {qty > 1 && descontoQtd > 0 && (
+              <p className="mt-1 text-xs font-semibold text-emerald-700">
+                Sem desconto seria {money(valorServico + descontoQtd)} (−{money(descontoQtd)})
+              </p>
+            )}
             <p className="mt-1 text-xs text-slate-500">Mão de obra (peças à parte, se escolher ABS)</p>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">{servico.descricao}</p>
@@ -810,8 +813,15 @@ export function ServicePage() {
               )}
             </div>
 
-            <p className="mt-3 text-[13px] font-semibold text-slate-500">Total</p>
+            <p className="mt-3 text-[13px] font-semibold text-slate-500">
+              Total{qty > 1 ? ` · ${qty} unidades` : ''}
+            </p>
             <p className="text-[30px] font-black text-[#002d62]">{money(total)}</p>
+            {qty > 1 && (
+              <p className="mt-1 text-xs text-slate-500">
+                O valor sobe com a quantidade (com desconto a partir da 2ª unidade).
+              </p>
+            )}
             {erroPerguntas && (
               <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{erroPerguntas}</p>
             )}
