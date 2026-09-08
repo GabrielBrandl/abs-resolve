@@ -562,6 +562,8 @@ model FluxoServicoConfig {
   modoPreco                      String   @default("padrao") @map("modo_preco")
   precoBase                      Decimal? @map("preco_base") @db.Decimal(12, 2)
   itensPreco                     Json     @default("[]") @map("itens_preco")
+  /** Preço composto: capacidade × metragem (JSON). Só aplica se ativo=true. */
+  precoComposto                  Json     @default("{}") @map("preco_composto")
   perguntaQuantidadeId          String?  @map("pergunta_quantidade_id")
   multiplicarBasePorQuantidade   Boolean  @default(true) @map("multiplicar_base_por_quantidade")
   updatedAt         DateTime @updatedAt @map("updated_at")

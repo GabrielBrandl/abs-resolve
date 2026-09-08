@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fluxoAdminApi } from '../../services/modules.service';
-import type { FluxoConfigAdmin, FluxoPerguntaConfig } from '../../types';
+import type { FluxoConfigAdmin, FluxoPerguntaConfig, PrecoCompostoConfig } from '../../types';
 import { PageHeader, Loading, Card, Button } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 
@@ -13,6 +13,38 @@ function novaPergunta(): FluxoPerguntaConfig {
       { id: 'opcao-1', label: 'Opção 1' },
       { id: 'opcao-2', label: 'Opção 2' },
     ],
+  };
+}
+
+function precoCompostoVazio(): PrecoCompostoConfig {
+  return {
+    ativo: false,
+    perguntaCapacidadeId: '',
+    perguntaMetrosId: '',
+    mapaMetrosOpcao: {},
+    metrosInclusosPadrao: 3,
+    faixas: [],
+  };
+}
+
+function sincronizarFaixas(
+  config: FluxoConfigAdmin,
+  composto: PrecoCompostoConfig
+): PrecoCompostoConfig {
+  const pergunta = config.perguntas.find((p) => p.id === composto.perguntaCapacidadeId);
+  if (!pergunta) return composto;
+  const prev = new Map(composto.faixas.map((f) => [f.opcaoId, f]));
+  return {
+    ...composto,
+    faixas: pergunta.opcoes.map((op) => {
+      const existente = prev.get(op.id);
+      return {
+        opcaoId: op.id,
+        label: op.label,
+        metrosInclusos: existente?.metrosInclusos ?? composto.metrosInclusosPadrao ?? 3,
+        precoPorMetroExtra: existente?.precoPorMetroExtra ?? 0,
+      };
+    }),
   };
 }
 
@@ -52,6 +84,7 @@ export function QuestionariosAdminPage() {
         modoPreco: config.modoPreco,
         precoBase: config.precoBase,
         itensPreco: config.itensPreco,
+        precoComposto: config.precoComposto,
         perguntaQuantidadeId: config.perguntaQuantidadeId,
         multiplicarBasePorQuantidade: config.multiplicarBasePorQuantidade,
       });
@@ -219,6 +252,239 @@ export function QuestionariosAdminPage() {
                 </div>
               )}
 
+              <div className="mb-6 rounded-xl border border-[#c7d7ef] bg-[#f4f8ff] p-4">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={Boolean(config.precoComposto?.ativo)}
+                    onChange={(e) => {
+                      const base = config.precoComposto || precoCompostoVazio();
+                      let next: PrecoCompostoConfig = {
+                        ...base,
+                        ativo: e.target.checked,
+                        perguntaCapacidadeId: base.perguntaCapacidadeId || 'capacidadeBtu',
+                        perguntaMetrosId: base.perguntaMetrosId || 'distanciaEvapCond',
+                        metrosInclusosPadrao: base.metrosInclusosPadrao ?? 3,
+                        mapaMetrosOpcao: base.mapaMetrosOpcao || {
+                          'ate-3m': 3,
+                          '3m-5m': 5,
+                          '5m-7m': 7,
+                          'acima-7m': 8,
+                          'nao-sei': 3,
+                        },
+                      };
+                      if (e.target.checked) {
+                        next = sincronizarFaixas(config, next);
+                        setConfig({
+                          ...config,
+                          modoPreco: 'personalizado',
+                          multiplicarBasePorQuantidade: false,
+                          precoComposto: next,
+                        });
+                      } else {
+                        setConfig({ ...config, precoComposto: next });
+                      }
+                    }}
+                  />
+                  <span>
+                    <span className="block font-bold text-[#002d62]">
+                      Preço composto (capacidade × metragem)
+                    </span>
+                    <span className="text-xs text-slate-600">
+                      Use quando o valor do material depende de duas respostas (ex.: BTUs + metros).
+                      Metros inclusos no preço-base; metros extras cobrados conforme a faixa de capacidade.
+                    </span>
+                  </span>
+                </label>
+
+                {config.precoComposto?.ativo && (
+                  <div className="mt-4 space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-medium text-slate-700">Pergunta da capacidade</span>
+                        <select
+                          className="w-full rounded-lg border border-abs-gray px-3 py-2 bg-white"
+                          value={config.precoComposto.perguntaCapacidadeId}
+                          onChange={(e) => {
+                            const next = sincronizarFaixas(config, {
+                              ...config.precoComposto!,
+                              perguntaCapacidadeId: e.target.value,
+                            });
+                            setConfig({ ...config, precoComposto: next });
+                          }}
+                        >
+                          {config.perguntas.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.titulo}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-medium text-slate-700">Pergunta da metragem</span>
+                        <select
+                          className="w-full rounded-lg border border-abs-gray px-3 py-2 bg-white"
+                          value={config.precoComposto.perguntaMetrosId}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              precoComposto: { ...config.precoComposto!, perguntaMetrosId: e.target.value },
+                            })
+                          }
+                        >
+                          {config.perguntas.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.titulo}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="block max-w-xs text-sm">
+                      <span className="mb-1 block font-medium text-slate-700">Metros inclusos (padrão)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        className="w-full rounded-lg border border-abs-gray px-3 py-2 bg-white"
+                        value={config.precoComposto.metrosInclusosPadrao ?? 3}
+                        onChange={(e) => {
+                          const v = Number(e.target.value) || 0;
+                          setConfig({
+                            ...config,
+                            precoComposto: {
+                              ...config.precoComposto!,
+                              metrosInclusosPadrao: v,
+                              faixas: config.precoComposto!.faixas.map((f) => ({
+                                ...f,
+                                metrosInclusos: f.metrosInclusos || v,
+                              })),
+                            },
+                          });
+                        }}
+                      />
+                    </label>
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-[#002d62]">Valor do metro adicional por capacidade</p>
+                        <Button
+                          className="text-xs"
+                          onClick={() =>
+                            setConfig({
+                              ...config,
+                              precoComposto: sincronizarFaixas(config, config.precoComposto!),
+                            })
+                          }
+                        >
+                          Sync opções
+                        </Button>
+                      </div>
+                      <div className="overflow-x-auto rounded-lg border border-abs-gray bg-white">
+                        <table className="min-w-full text-left text-sm">
+                          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2">Capacidade</th>
+                              <th className="px-3 py-2">Metros inclusos</th>
+                              <th className="px-3 py-2">R$ / metro extra</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(config.precoComposto.faixas || []).map((faixa, idx) => (
+                              <tr key={faixa.opcaoId} className="border-t border-slate-100">
+                                <td className="px-3 py-2 font-medium text-slate-800">
+                                  {faixa.label || faixa.opcaoId}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step={0.5}
+                                    className="w-24 rounded border border-abs-gray px-2 py-1"
+                                    value={faixa.metrosInclusos}
+                                    onChange={(e) => {
+                                      const faixas = [...config.precoComposto!.faixas];
+                                      faixas[idx] = {
+                                        ...faixa,
+                                        metrosInclusos: Number(e.target.value) || 0,
+                                      };
+                                      setConfig({
+                                        ...config,
+                                        precoComposto: { ...config.precoComposto!, faixas },
+                                      });
+                                    }}
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    className="w-28 rounded border border-abs-gray px-2 py-1"
+                                    value={faixa.precoPorMetroExtra}
+                                    onChange={(e) => {
+                                      const faixas = [...config.precoComposto!.faixas];
+                                      faixas[idx] = {
+                                        ...faixa,
+                                        precoPorMetroExtra: Number(e.target.value) || 0,
+                                      };
+                                      setConfig({
+                                        ...config,
+                                        precoComposto: { ...config.precoComposto!, faixas },
+                                      });
+                                    }}
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                            {!config.precoComposto.faixas?.length && (
+                              <tr>
+                                <td colSpan={3} className="px-3 py-3 text-slate-500">
+                                  Selecione a pergunta de capacidade e clique em Sync opções.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-sm font-bold text-[#002d62]">Mapa das opções de metragem → metros</p>
+                      <p className="mb-2 text-xs text-slate-500">
+                        Cada opção da pergunta de metragem precisa corresponder a um número de metros (ex.: “3m a 5m” → 5).
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {(
+                          config.perguntas.find((p) => p.id === config.precoComposto?.perguntaMetrosId)?.opcoes || []
+                        ).map((op) => (
+                          <label key={op.id} className="flex items-center gap-2 text-sm">
+                            <span className="min-w-0 flex-1 truncate text-slate-700">{op.label}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.5}
+                              className="w-20 rounded border border-abs-gray px-2 py-1"
+                              value={config.precoComposto?.mapaMetrosOpcao?.[op.id] ?? ''}
+                              onChange={(e) => {
+                                const mapa = { ...(config.precoComposto?.mapaMetrosOpcao || {}) };
+                                mapa[op.id] = Number(e.target.value) || 0;
+                                setConfig({
+                                  ...config,
+                                  precoComposto: { ...config.precoComposto!, mapaMetrosOpcao: mapa },
+                                });
+                              }}
+                            />
+                            <span className="text-xs text-slate-400">m</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               <label className="mb-6 block text-sm">
                 <span className="mb-1 block font-medium text-slate-700">Fotos sugeridas (uma por linha)</span>
                 <textarea

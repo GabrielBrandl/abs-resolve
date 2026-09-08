@@ -1,7 +1,7 @@
 import { SERVICOS_CATALOGO } from './catalogo-servicos.js';
 import { findPeca } from './pecas-catalogo.js';
 import { type FluxoServico, type RespostasFluxo, type SlugFluxoServico } from './fluxo-servicos.js';
-import { fluxoConfigService, type ItemPrecoConfig } from '../services/fluxo-config.service.js';
+import { fluxoConfigService, type ItemPrecoConfig, type PrecoCompostoConfig } from '../services/fluxo-config.service.js';
 import {
   aplicarModoCobranca,
   quantidadeDasRespostas,
@@ -25,6 +25,10 @@ export interface ResultadoPrecoFluxo {
   valorServico?: number;
   /** Peças/material × quantidade */
   valorPeca?: number;
+  /** Material (tubulação etc.) no preço composto */
+  valorMaterial?: number;
+  /** Adicionais (opções / itens condicionais) */
+  valorAdicionais?: number;
   /** Economia vs cobrar mão de obra cheia × N */
   descontoQuantidade?: number;
   pecaSlug?: string;
@@ -173,6 +177,7 @@ function calcularPrecoPersonalizado(
   precoConfig: {
     precoBase: number | null;
     itensPreco: ItemPrecoConfig[];
+    precoComposto?: PrecoCompostoConfig;
     perguntaQuantidadeId?: string | null;
     multiplicarBasePorQuantidade?: boolean;
   },
@@ -185,12 +190,30 @@ function calcularPrecoPersonalizado(
   const qtd = quantidadeDasRespostas(respostas, qtdPerguntaId, quantidade);
   const base = precoConfig.precoBase ?? PRECO_MINIMO_POR_SLUG[slug] ?? 0;
   const multiplicarBase = precoConfig.multiplicarBasePorQuantidade !== false;
+  const composto = precoConfig.precoComposto;
+  const usaComposto = Boolean(composto?.ativo && composto.perguntaCapacidadeId && composto.perguntaMetrosId);
+
+  let valorMaoDeObra = 0;
+  let valorMaterial = 0;
+  let valorAdicionais = 0;
+
   const valorBase = multiplicarBase ? base * qtd : base;
+  if (valorBase > 0) {
+    const labelBase = usaComposto
+      ? composto!.labelMaoDeObra || 'Mão de obra'
+      : multiplicarBase
+        ? `Preço base (${qtd} un.)`
+        : 'Preço base';
+    adicionarItem(breakdown, labelBase, valorBase);
+    valorMaoDeObra += valorBase;
+  }
 
-  adicionarItem(breakdown, multiplicarBase ? `Preço base (${qtd} un.)` : 'Preço base', valorBase);
-
+  // Opções com preço adicional = adicionais (não misturar com material composto)
   for (const pergunta of fluxo.perguntas) {
     if (pergunta.id === qtdPerguntaId) continue;
+    if (usaComposto && (pergunta.id === composto!.perguntaCapacidadeId || pergunta.id === composto!.perguntaMetrosId)) {
+      continue; // preço vem da tabela composta
+    }
     const resp = resposta(respostas, pergunta.id);
     if (!resp) continue;
     const op = pergunta.opcoes.find((o) => o.id === resp) as
@@ -199,7 +222,28 @@ function calcularPrecoPersonalizado(
     const extra = Number(op?.precoAdicional) || 0;
     if (!op || !extra) continue;
     const modo: ModoCobranca = op.modoCobranca === 'fixo' ? 'fixo' : 'por_unidade';
-    adicionarItem(breakdown, op.label, aplicarModoCobranca(extra, modo, qtd));
+    const valor = aplicarModoCobranca(extra, modo, qtd);
+    adicionarItem(breakdown, op.label, valor);
+    valorAdicionais += valor;
+  }
+
+  if (usaComposto) {
+    const mat = calcularMaterialComposto(composto!, respostas, fluxo);
+    if (mat.metrosExtras > 0 && mat.valorExtras > 0) {
+      const label =
+        composto!.labelMetrosExtras ||
+        `Material adicional (${mat.metrosExtras} m × R$ ${mat.precoPorMetro.toFixed(2)} — ${mat.faixaLabel})`;
+      adicionarItem(breakdown, label, mat.valorExtras);
+      valorMaterial += mat.valorExtras;
+    } else if (mat.metrosRespondidos > 0) {
+      // Transparência: metros dentro do incluso não cobram material extra
+      adicionarItem(
+        breakdown,
+        composto!.labelMaterialIncluso ||
+          `Material incluso (até ${mat.metrosInclusos} m — ${mat.faixaLabel})`,
+        0
+      );
+    }
   }
 
   for (const item of precoConfig.itensPreco) {
@@ -208,10 +252,75 @@ function calcularPrecoPersonalizado(
       if (!match) continue;
     }
     const modo: ModoCobranca = item.modoCobranca === 'fixo' ? 'fixo' : 'por_unidade';
-    adicionarItem(breakdown, item.label, aplicarModoCobranca(item.valor, modo, qtd));
+    const valor = aplicarModoCobranca(item.valor, modo, qtd);
+    adicionarItem(breakdown, item.label, valor);
+    valorAdicionais += valor;
   }
 
-  return finalizarResultado(breakdown, mensagens);
+  return finalizarResultado(breakdown, mensagens, {
+    valorServico: valorMaoDeObra,
+    valorMaterial: valorMaterial > 0 ? valorMaterial : undefined,
+    valorAdicionais: valorAdicionais > 0 ? valorAdicionais : undefined,
+    // valorPeca mantém compatível com UI que já mostra peça/material
+    valorPeca: valorMaterial > 0 ? valorMaterial : undefined,
+    quantidade: qtd,
+  });
+}
+
+function calcularMaterialComposto(
+  composto: PrecoCompostoConfig,
+  respostas: RespostasFluxo,
+  fluxo: FluxoServico
+): {
+  metrosRespondidos: number;
+  metrosInclusos: number;
+  metrosExtras: number;
+  precoPorMetro: number;
+  valorExtras: number;
+  faixaLabel: string;
+} {
+  const capacidadeId = resposta(respostas, composto.perguntaCapacidadeId);
+  const metrosRaw = resposta(respostas, composto.perguntaMetrosId);
+  const faixa =
+    composto.faixas.find((f) => f.opcaoId === capacidadeId) ||
+    composto.faixas[0] ||
+    null;
+
+  const metrosInclusos =
+    faixa?.metrosInclusos ?? composto.metrosInclusosPadrao ?? 0;
+  const precoPorMetro = faixa?.precoPorMetroExtra ?? 0;
+
+  let metrosRespondidos = 0;
+  if (composto.metrosNumericos) {
+    metrosRespondidos = Math.max(0, numero(respostas, composto.perguntaMetrosId) ?? 0);
+  } else if (metrosRaw && composto.mapaMetrosOpcao?.[metrosRaw] != null) {
+    metrosRespondidos = composto.mapaMetrosOpcao[metrosRaw];
+  } else if (metrosRaw) {
+    // fallback: tenta extrair número do id (ex.: 5m-7m → 5) ou label
+    const fromMapaLegacy = parseQuantidadeOpcao(metrosRaw);
+    metrosRespondidos = fromMapaLegacy ?? 0;
+    const match = metrosRaw.match(/(\d+(?:[.,]\d+)?)\s*m/i);
+    if (match) metrosRespondidos = Number(match[1].replace(',', '.'));
+  }
+
+  const perguntaCap = fluxo.perguntas.find((p) => p.id === composto.perguntaCapacidadeId);
+  const faixaLabel =
+    faixa?.label ||
+    perguntaCap?.opcoes.find((o) => o.id === capacidadeId)?.label ||
+    capacidadeId ||
+    'capacidade';
+
+  const metrosExtras = Math.max(0, metrosRespondidos - metrosInclusos);
+  const valorExtras = roundCurrency(metrosExtras * precoPorMetro);
+
+  return {
+    metrosRespondidos,
+    metrosInclusos,
+    metrosExtras,
+    precoPorMetro,
+    valorExtras,
+    faixaLabel,
+  };
 }
 
 function minimoCatalogo(slug: SlugFluxoServico): number {
@@ -224,6 +333,8 @@ function finalizarResultado(
   extra?: {
     valorServico?: number;
     valorPeca?: number;
+    valorMaterial?: number;
+    valorAdicionais?: number;
     descontoQuantidade?: number;
     pecaSlug?: string;
     pecaNome?: string;
@@ -239,6 +350,8 @@ function finalizarResultado(
     ...(mensagemValidacao ? { mensagemValidacao } : {}),
     ...(extra?.valorServico != null ? { valorServico: roundCurrency(extra.valorServico) } : {}),
     ...(extra?.valorPeca != null ? { valorPeca: roundCurrency(extra.valorPeca) } : {}),
+    ...(extra?.valorMaterial != null ? { valorMaterial: roundCurrency(extra.valorMaterial) } : {}),
+    ...(extra?.valorAdicionais != null ? { valorAdicionais: roundCurrency(extra.valorAdicionais) } : {}),
     ...(extra?.descontoQuantidade != null && extra.descontoQuantidade > 0
       ? { descontoQuantidade: roundCurrency(extra.descontoQuantidade) }
       : {}),
@@ -289,8 +402,11 @@ export function calcularPrecoFluxo(
   const fluxo = fluxoConfigService.getFluxoEfetivo(slug);
   const precoConfig = fluxoConfigService.getPrecoConfig(slug);
 
-  if (fluxo && precoConfig?.modoPreco === 'personalizado') {
-    return calcularPrecoPersonalizado(slug, fluxo, precoConfig, respostas, quantidade);
+  if (
+    fluxo &&
+    (precoConfig?.modoPreco === 'personalizado' || precoConfig?.precoComposto?.ativo)
+  ) {
+    return calcularPrecoPersonalizado(slug, fluxo, precoConfig!, respostas, quantidade);
   }
 
   const breakdown: PrecoFluxoBreakdownItem[] = [];

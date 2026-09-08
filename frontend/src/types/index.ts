@@ -488,6 +488,26 @@ export interface ItemPrecoConfig {
   modoCobranca?: 'fixo' | 'por_unidade';
 }
 
+export interface FaixaPrecoComposto {
+  opcaoId: string;
+  label?: string;
+  metrosInclusos: number;
+  precoPorMetroExtra: number;
+}
+
+export interface PrecoCompostoConfig {
+  ativo: boolean;
+  perguntaCapacidadeId: string;
+  perguntaMetrosId: string;
+  mapaMetrosOpcao?: Record<string, number>;
+  metrosNumericos?: boolean;
+  metrosInclusosPadrao?: number;
+  labelMaoDeObra?: string;
+  labelMaterialIncluso?: string;
+  labelMetrosExtras?: string;
+  faixas: FaixaPrecoComposto[];
+}
+
 export interface FluxoConfigAdmin {
   slug: string;
   nome: string;
@@ -497,6 +517,7 @@ export interface FluxoConfigAdmin {
   modoPreco: 'padrao' | 'personalizado';
   precoBase: number | null;
   itensPreco: ItemPrecoConfig[];
+  precoComposto?: PrecoCompostoConfig;
   perguntaQuantidadeId: string | null;
   multiplicarBasePorQuantidade: boolean;
 }

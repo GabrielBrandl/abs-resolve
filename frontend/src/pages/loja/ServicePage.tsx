@@ -66,6 +66,8 @@ type PrecoCalc = {
   breakdown: Array<{ label: string; valor: number }>;
   valorServico?: number;
   valorPeca?: number;
+  valorMaterial?: number;
+  valorAdicionais?: number;
   descontoQuantidade?: number;
   pecaSlug?: string;
   pecaNome?: string;
@@ -823,14 +825,30 @@ export function ServicePage() {
               {valorPecaCatalogo > 0 && (
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-600">
-                    Peça / material (ABS)
-                    <span className="block text-xs text-slate-400">
-                      {precoCalc?.pecaNome ||
+                    {precoCalc?.valorMaterial
+                      ? 'Material (capacidade × metragem)'
+                      : precoCalc?.pecaNome ||
                         (modeloSel && varianteSel
                           ? `${modeloSel.nome} — ${varianteSel.labelCor}`
                           : materiaisCfg?.labelProduto || 'Fornecido pela empresa')}
-                      {qty > 1 ? ` · ${qty} un.` : ''}
-                    </span>
+                    {!precoCalc?.valorMaterial && (
+                      <span className="block text-xs text-slate-400">
+                        {precoCalc?.pecaNome
+                          ? qty > 1
+                            ? ` · ${qty} un.`
+                            : ''
+                          : modeloSel && varianteSel
+                            ? `${modeloSel.nome} — ${varianteSel.labelCor}${qty > 1 ? ` · ${qty} un.` : ''}`
+                            : qty > 1
+                              ? ` · ${qty} un.`
+                              : 'Peça / material (ABS)'}
+                      </span>
+                    )}
+                    {precoCalc?.valorMaterial && (
+                      <span className="block text-xs text-slate-400">
+                        Conforme BTUs e metros respondidos
+                      </span>
+                    )}
                   </span>
                   <span className="text-right font-bold text-[#111827]">{money(valorPecaCatalogo)}</span>
                 </div>

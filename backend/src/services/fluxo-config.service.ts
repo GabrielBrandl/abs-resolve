@@ -6,7 +6,15 @@ import {
   type FluxoServico,
   type RegraValidacaoFluxo,
 } from '../config/fluxo-servicos.js';
+import {
+  defaultPrecoCompostoArSplit,
+  normalizarPrecoComposto,
+  PRECO_COMPOSTO_VAZIO,
+  type PrecoCompostoConfig,
+} from '../config/preco-composto.js';
 import { prisma } from '../utils/prisma.js';
+
+export type { PrecoCompostoConfig, FaixaPrecoComposto } from '../config/preco-composto.js';
 
 export interface FluxoPerguntaOpcaoConfig {
   id: string;
@@ -40,6 +48,7 @@ export interface FluxoConfigAdmin {
   modoPreco: 'padrao' | 'personalizado';
   precoBase: number | null;
   itensPreco: ItemPrecoConfig[];
+  precoComposto: PrecoCompostoConfig;
   perguntaQuantidadeId: string | null;
   multiplicarBasePorQuantidade: boolean;
 }
@@ -48,6 +57,7 @@ export interface PrecoConfigCache {
   modoPreco: string;
   precoBase: number | null;
   itensPreco: ItemPrecoConfig[];
+  precoComposto: PrecoCompostoConfig;
   perguntaQuantidadeId: string | null;
   multiplicarBasePorQuantidade: boolean;
 }
@@ -125,6 +135,8 @@ export class FluxoConfigService {
   async seedDefaults() {
     for (const slug of SLUGS_FLUXO_SERVICO) {
       const fluxo = FLUXOS_SERVICO[slug];
+      const precoComposto =
+        slug === 'instalacao-ar-split' ? defaultPrecoCompostoArSplit() : PRECO_COMPOSTO_VAZIO;
       await prisma.fluxoServicoConfig.upsert({
         where: { slug },
         update: {},
@@ -133,8 +145,29 @@ export class FluxoConfigService {
           perguntas: toJson(fluxo.perguntas),
           fotosObrigatorias: fluxo.fotosObrigatorias,
           regrasValidacao: toJson(fluxo.regrasValidacao),
-          modoPreco: 'padrao',
-          itensPreco: [],
+          modoPreco: slug === 'instalacao-ar-split' ? 'personalizado' : 'padrao',
+          precoBase: slug === 'instalacao-ar-split' ? 699 : null,
+          multiplicarBasePorQuantidade: slug !== 'instalacao-ar-split',
+          itensPreco:
+            slug === 'instalacao-ar-split'
+              ? toJson([
+                  {
+                    id: 'ponto-eletrico',
+                    label: 'Instalação de ponto elétrico exclusivo',
+                    valor: 250,
+                    when: { pontoEletricoExclusivo: ['nao'] },
+                    modoCobranca: 'fixo',
+                  },
+                  {
+                    id: 'suporte-parede',
+                    label: 'Suporte de parede para condensadora',
+                    valor: 80,
+                    when: { localCondensadora: ['suporte-parede'] },
+                    modoCobranca: 'fixo',
+                  },
+                ])
+              : [],
+          precoComposto: toJson(precoComposto),
         },
       });
     }
@@ -150,6 +183,7 @@ export class FluxoConfigService {
         modoPreco: row.modoPreco,
         precoBase: row.precoBase != null ? Number(row.precoBase) : null,
         itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
+        precoComposto: normalizarPrecoComposto(row.precoComposto),
         perguntaQuantidadeId: row.perguntaQuantidadeId,
         multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
       });
@@ -167,6 +201,7 @@ export class FluxoConfigService {
         fotosObrigatorias: [],
         regrasValidacao: [],
         itensPreco: [],
+        precoComposto: toJson(PRECO_COMPOSTO_VAZIO),
       },
       create: {
         slug,
@@ -176,6 +211,7 @@ export class FluxoConfigService {
         fotosObrigatorias: [],
         regrasValidacao: [],
         itensPreco: [],
+        precoComposto: toJson(PRECO_COMPOSTO_VAZIO),
       },
     });
     await this.reloadCache();
@@ -213,6 +249,7 @@ export class FluxoConfigService {
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
       itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco),
+      precoComposto: normalizarPrecoComposto(row.precoComposto),
       perguntaQuantidadeId: row.perguntaQuantidadeId,
       multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     };
@@ -232,6 +269,7 @@ export class FluxoConfigService {
       modoPreco?: 'padrao' | 'personalizado';
       precoBase?: number | null;
       itensPreco?: ItemPrecoConfig[];
+      precoComposto?: PrecoCompostoConfig;
       perguntaQuantidadeId?: string | null;
       multiplicarBasePorQuantidade?: boolean;
     }
@@ -242,6 +280,9 @@ export class FluxoConfigService {
     if (!existe) throw new Error('Serviço não encontrado no catálogo');
     validarPerguntas(data.perguntas);
 
+    const composto =
+      data.precoComposto !== undefined ? normalizarPrecoComposto(data.precoComposto) : undefined;
+
     const row = await prisma.fluxoServicoConfig.upsert({
       where: { slug },
       update: {
@@ -251,6 +292,7 @@ export class FluxoConfigService {
         ...(data.modoPreco !== undefined && { modoPreco: data.modoPreco }),
         ...(data.precoBase !== undefined && { precoBase: data.precoBase }),
         ...(data.itensPreco !== undefined && { itensPreco: toJson(data.itensPreco) }),
+        ...(composto !== undefined && { precoComposto: toJson(composto) }),
         ...(data.perguntaQuantidadeId !== undefined && { perguntaQuantidadeId: data.perguntaQuantidadeId }),
         ...(data.multiplicarBasePorQuantidade !== undefined && {
           multiplicarBasePorQuantidade: data.multiplicarBasePorQuantidade,
@@ -264,6 +306,7 @@ export class FluxoConfigService {
         modoPreco: data.modoPreco ?? 'padrao',
         precoBase: data.precoBase ?? null,
         itensPreco: toJson(data.itensPreco ?? []),
+        precoComposto: toJson(composto ?? PRECO_COMPOSTO_VAZIO),
         perguntaQuantidadeId: data.perguntaQuantidadeId ?? 'quantidade',
         multiplicarBasePorQuantidade: data.multiplicarBasePorQuantidade ?? true,
       },
@@ -277,27 +320,49 @@ export class FluxoConfigService {
     const fluxo = getFluxo(slug);
     if (!fluxo) throw new Error('Serviço sem questionário padrão');
 
+    const composto = slug === 'instalacao-ar-split' ? defaultPrecoCompostoArSplit() : PRECO_COMPOSTO_VAZIO;
     const row = await prisma.fluxoServicoConfig.upsert({
       where: { slug },
       update: {
         perguntas: toJson(fluxo.perguntas),
         fotosObrigatorias: fluxo.fotosObrigatorias,
         regrasValidacao: toJson(fluxo.regrasValidacao),
-        modoPreco: 'padrao',
-        precoBase: null,
-        itensPreco: [],
+        modoPreco: slug === 'instalacao-ar-split' ? 'personalizado' : 'padrao',
+        precoBase: slug === 'instalacao-ar-split' ? 699 : null,
+        multiplicarBasePorQuantidade: slug !== 'instalacao-ar-split',
+        itensPreco:
+          slug === 'instalacao-ar-split'
+            ? toJson([
+                {
+                  id: 'ponto-eletrico',
+                  label: 'Instalação de ponto elétrico exclusivo',
+                  valor: 250,
+                  when: { pontoEletricoExclusivo: ['nao'] },
+                  modoCobranca: 'fixo',
+                },
+                {
+                  id: 'suporte-parede',
+                  label: 'Suporte de parede para condensadora',
+                  valor: 80,
+                  when: { localCondensadora: ['suporte-parede'] },
+                  modoCobranca: 'fixo',
+                },
+              ])
+            : [],
+        precoComposto: toJson(composto),
         perguntaQuantidadeId: 'quantidade',
-        multiplicarBasePorQuantidade: true,
       },
       create: {
         slug,
         perguntas: toJson(fluxo.perguntas),
         fotosObrigatorias: fluxo.fotosObrigatorias,
         regrasValidacao: toJson(fluxo.regrasValidacao),
-        modoPreco: 'padrao',
+        modoPreco: slug === 'instalacao-ar-split' ? 'personalizado' : 'padrao',
+        precoBase: slug === 'instalacao-ar-split' ? 699 : null,
+        multiplicarBasePorQuantidade: slug !== 'instalacao-ar-split',
         itensPreco: [],
+        precoComposto: toJson(composto),
         perguntaQuantidadeId: 'quantidade',
-        multiplicarBasePorQuantidade: true,
       },
     });
 
@@ -313,6 +378,7 @@ export class FluxoConfigService {
     modoPreco: string;
     precoBase: Prisma.Decimal | null;
     itensPreco: unknown;
+    precoComposto?: unknown;
     perguntaQuantidadeId: string | null;
     multiplicarBasePorQuantidade: boolean;
   }): FluxoConfigAdmin {
@@ -326,6 +392,7 @@ export class FluxoConfigService {
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
       itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
+      precoComposto: normalizarPrecoComposto(row.precoComposto),
       perguntaQuantidadeId: row.perguntaQuantidadeId,
       multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     };
