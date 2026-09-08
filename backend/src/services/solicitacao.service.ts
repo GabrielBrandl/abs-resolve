@@ -13,7 +13,7 @@ import { type FluxoServico, type RespostasFluxo } from '../config/fluxo-servicos
 import { fluxoConfigService } from './fluxo-config.service.js';
 import { calcularPrecoFluxo } from '../config/tabela-precos-fluxo.js';
 import { isMaterialSku } from '../config/materiais-catalogo.js';
-import { parseQuantidadeOpcao, totalComDescontoAPartirDaSegunda, descontoAPartirDaSegundaPercent } from '../utils/preco-quantidade.js';
+import { parseQuantidadeOpcao, quantidadeDasRespostas, resolverPerguntaQuantidadeId, totalComDescontoAPartirDaSegunda, descontoAPartirDaSegundaPercent } from '../utils/preco-quantidade.js';
 import { estoqueService } from './estoque.service.js';
 import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from '../engines/pricing.engine.js';
 import {
@@ -223,7 +223,8 @@ export class SolicitacaoService {
     }
   }
 
-  obterFluxoServico(slug: string) {
+  async obterFluxoServico(slug: string) {
+    await fluxoConfigService.refreshSlug(slug);
     const fluxo = fluxoConfigService.getFluxoEfetivo(slug);
     if (!fluxo) throw new Error(`Questionário não disponível para "${slug}"`);
     return fluxo;
@@ -236,6 +237,12 @@ export class SolicitacaoService {
   calcularPrecoServico(slug: string, respostas: RespostasFluxo = {}, quantidade = 1) {
     // Orçamento na vitrine: não exige questionário completo (checkout ainda valida)
     return calcularPrecoFluxo(slug, respostas, quantidade);
+  }
+
+  /** Garante cache do slug alinhado ao banco antes de precificar (admin → loja). */
+  async calcularPrecoServicoAtualizado(slug: string, respostas: RespostasFluxo = {}, quantidade = 1) {
+    await fluxoConfigService.refreshSlug(slug);
+    return this.calcularPrecoServico(slug, respostas, quantidade);
   }
 
   async criarCarrinho(
@@ -358,18 +365,26 @@ export class SolicitacaoService {
       const temRespostas = Boolean(item.respostas && Object.keys(item.respostas).length);
 
       if (fluxo && temRespostas) {
+        await fluxoConfigService.refreshSlug(item.slug);
         validarRespostasFluxo(item.slug, item.respostas!);
         // Quantidade do fluxo (ex.: 2 tomadas) vem das respostas; linha do carrinho de serviço fica 1×
-        const qtdRespostas = parseQuantidadeOpcao(
-          item.respostas!.quantidade == null ? undefined : String(item.respostas!.quantidade)
+        const fluxoAtual = fluxoConfigService.getFluxoEfetivo(item.slug) || fluxo;
+        const precoCfg = fluxoConfigService.getPrecoConfig(item.slug);
+        const qtdPerguntaId = resolverPerguntaQuantidadeId(
+          fluxoAtual.perguntas || [],
+          precoCfg?.perguntaQuantidadeId
         );
-        const qtdFluxo =
-          qtdRespostas && qtdRespostas > 0
-            ? qtdRespostas
-            : Math.max(1, Math.floor(item.quantidade) || 1);
+        const qtdFluxo = (() => {
+          const dasRespostas = quantidadeDasRespostas(item.respostas || {}, qtdPerguntaId);
+          // Linha de serviço no carrinho fica quantidade=1; a qtd real está nas respostas.
+          if (dasRespostas > 1) return dasRespostas;
+          const daLinha = Math.max(1, Math.floor(item.quantidade) || 1);
+          return daLinha > 1 ? daLinha : dasRespostas;
+        })();
         const calculo = calcularPrecoFluxo(item.slug, item.respostas!, qtdFluxo);
 
-        // Se peças ABS estão em linhas separadas no mesmo carrinho, cobra só a mão de obra no serviço
+        // Se peças ABS estão em linhas separadas no mesmo carrinho, cobra só o restante no serviço
+        // (mão de obra + adicionais + material composto) — nunca só valorServico antigo sem extras.
         const pecaSeparadaNoCarrinho = Boolean(
           calculo.pecaSlug &&
             calculo.valorPeca != null &&
@@ -377,8 +392,8 @@ export class SolicitacaoService {
             itens.some((i) => i.slug === calculo.pecaSlug)
         );
         subtotal =
-          pecaSeparadaNoCarrinho && calculo.valorServico != null
-            ? calculo.valorServico
+          pecaSeparadaNoCarrinho
+            ? Math.max(0, Math.round((calculo.preco - (calculo.valorPeca || 0)) * 100) / 100)
             : calculo.preco;
         precoUnit = subtotal;
         breakdown = calculo.breakdown;
@@ -403,7 +418,7 @@ export class SolicitacaoService {
           ...(item.fotos?.length ? { fotos: item.fotos } : {}),
           tipo: 'servico',
           imagemUrl: servico.imagemUrl,
-          valorServico: calculo.valorServico ?? subtotal,
+          valorServico: pecaSeparadaNoCarrinho ? subtotal : (calculo.valorServico ?? subtotal),
           ...(calculo.valorPeca != null && !pecaSeparadaNoCarrinho
             ? { valorPeca: calculo.valorPeca }
             : {}),

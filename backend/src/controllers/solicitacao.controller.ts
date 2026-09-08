@@ -23,7 +23,7 @@ export class SolicitacaoController {
   async fluxoServico(req: Request, res: Response) {
     try {
       const slug = typeof req.params.slug === 'string' ? req.params.slug : req.params.slug[0];
-      return success(res, solicitacaoService.obterFluxoServico(slug));
+      return success(res, await solicitacaoService.obterFluxoServico(slug));
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 404);
     }
@@ -49,7 +49,10 @@ export class SolicitacaoController {
         quantidade?: number;
       };
       if (!slug) return error(res, 'Slug obrigatório', 400);
-      return success(res, solicitacaoService.calcularPrecoServico(slug, respostas || {}, quantidade || 1));
+      return success(
+        res,
+        await solicitacaoService.calcularPrecoServicoAtualizado(slug, respostas || {}, quantidade || 1)
+      );
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
     }

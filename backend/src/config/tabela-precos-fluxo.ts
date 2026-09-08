@@ -191,7 +191,9 @@ function calcularPrecoPersonalizado(
   const base = precoConfig.precoBase ?? PRECO_MINIMO_POR_SLUG[slug] ?? 0;
   const multiplicarBase = precoConfig.multiplicarBasePorQuantidade !== false;
   const composto = precoConfig.precoComposto;
-  const usaComposto = Boolean(composto?.ativo && composto.perguntaCapacidadeId && composto.perguntaMetrosId);
+  // Capacidade basta para ativar o composto (ajuste de mão de obra por BTUs).
+  // Metros/fornecimento entram quando configurados — não podem desligar o ajuste.
+  const usaComposto = Boolean(composto?.ativo && composto.perguntaCapacidadeId);
 
   let valorMaoDeObra = 0;
   let valorMaterial = 0;
@@ -208,7 +210,7 @@ function calcularPrecoPersonalizado(
     valorMaoDeObra += valorBase;
   }
 
-  // Opções com preço adicional = adicionais (não misturar com material composto)
+  // Opções com preço adicional = adicionais (não misturar com material/capacidade compostos)
   for (const pergunta of fluxo.perguntas) {
     if (pergunta.id === qtdPerguntaId) continue;
     if (
@@ -235,12 +237,13 @@ function calcularPrecoPersonalizado(
   if (usaComposto) {
     const mat = calcularMaterialComposto(composto!, respostas, fluxo);
 
+    // Mão de obra = preço-base + ajuste da capacidade (sempre, mesmo se cliente fornece material)
     if (mat.ajusteCapacidade > 0) {
       adicionarItem(
         breakdown,
         composto!.labelAjusteCapacidade
           ? `${composto!.labelAjusteCapacidade} (${mat.faixaLabel})`
-          : `Ajuste por capacidade (${mat.faixaLabel})`,
+          : `Ajuste mão de obra (${mat.faixaLabel})`,
         mat.ajusteCapacidade
       );
       valorMaoDeObra += mat.ajusteCapacidade;
@@ -258,9 +261,9 @@ function calcularPrecoPersonalizado(
         valorMaterial += mat.valorKit;
       }
       if (mat.metrosExtras > 0 && mat.valorExtras > 0) {
-        const label =
-          composto!.labelMetrosExtras ||
-          `Material adicional (${mat.metrosExtras} m × R$ ${mat.precoPorMetro.toFixed(2)} — ${mat.faixaLabel})`;
+        const labelMetros =
+          composto!.labelMetrosExtras || 'Metros adicionais de material';
+        const label = `${labelMetros} (${mat.metrosExtras} m × R$ ${mat.precoPorMetro.toFixed(2)} — ${mat.faixaLabel})`;
         adicionarItem(breakdown, label, mat.valorExtras);
         valorMaterial += mat.valorExtras;
       } else if (mat.metrosRespondidos > 0 && mat.metrosInclusos > 0) {
@@ -291,14 +294,62 @@ function calcularPrecoPersonalizado(
     valorAdicionais += valor;
   }
 
+  // valorServico = tudo que NÃO é peça/material separado (mão de obra + adicionais).
+  // Assim carrinho/checkout não perdem precoAdicional / itensPreco ao usar valorServico.
   return finalizarResultado(breakdown, mensagens, {
-    valorServico: valorMaoDeObra,
+    valorServico: valorMaoDeObra + valorAdicionais,
     valorMaterial: valorMaterial > 0 ? valorMaterial : undefined,
     valorAdicionais: valorAdicionais > 0 ? valorAdicionais : undefined,
     // valorPeca mantém compatível com UI que já mostra peça/material
     valorPeca: valorMaterial > 0 ? valorMaterial : undefined,
     quantidade: qtd,
   });
+}
+
+function normalizarLabelCapacidade(label: string): string {
+  return label
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/btus?/g, '')
+    .replace(/[^\d.a-z]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function acharFaixaCapacidade(
+  composto: PrecoCompostoConfig,
+  capacidadeId: string | undefined,
+  fluxo: FluxoServico
+) {
+  if (!capacidadeId || !composto.faixas?.length) return null;
+  const direta = composto.faixas.find((f) => f.opcaoId === capacidadeId);
+  if (direta) return direta;
+
+  // Fallback: admin pode ter alterado o id da opção sem re-sincronizar a tabela
+  const perguntaCap = fluxo.perguntas.find((p) => p.id === composto.perguntaCapacidadeId);
+  const opcao = perguntaCap?.opcoes.find((o) => o.id === capacidadeId);
+  if (!opcao?.label) return null;
+  const labelNorm = normalizarLabelCapacidade(opcao.label);
+  return (
+    composto.faixas.find((f) => normalizarLabelCapacidade(f.label || f.opcaoId) === labelNorm) ||
+    composto.faixas.find((f) => {
+      const fl = normalizarLabelCapacidade(f.label || '');
+      return fl && (labelNorm.includes(fl) || fl.includes(labelNorm));
+    }) ||
+    null
+  );
+}
+
+function clienteForneceMaterial(respFornecimento: string | undefined, opcoesAbs: string[]): boolean {
+  if (!respFornecimento) return false;
+  if (opcoesAbs.includes(respFornecimento)) return false;
+  return (
+    respFornecimento === 'cliente-fornece' ||
+    respFornecimento === 'cliente' ||
+    respFornecimento === 'sim' ||
+    /possui|já tenho|ja tenho|cliente/i.test(respFornecimento)
+  );
 }
 
 function calcularMaterialComposto(
@@ -318,11 +369,10 @@ function calcularMaterialComposto(
   respondeuFornecimento: boolean;
 } {
   const capacidadeId = resposta(respostas, composto.perguntaCapacidadeId);
-  const metrosRaw = resposta(respostas, composto.perguntaMetrosId);
-  const faixa =
-    composto.faixas.find((f) => f.opcaoId === capacidadeId) ||
-    composto.faixas[0] ||
-    null;
+  const metrosId = composto.perguntaMetrosId?.trim();
+  const metrosRaw = metrosId ? resposta(respostas, metrosId) : undefined;
+  // Nunca cair na 1ª faixa por padrão — isso zerava o ajuste ao trocar BTUs com ids dessincronizados
+  const faixa = acharFaixaCapacidade(composto, capacidadeId, fluxo);
 
   const metrosInclusos = faixa?.metrosInclusos ?? composto.metrosInclusosPadrao ?? 0;
   const precoPorMetro = faixa?.precoPorMetroExtra ?? 0;
@@ -330,22 +380,23 @@ function calcularMaterialComposto(
   const ajusteCapacidade = Math.max(0, Number(faixa?.ajusteCapacidade) || 0);
 
   let metrosRespondidos = 0;
-  const perguntaMetros = fluxo.perguntas.find((p) => p.id === composto.perguntaMetrosId);
-  const usarNumerico = Boolean(composto.metrosNumericos || perguntaMetros?.papel === 'numero');
-  if (usarNumerico) {
-    metrosRespondidos = Math.max(0, numero(respostas, composto.perguntaMetrosId) ?? 0);
-  } else if (metrosRaw && composto.mapaMetrosOpcao?.[metrosRaw] != null) {
-    metrosRespondidos = composto.mapaMetrosOpcao[metrosRaw];
-  } else if (metrosRaw) {
-    // Se a resposta for só número (ex.: "4"), trata como metros
-    const soNumero = numero(respostas, composto.perguntaMetrosId);
-    if (soNumero != null && String(metrosRaw).trim() === String(soNumero)) {
-      metrosRespondidos = Math.max(0, soNumero);
-    } else {
-      const fromMapaLegacy = parseQuantidadeOpcao(metrosRaw);
-      metrosRespondidos = fromMapaLegacy ?? 0;
-      const match = metrosRaw.match(/(\d+(?:[.,]\d+)?)\s*m/i);
-      if (match) metrosRespondidos = Number(match[1].replace(',', '.'));
+  if (metrosId) {
+    const perguntaMetros = fluxo.perguntas.find((p) => p.id === metrosId);
+    const usarNumerico = Boolean(composto.metrosNumericos || perguntaMetros?.papel === 'numero');
+    if (usarNumerico) {
+      metrosRespondidos = Math.max(0, numero(respostas, metrosId) ?? 0);
+    } else if (metrosRaw && composto.mapaMetrosOpcao?.[metrosRaw] != null) {
+      metrosRespondidos = composto.mapaMetrosOpcao[metrosRaw];
+    } else if (metrosRaw) {
+      const soNumero = numero(respostas, metrosId);
+      if (soNumero != null && String(metrosRaw).trim() === String(soNumero)) {
+        metrosRespondidos = Math.max(0, soNumero);
+      } else {
+        const fromMapaLegacy = parseQuantidadeOpcao(metrosRaw);
+        metrosRespondidos = fromMapaLegacy ?? 0;
+        const match = metrosRaw.match(/(\d+(?:[.,]\d+)?)\s*m/i);
+        if (match) metrosRespondidos = Number(match[1].replace(',', '.'));
+      }
     }
   }
 
@@ -361,14 +412,20 @@ function calcularMaterialComposto(
   const respondeuFornecimento = Boolean(respFornecimento);
   const opcoesAbs = composto.opcoesAbsFornece?.length
     ? composto.opcoesAbsFornece
-    : ['abs-fornece-kit', 'abs', 'abs-padrao', 'abs-premium'];
-  // Sem pergunta de fornecimento configurada → mantém cobrança de material (compat)
+    : ['abs-fornece-kit', 'abs', 'abs-padrao', 'abs-premium', 'nao', 'nao-abs'];
+  // Sem pergunta de fornecimento → cobra material (compat).
+  // Com pergunta: só cobra kit/metros se a opção for uma das marcadas como ABS.
   const cobraMaterial = !fornecimentoId
     ? true
     : Boolean(respFornecimento && opcoesAbs.includes(respFornecimento));
 
-  const metrosExtras = cobraMaterial ? Math.max(0, metrosRespondidos - metrosInclusos) : 0;
-  const valorExtras = cobraMaterial ? roundCurrency(metrosExtras * precoPorMetro) : 0;
+  // Se respondeu algo que claramente é "cliente fornece", nunca cobra (mesmo se lista ABS estiver errada)
+  const forcaCliente =
+    respondeuFornecimento && clienteForneceMaterial(respFornecimento, opcoesAbs);
+  const cobra = forcaCliente ? false : cobraMaterial;
+
+  const metrosExtras = cobra ? Math.max(0, metrosRespondidos - metrosInclusos) : 0;
+  const valorExtras = cobra ? roundCurrency(metrosExtras * precoPorMetro) : 0;
 
   return {
     metrosRespondidos,
@@ -376,10 +433,10 @@ function calcularMaterialComposto(
     metrosExtras,
     precoPorMetro,
     valorExtras,
-    valorKit: cobraMaterial ? valorKit : 0,
+    valorKit: cobra ? valorKit : 0,
     ajusteCapacidade,
     faixaLabel,
-    cobraMaterial,
+    cobraMaterial: cobra,
     respondeuFornecimento,
   };
 }
@@ -463,11 +520,14 @@ export function calcularPrecoFluxo(
   const fluxo = fluxoConfigService.getFluxoEfetivo(slug);
   const precoConfig = fluxoConfigService.getPrecoConfig(slug);
 
+  // Só o modo personalizado / preço composto usa precoBase, precoAdicional e itensPreco do admin.
+  // Em "padrao", a tabela hardcoded abaixo ainda vale (editar preços no painel exige modo personalizado).
   if (
     fluxo &&
-    (precoConfig?.modoPreco === 'personalizado' || precoConfig?.precoComposto?.ativo)
+    precoConfig &&
+    (precoConfig.modoPreco === 'personalizado' || precoConfig.precoComposto?.ativo)
   ) {
-    return calcularPrecoPersonalizado(slug, fluxo, precoConfig!, respostas, quantidade);
+    return calcularPrecoPersonalizado(slug, fluxo, precoConfig, respostas, quantidade);
   }
 
   const breakdown: PrecoFluxoBreakdownItem[] = [];

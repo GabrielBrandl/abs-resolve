@@ -138,6 +138,29 @@ export class FluxoConfigService {
     return precoCache.get(slug);
   }
 
+  /**
+   * Recarrega um slug do banco para o cache em memória.
+   * Evita preço antigo na loja quando outro worker salvou no admin, ou se o cache
+   * ficou desatualizado após falha de init.
+   */
+  async refreshSlug(slug: string): Promise<void> {
+    const row = await prisma.fluxoServicoConfig.findUnique({ where: { slug } });
+    if (!row) {
+      fluxoCache.delete(slug);
+      precoCache.delete(slug);
+      return;
+    }
+    fluxoCache.set(row.slug, rowToFluxo(row.slug, row));
+    precoCache.set(row.slug, {
+      modoPreco: row.modoPreco,
+      precoBase: row.precoBase != null ? Number(row.precoBase) : null,
+      itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
+      precoComposto: enriquecerPrecoComposto(row.slug, row.precoComposto),
+      perguntaQuantidadeId: row.perguntaQuantidadeId,
+      multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
+    });
+  }
+
   async initCache() {
     try {
       await this.seedDefaults();

@@ -359,10 +359,10 @@ export function HelpConsultorWidget() {
   const continuar = (destino: 'login' | 'cadastro') => {
     if (!servico) return;
     const valorOrcado =
-      preco?.valorServico != null
-        ? Number(preco.valorServico)
-        : preco?.preco != null
-          ? Number(preco.preco) - Number(preco.valorPeca || 0)
+      preco?.preco != null
+        ? Math.max(0, Number(preco.preco) - Number(preco.valorPeca || 0))
+        : preco?.valorServico != null
+          ? Number(preco.valorServico)
           : Number(servico.precoMinimo) || 0;
     sessionStorage.setItem(
       STORAGE_KEY,

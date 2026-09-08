@@ -82,6 +82,10 @@ export function QuestionariosAdminPage() {
     if (!config) return;
     setSalvando(true);
     try {
+      const precoComposto =
+        config.precoComposto?.ativo
+          ? sincronizarFaixas(config, config.precoComposto)
+          : config.precoComposto;
       const atualizado = await fluxoAdminApi.atualizar(config.slug, {
         perguntas: config.perguntas,
         fotosObrigatorias: config.fotosObrigatorias,
@@ -89,7 +93,7 @@ export function QuestionariosAdminPage() {
         modoPreco: config.modoPreco,
         precoBase: config.precoBase,
         itensPreco: config.itensPreco,
-        precoComposto: config.precoComposto,
+        precoComposto,
         perguntaQuantidadeId: config.perguntaQuantidadeId,
         multiplicarBasePorQuantidade: config.multiplicarBasePorQuantidade,
       });
@@ -212,6 +216,12 @@ export function QuestionariosAdminPage() {
                     <option value="padrao">Padrão do sistema (tabela atual)</option>
                     <option value="personalizado">Personalizado (valores abaixo)</option>
                   </select>
+                  {config.modoPreco === 'padrao' && (
+                    <span className="mt-1 block text-xs text-amber-700">
+                      No modo padrão a loja ignora preço-base, preço por opção e itens de preço — usa a
+                      tabela fixa do sistema. Para editar preços, escolha Personalizado.
+                    </span>
+                  )}
                 </label>
                 {config.modoPreco === 'personalizado' && (
                   <label className="block text-sm">
