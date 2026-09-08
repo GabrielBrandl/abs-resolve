@@ -42,7 +42,16 @@ export interface FluxoPergunta {
   titulo: string;
   opcoes: FluxoPerguntaOpcao[];
   showIf?: FluxoPerguntaShowIf;
-  papel?: 'quantidade' | 'normal';
+  /**
+   * normal = múltipla escolha
+   * quantidade = unidades do serviço (multiplica preço)
+   * numero = valor livre (ex.: metros) — cliente ajusta +/-
+   */
+  papel?: 'quantidade' | 'numero' | 'normal';
+  numeroMin?: number;
+  numeroMax?: number;
+  numeroPasso?: number;
+  numeroUnidade?: string;
 }
 
 export interface RegraValidacaoFluxo {
@@ -737,14 +746,16 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         opcao('loja', 'Loja'),
         opcao('escritorio', 'Escritório'),
       ]),
-      pergunta('distanciaEvapCond', 'Metragem aproximada da instalação (evaporadora → condensadora)', [
-        opcao('ate-2m', 'Até 2 metros (incluso no kit ABS)'),
-        opcao('ate-3m', 'Até 3 metros'),
-        opcao('3m-5m', 'Até 5 metros'),
-        opcao('5m-7m', 'Até 7 metros'),
-        opcao('acima-7m', 'Acima de 7 metros'),
-        opcao('nao-sei', 'Não sei'),
-      ]),
+      {
+        id: 'distanciaEvapCond',
+        titulo: 'Metragem aproximada da instalação (evaporadora → condensadora)',
+        opcoes: [],
+        papel: 'numero',
+        numeroMin: 0,
+        numeroMax: 30,
+        numeroPasso: 1,
+        numeroUnidade: 'm',
+      },
       pergunta('pontoEletricoExclusivo', 'Ponto elétrico exclusivo?', OPCOES_SIM_NAO_NAO_SEI),
       pergunta('localCondensadora', 'Local da condensadora', [
         opcao('chao', 'Chão'),

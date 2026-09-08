@@ -14,6 +14,11 @@ export interface FluxoPergunta {
   titulo: string;
   opcoes: Array<{ id: string; label: string }>;
   showIf?: { perguntaId: string; opcaoIds: string[] };
+  papel?: 'quantidade' | 'numero' | 'normal';
+  numeroMin?: number;
+  numeroMax?: number;
+  numeroPasso?: number;
+  numeroUnidade?: string;
 }
 
 export interface FluxoServicoData {
@@ -65,6 +70,7 @@ export function QuestionarioServico({
   const [preco, setPreco] = useState<PrecoCalculado | null>(null);
   const [erro, setErro] = useState('');
   const [textoLivre, setTextoLivre] = useState('');
+  const [rascunhoNumero, setRascunhoNumero] = useState('');
   const [interpretando, setInterpretando] = useState(false);
   const [feedbackBot, setFeedbackBot] = useState('');
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -136,6 +142,14 @@ export function QuestionarioServico({
     setTextoLivre('');
     setFeedbackBot('');
   }, [perguntaAtual?.id]);
+
+  useEffect(() => {
+    if (!perguntaAtual) return;
+    if (perguntaAtual.papel === 'numero' || perguntaAtual.papel === 'quantidade') {
+      const min = perguntaAtual.numeroMin ?? (perguntaAtual.papel === 'quantidade' ? 1 : 0);
+      setRascunhoNumero(String(min));
+    }
+  }, [perguntaAtual?.id, perguntaAtual?.papel, perguntaAtual?.numeroMin]);
 
   const escolherOpcao = (opcao: { id: string; label: string }) => {
     if (!perguntaAtual) return;
@@ -228,6 +242,25 @@ export function QuestionarioServico({
             )}
 
             {perguntasRespondidas.map((pergunta) => {
+              if (pergunta.papel === 'numero' || pergunta.papel === 'quantidade') {
+                const valor = respostas[pergunta.id];
+                if (valor == null || valor === '') return null;
+                return (
+                  <div key={pergunta.id} className="space-y-2">
+                    <div className="flex justify-start">
+                      <div className="max-w-[88%] rounded-2xl rounded-tl-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+                        {pergunta.titulo}
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <div className="max-w-[82%] rounded-2xl rounded-tr-md bg-primary-600 px-3 py-2 text-sm font-medium text-white">
+                        {valor}
+                        {pergunta.numeroUnidade ? ` ${pergunta.numeroUnidade}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
               const opcao = pergunta.opcoes.find((item) => item.id === respostas[pergunta.id]);
               if (!opcao) return null;
               return (
@@ -322,60 +355,138 @@ export function QuestionarioServico({
 
           {perguntaAtual && (
             <div className="border-t border-slate-200 bg-white p-3">
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-                Escolha uma resposta
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {perguntaAtual.opcoes.map((opcao) => {
-                  const possuiImagem = temImagemOpcao(slug, perguntaAtual.id, opcao.id);
-                  return (
+              {perguntaAtual.papel === 'numero' || perguntaAtual.papel === 'quantidade' ? (
+                <>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Informe o valor
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
-                      key={opcao.id}
                       type="button"
-                      onClick={() => escolherOpcao(opcao)}
-                      className={`flex min-h-10 items-center gap-2 rounded-xl border border-primary-200 bg-white px-3 py-2 text-left text-sm font-medium text-primary-800 transition hover:border-primary-500 hover:bg-primary-50 ${
-                        possuiImagem ? 'max-w-[150px] flex-col' : ''
-                      }`}
+                      className="h-10 w-10 rounded-xl border border-primary-200 text-lg font-bold"
+                      onClick={() => {
+                        const min =
+                          perguntaAtual.numeroMin ?? (perguntaAtual.papel === 'quantidade' ? 1 : 0);
+                        const passo = perguntaAtual.numeroPasso ?? 1;
+                        const atual = Number(rascunhoNumero || min);
+                        setRascunhoNumero(String(Math.max(min, atual - passo)));
+                      }}
                     >
-                      {possuiImagem && (
-                        <img
-                          src={imagemParaOpcao(slug, perguntaAtual.id, opcao.id, imagemCatalogo)}
-                          alt=""
-                          className="h-20 w-full rounded-lg bg-white object-contain"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      )}
-                      <span>{opcao.label}</span>
+                      −
                     </button>
-                  );
-                })}
-              </div>
+                    <input
+                      type="number"
+                      className="h-10 w-20 rounded-xl border border-primary-200 text-center font-bold"
+                      min={perguntaAtual.numeroMin ?? 0}
+                      max={perguntaAtual.numeroMax ?? 99}
+                      step={perguntaAtual.numeroPasso ?? 1}
+                      value={rascunhoNumero}
+                      onChange={(e) => setRascunhoNumero(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="h-10 w-10 rounded-xl border border-primary-200 text-lg font-bold"
+                      onClick={() => {
+                        const min =
+                          perguntaAtual.numeroMin ?? (perguntaAtual.papel === 'quantidade' ? 1 : 0);
+                        const max = perguntaAtual.numeroMax ?? 99;
+                        const passo = perguntaAtual.numeroPasso ?? 1;
+                        const atual = Number(rascunhoNumero || min);
+                        setRascunhoNumero(String(Math.min(max, atual + passo)));
+                      }}
+                    >
+                      +
+                    </button>
+                    {perguntaAtual.numeroUnidade && (
+                      <span className="text-sm font-semibold text-slate-600">
+                        {perguntaAtual.numeroUnidade}
+                      </span>
+                    )}
+                    <Button
+                      variant="cta"
+                      className="ml-auto text-sm"
+                      disabled={rascunhoNumero === '' || !Number.isFinite(Number(rascunhoNumero))}
+                      onClick={() => {
+                        const min =
+                          perguntaAtual.numeroMin ?? (perguntaAtual.papel === 'quantidade' ? 1 : 0);
+                        const max = perguntaAtual.numeroMax ?? 99;
+                        const n = Number(rascunhoNumero);
+                        if (!Number.isFinite(n)) return;
+                        const clamped = Math.min(max, Math.max(min, n));
+                        setErro('');
+                        setFeedbackBot('');
+                        onResposta(perguntaAtual.id, String(clamped));
+                        gtmPush('agendar_opcao_selecionada', {
+                          servico_slug: slug,
+                          pergunta_id: perguntaAtual.id,
+                          pergunta: perguntaAtual.titulo,
+                          opcao_id: String(clamped),
+                          opcao: `${clamped}${perguntaAtual.numeroUnidade ? ` ${perguntaAtual.numeroUnidade}` : ''}`,
+                        });
+                      }}
+                    >
+                      Confirmar
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Escolha uma resposta
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {perguntaAtual.opcoes.map((opcao) => {
+                      const possuiImagem = temImagemOpcao(slug, perguntaAtual.id, opcao.id);
+                      return (
+                        <button
+                          key={opcao.id}
+                          type="button"
+                          onClick={() => escolherOpcao(opcao)}
+                          className={`flex min-h-10 items-center gap-2 rounded-xl border border-primary-200 bg-white px-3 py-2 text-left text-sm font-medium text-primary-800 transition hover:border-primary-500 hover:bg-primary-50 ${
+                            possuiImagem ? 'max-w-[150px] flex-col' : ''
+                          }`}
+                        >
+                          {possuiImagem && (
+                            <img
+                              src={imagemParaOpcao(slug, perguntaAtual.id, opcao.id, imagemCatalogo)}
+                              alt=""
+                              className="h-20 w-full rounded-lg bg-white object-contain"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          )}
+                          <span>{opcao.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-              <div className="mt-3 border-t border-slate-100 pt-3">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Ou escreva sua resposta
-                </p>
-                <form
-                  className="flex gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void enviarTextoLivre();
-                  }}
-                >
-                  <input
-                    value={textoLivre}
-                    onChange={(e) => setTextoLivre(e.target.value)}
-                    placeholder="Ex.: é no quarto, tomada esquentando..."
-                    maxLength={400}
-                    disabled={interpretando}
-                    className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-primary-500"
-                  />
-                  <Button type="submit" disabled={interpretando || !textoLivre.trim()}>
-                    {interpretando ? '...' : 'Enviar'}
-                  </Button>
-                </form>
-              </div>
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Ou escreva sua resposta
+                    </p>
+                    <form
+                      className="flex gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void enviarTextoLivre();
+                      }}
+                    >
+                      <input
+                        value={textoLivre}
+                        onChange={(e) => setTextoLivre(e.target.value)}
+                        placeholder="Ex.: é no quarto, tomada esquentando..."
+                        maxLength={400}
+                        disabled={interpretando}
+                        className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-primary-500"
+                      />
+                      <Button type="submit" disabled={interpretando || !textoLivre.trim()}>
+                        {interpretando ? '...' : 'Enviar'}
+                      </Button>
+                    </form>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

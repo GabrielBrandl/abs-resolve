@@ -9,6 +9,7 @@ function novaPergunta(): FluxoPerguntaConfig {
   return {
     id,
     titulo: 'Nova pergunta',
+    papel: 'normal',
     opcoes: [
       { id: 'opcao-1', label: 'Opção 1' },
       { id: 'opcao-2', label: 'Opção 2' },
@@ -121,7 +122,19 @@ export function QuestionariosAdminPage() {
     if (!config) return;
     const perguntas = [...config.perguntas];
     perguntas[idx] = { ...perguntas[idx], ...patch };
-    setConfig({ ...config, perguntas });
+    const next: typeof config = { ...config, perguntas };
+    const pergunta = perguntas[idx];
+    if (
+      config.precoComposto?.ativo &&
+      config.precoComposto.perguntaMetrosId === pergunta.id &&
+      patch.papel !== undefined
+    ) {
+      next.precoComposto = {
+        ...config.precoComposto,
+        metrosNumericos: patch.papel === 'numero',
+      };
+    }
+    setConfig(next);
   };
 
   const removerPergunta = (idx: number) => {
@@ -539,8 +552,19 @@ export function QuestionariosAdminPage() {
                       <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-600">
                         3. Mapa das respostas de distância → metros
                       </p>
+                      {(
+                        config.perguntas.find((p) => p.id === config.precoComposto?.perguntaMetrosId)
+                          ?.papel === 'numero'
+                      ) ? (
+                        <p className="text-xs text-emerald-700">
+                          A pergunta de metragem está como “Número livre”: o cliente informa os metros
+                          direto (+/−). Não é necessário mapear opções.
+                        </p>
+                      ) : (
+                        <>
                       <p className="mb-2 text-xs text-slate-500">
                         Cada opção da pergunta de metragem precisa corresponder a um número de metros.
+                        Ou mude a pergunta para “Número livre” para o cliente digitar a metragem.
                       </p>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {(
@@ -567,6 +591,8 @@ export function QuestionariosAdminPage() {
                           </label>
                         ))}
                       </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -608,13 +634,59 @@ export function QuestionariosAdminPage() {
                           onChange={(e) => atualizarPergunta(pIdx, { id: e.target.value })}
                         />
                       </label>
-                      <label className="text-sm sm:col-span-1">
+                      <label className="text-sm">
                         <span className="mb-1 block text-xs font-medium text-slate-500">Título</span>
                         <input
                           className="w-full rounded-lg border border-abs-gray px-3 py-2 text-sm"
                           value={p.titulo}
                           onChange={(e) => atualizarPergunta(pIdx, { titulo: e.target.value })}
                         />
+                      </label>
+                      <label className="text-sm sm:col-span-2">
+                        <span className="mb-1 block text-xs font-medium text-slate-500">Tipo da pergunta</span>
+                        <select
+                          className="w-full rounded-lg border border-abs-gray px-3 py-2 text-sm"
+                          value={p.papel || 'normal'}
+                          onChange={(e) => {
+                            const papel = e.target.value as 'normal' | 'quantidade' | 'numero';
+                            if (papel === 'numero') {
+                              atualizarPergunta(pIdx, {
+                                papel,
+                                opcoes: [],
+                                numeroMin: p.numeroMin ?? 0,
+                                numeroMax: p.numeroMax ?? 30,
+                                numeroPasso: p.numeroPasso ?? 1,
+                                numeroUnidade: p.numeroUnidade || 'm',
+                              });
+                            } else if (papel === 'quantidade') {
+                              atualizarPergunta(pIdx, {
+                                papel,
+                                opcoes: [],
+                                numeroMin: undefined,
+                                numeroMax: undefined,
+                                numeroPasso: undefined,
+                                numeroUnidade: undefined,
+                              });
+                            } else {
+                              atualizarPergunta(pIdx, {
+                                papel: 'normal',
+                                opcoes: p.opcoes?.length
+                                  ? p.opcoes
+                                  : [
+                                      { id: 'opcao-1', label: 'Opção 1' },
+                                      { id: 'opcao-2', label: 'Opção 2' },
+                                    ],
+                              });
+                            }
+                          }}
+                        >
+                          <option value="normal">Múltipla escolha (botões)</option>
+                          <option value="quantidade">Quantidade do serviço (+/− unidades)</option>
+                          <option value="numero">Número livre (+/−, ex.: metros)</option>
+                        </select>
+                        <span className="mt-1 block text-xs text-slate-500">
+                          Use “Número livre” para metragem sem criar dezenas de opções.
+                        </span>
                       </label>
                     </div>
 
@@ -624,6 +696,63 @@ export function QuestionariosAdminPage() {
                       </p>
                     )}
 
+                    {(p.papel || 'normal') === 'numero' ? (
+                      <div className="mb-2 grid gap-3 rounded-lg border border-dashed border-slate-300 bg-white p-3 sm:grid-cols-4">
+                        <label className="text-sm">
+                          <span className="mb-1 block text-xs text-slate-500">Mínimo</span>
+                          <input
+                            type="number"
+                            className="w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                            value={p.numeroMin ?? 0}
+                            onChange={(e) =>
+                              atualizarPergunta(pIdx, { numeroMin: Number(e.target.value) || 0 })
+                            }
+                          />
+                        </label>
+                        <label className="text-sm">
+                          <span className="mb-1 block text-xs text-slate-500">Máximo</span>
+                          <input
+                            type="number"
+                            className="w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                            value={p.numeroMax ?? 30}
+                            onChange={(e) =>
+                              atualizarPergunta(pIdx, { numeroMax: Number(e.target.value) || 30 })
+                            }
+                          />
+                        </label>
+                        <label className="text-sm">
+                          <span className="mb-1 block text-xs text-slate-500">Passo</span>
+                          <input
+                            type="number"
+                            min={0.1}
+                            step={0.1}
+                            className="w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                            value={p.numeroPasso ?? 1}
+                            onChange={(e) =>
+                              atualizarPergunta(pIdx, { numeroPasso: Number(e.target.value) || 1 })
+                            }
+                          />
+                        </label>
+                        <label className="text-sm">
+                          <span className="mb-1 block text-xs text-slate-500">Unidade</span>
+                          <input
+                            className="w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                            placeholder="m"
+                            value={p.numeroUnidade || ''}
+                            onChange={(e) => atualizarPergunta(pIdx, { numeroUnidade: e.target.value })}
+                          />
+                        </label>
+                        <p className="sm:col-span-4 text-xs text-slate-500">
+                          No preço composto, marque esta pergunta como “Pergunta da metragem” — o valor digitado
+                          vira os metros reais.
+                        </p>
+                      </div>
+                    ) : (p.papel || 'normal') === 'quantidade' ? (
+                      <p className="mb-2 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-xs text-slate-600">
+                        O cliente escolhe quantas unidades do serviço (ex.: 3 tomadas). Multiplica o preço-base
+                        se a opção estiver ligada acima.
+                      </p>
+                    ) : (
                     <div className="space-y-2">
                       {p.opcoes.map((op, oIdx) => (
                         <div key={`${op.id}-${oIdx}`} className="flex flex-wrap items-end gap-2">
@@ -702,6 +831,7 @@ export function QuestionariosAdminPage() {
                         + Opção
                       </Button>
                     </div>
+                    )}
 
                     <button type="button" className="mt-3 text-xs text-red-600" onClick={() => removerPergunta(pIdx)}>
                       Remover pergunta

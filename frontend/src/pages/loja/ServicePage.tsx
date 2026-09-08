@@ -26,6 +26,11 @@ type FluxoPergunta = {
   titulo: string;
   opcoes: Array<{ id: string; label: string }>;
   showIf?: { perguntaId: string; opcaoIds: string[] };
+  papel?: 'quantidade' | 'numero' | 'normal';
+  numeroMin?: number;
+  numeroMax?: number;
+  numeroPasso?: number;
+  numeroUnidade?: string;
 };
 
 type Fluxo = { perguntas?: FluxoPergunta[] };
@@ -91,7 +96,13 @@ function perguntasVisiveis(perguntas: FluxoPergunta[], respostas: Record<string,
 }
 
 function isPerguntaQuantidade(p: FluxoPergunta) {
+  if (p.papel === 'numero') return false;
+  if (p.papel === 'quantidade') return true;
   return p.id === 'quantidade' || /quantidad/i.test(p.titulo);
+}
+
+function isPerguntaNumero(p: FluxoPergunta) {
+  return p.papel === 'numero';
 }
 
 function isFornecimento(p: FluxoPergunta) {
@@ -410,6 +421,15 @@ export function ServicePage() {
     setErroPerguntas('');
   };
 
+  const setRespostaNumero = (perguntaId: string, n: number, min = 0, max = 99, passo = 1) => {
+    const step = passo > 0 ? passo : 1;
+    const raw = Number.isFinite(n) ? n : min;
+    const snapped = Math.round(raw / step) * step;
+    const next = Math.max(min, Math.min(max, snapped));
+    setErroPerguntas('');
+    setRespostas((r) => ({ ...r, [perguntaId]: String(next) }));
+  };
+
   const selecionarModelo = (m: MaterialModelo) => {
     setErroPerguntas('');
     setModeloId(m.id);
@@ -611,6 +631,56 @@ export function ServicePage() {
                     <p className="mt-1.5 text-xs text-slate-500">
                       A partir da 2ª unidade: {DESCONTO_SEGUNDA_UNIDADE_PERCENT}% de desconto na mão de obra e nas
                       peças/materiais.
+                    </p>
+                  </div>
+                );
+              }
+
+              if (isPerguntaNumero(p)) {
+                const min = p.numeroMin ?? 0;
+                const max = p.numeroMax ?? 99;
+                const passo = p.numeroPasso ?? 1;
+                const atual = Number(respostas[p.id]);
+                const valor = Number.isFinite(atual) ? atual : min;
+                return (
+                  <div key={p.id}>
+                    <p className="mb-2 text-sm font-bold text-[#002d62]">
+                      {idx + 1}. {p.titulo}
+                    </p>
+                    <div className="flex w-fit items-center gap-2">
+                      <div className="flex items-center overflow-hidden rounded-lg border border-[#d5d9e2] bg-white">
+                        <button
+                          type="button"
+                          className="h-11 w-11 text-xl font-bold"
+                          onClick={() => setRespostaNumero(p.id, valor - passo, min, max, passo)}
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          min={min}
+                          max={max}
+                          step={passo}
+                          value={respostas[p.id] ?? ''}
+                          onChange={(e) =>
+                            setRespostaNumero(p.id, Number(e.target.value), min, max, passo)
+                          }
+                          className="h-11 w-16 border-x border-[#d5d9e2] text-center text-base font-black outline-none"
+                        />
+                        <button
+                          type="button"
+                          className="h-11 w-11 text-xl font-bold"
+                          onClick={() => setRespostaNumero(p.id, valor + passo, min, max, passo)}
+                        >
+                          +
+                        </button>
+                      </div>
+                      {p.numeroUnidade && (
+                        <span className="text-sm font-semibold text-slate-600">{p.numeroUnidade}</span>
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      Informe o valor exato{p.numeroUnidade ? ` em ${p.numeroUnidade}` : ''}.
                     </p>
                   </div>
                 );

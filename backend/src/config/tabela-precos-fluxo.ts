@@ -330,15 +330,23 @@ function calcularMaterialComposto(
   const ajusteCapacidade = Math.max(0, Number(faixa?.ajusteCapacidade) || 0);
 
   let metrosRespondidos = 0;
-  if (composto.metrosNumericos) {
+  const perguntaMetros = fluxo.perguntas.find((p) => p.id === composto.perguntaMetrosId);
+  const usarNumerico = Boolean(composto.metrosNumericos || perguntaMetros?.papel === 'numero');
+  if (usarNumerico) {
     metrosRespondidos = Math.max(0, numero(respostas, composto.perguntaMetrosId) ?? 0);
   } else if (metrosRaw && composto.mapaMetrosOpcao?.[metrosRaw] != null) {
     metrosRespondidos = composto.mapaMetrosOpcao[metrosRaw];
   } else if (metrosRaw) {
-    const fromMapaLegacy = parseQuantidadeOpcao(metrosRaw);
-    metrosRespondidos = fromMapaLegacy ?? 0;
-    const match = metrosRaw.match(/(\d+(?:[.,]\d+)?)\s*m/i);
-    if (match) metrosRespondidos = Number(match[1].replace(',', '.'));
+    // Se a resposta for só número (ex.: "4"), trata como metros
+    const soNumero = numero(respostas, composto.perguntaMetrosId);
+    if (soNumero != null && String(metrosRaw).trim() === String(soNumero)) {
+      metrosRespondidos = Math.max(0, soNumero);
+    } else {
+      const fromMapaLegacy = parseQuantidadeOpcao(metrosRaw);
+      metrosRespondidos = fromMapaLegacy ?? 0;
+      const match = metrosRaw.match(/(\d+(?:[.,]\d+)?)\s*m/i);
+      if (match) metrosRespondidos = Number(match[1].replace(',', '.'));
+    }
   }
 
   const perguntaCap = fluxo.perguntas.find((p) => p.id === composto.perguntaCapacidadeId);

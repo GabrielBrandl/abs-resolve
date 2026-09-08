@@ -477,7 +477,11 @@ export interface FluxoPerguntaConfig {
   titulo: string;
   opcoes: FluxoPerguntaOpcaoConfig[];
   showIf?: { perguntaId: string; opcaoIds: string[] };
-  papel?: 'quantidade' | 'normal';
+  papel?: 'quantidade' | 'numero' | 'normal';
+  numeroMin?: number;
+  numeroMax?: number;
+  numeroPasso?: number;
+  numeroUnidade?: string;
 }
 
 export interface ItemPrecoConfig {

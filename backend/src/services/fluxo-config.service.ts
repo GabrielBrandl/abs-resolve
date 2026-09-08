@@ -29,7 +29,11 @@ export interface FluxoPerguntaConfig {
   titulo: string;
   opcoes: FluxoPerguntaOpcaoConfig[];
   showIf?: { perguntaId: string; opcaoIds: string[] };
-  papel?: 'quantidade' | 'normal';
+  papel?: 'quantidade' | 'numero' | 'normal';
+  numeroMin?: number;
+  numeroMax?: number;
+  numeroPasso?: number;
+  numeroUnidade?: string;
 }
 
 export interface ItemPrecoConfig {
@@ -100,6 +104,11 @@ function validarPerguntas(perguntas: FluxoPerguntaConfig[]) {
     }
     if (ids.has(p.id)) throw new Error(`Pergunta duplicada: ${p.id}`);
     ids.add(p.id);
+    const papel = p.papel || 'normal';
+    if (papel === 'numero' || papel === 'quantidade') {
+      // número/quantidade não exigem lista de opções
+      continue;
+    }
     if (!p.opcoes?.length) throw new Error(`Pergunta "${p.titulo}" precisa de opções`);
     const opIds = new Set<string>();
     for (const op of p.opcoes) {
@@ -109,6 +118,11 @@ function validarPerguntas(perguntas: FluxoPerguntaConfig[]) {
       if (opIds.has(op.id)) throw new Error(`Opção duplicada (${op.id}) em "${p.titulo}"`);
       opIds.add(op.id);
     }
+    if (p.showIf && !perguntas.some((q) => q.id === p.showIf!.perguntaId)) {
+      throw new Error(`Condição showIf inválida na pergunta "${p.titulo}"`);
+    }
+  }
+  for (const p of perguntas) {
     if (p.showIf && !perguntas.some((q) => q.id === p.showIf!.perguntaId)) {
       throw new Error(`Condição showIf inválida na pergunta "${p.titulo}"`);
     }
