@@ -542,6 +542,19 @@ export const fluxoAdminApi = {
   atualizar: (slug: string, body: Partial<FluxoConfigAdmin>) =>
     put<FluxoConfigAdmin>(`/admin/catalogo/fluxos/${slug}`, body),
   restaurar: (slug: string) => post<FluxoConfigAdmin>(`/admin/catalogo/fluxos/${slug}/restaurar`),
+  uploadImagemOpcao: async (slug: string, perguntaId: string, opcaoId: string, file: File) => {
+    const form = new FormData();
+    form.append('imagem', file);
+    form.append('perguntaId', perguntaId);
+    form.append('opcaoId', opcaoId);
+    const { data } = await api.post<ApiResponse<{ url: string }>>(
+      `/admin/catalogo/fluxos/${slug}/opcao-imagem`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    if (!data.success) throw new Error(data.error);
+    return data.data!;
+  },
 };
 
 export const tecnicoApi = {

@@ -229,6 +229,23 @@ export class CatalogoAdminController {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
     }
   }
+
+  async uploadImagemOpcaoFluxo(req: Request, res: Response) {
+    try {
+      if (!req.file) return error(res, 'Nenhuma imagem enviada', 400);
+      const perguntaId = String(req.body?.perguntaId || '');
+      const opcaoId = String(req.body?.opcaoId || '');
+      const data = await fluxoConfigService.uploadImagemOpcao(
+        String(req.params.slug),
+        perguntaId,
+        opcaoId,
+        req.file
+      );
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
 }
 
 export const catalogoAdminController = new CatalogoAdminController();

@@ -35,5 +35,11 @@ router.get('/fluxos', checkRole('admin'), (req, res) => catalogoAdminController.
 router.get('/fluxos/:slug', checkRole('admin'), (req, res) => catalogoAdminController.obterFluxo(req, res));
 router.put('/fluxos/:slug', checkRole('admin'), (req, res) => catalogoAdminController.atualizarFluxo(req, res));
 router.post('/fluxos/:slug/restaurar', checkRole('admin'), (req, res) => catalogoAdminController.restaurarFluxo(req, res));
+router.post(
+  '/fluxos/:slug/opcao-imagem',
+  checkRole('admin'),
+  upload.single('imagem'),
+  (req, res) => catalogoAdminController.uploadImagemOpcaoFluxo(req, res)
+);
 
 export default router;

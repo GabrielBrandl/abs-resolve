@@ -472,6 +472,10 @@ export interface FluxoPerguntaOpcaoConfig {
   modoCobranca?: 'fixo' | 'por_unidade';
   /** Só cobra o adicional se as respostas baterem (ex.: ABS fornece material) */
   when?: Record<string, string[]>;
+  /** Imagem da opção (Storage); vinculada pelo ID da opção */
+  imagemUrl?: string;
+  /** Ao selecionar, troca a imagem principal do serviço */
+  usarComoImagemPrincipal?: boolean;
 }
 
 export interface FluxoPerguntaConfig {

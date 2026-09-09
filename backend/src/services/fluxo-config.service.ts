@@ -14,6 +14,9 @@ import {
   type PrecoCompostoConfig,
 } from '../config/preco-composto.js';
 import { prisma } from '../utils/prisma.js';
+import { storageService } from './storage.service.js';
+import path from 'path';
+import { randomUUID } from 'crypto';
 
 export type { PrecoCompostoConfig, FaixaPrecoComposto } from '../config/preco-composto.js';
 
@@ -24,6 +27,8 @@ export interface FluxoPerguntaOpcaoConfig {
   modoCobranca?: 'fixo' | 'por_unidade';
   /** Só cobra o adicional se as respostas baterem (ex.: ABS fornece material) */
   when?: Record<string, string[]>;
+  imagemUrl?: string;
+  usarComoImagemPrincipal?: boolean;
 }
 
 export interface FluxoPerguntaConfig {
@@ -438,6 +443,31 @@ export class FluxoConfigService {
       perguntaQuantidadeId: row.perguntaQuantidadeId,
       multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     };
+  }
+
+  /**
+   * Upload de imagem de opção do questionário (Supabase/local).
+   * Path inclui slug + perguntaId + opcaoId para vínculo estável pelo ID.
+   * Não altera preço — só retorna a URL para o admin gravar na opção.
+   */
+  async uploadImagemOpcao(
+    slug: string,
+    perguntaId: string,
+    opcaoId: string,
+    file: Express.Multer.File
+  ): Promise<{ url: string }> {
+    const pid = String(perguntaId || '').trim();
+    const oid = String(opcaoId || '').trim();
+    if (!pid || !oid) throw new Error('Informe perguntaId e opcaoId');
+    const ext = path.extname(file.originalname || '') || '.webp';
+    const safeName = `${oid}-${randomUUID()}${ext}`;
+    const folder = `fluxo-opcoes/${slug}/${pid}`;
+    const renamed = {
+      ...file,
+      originalname: safeName,
+    } as Express.Multer.File;
+    const { url } = await storageService.upload(folder, renamed);
+    return { url };
   }
 }
 

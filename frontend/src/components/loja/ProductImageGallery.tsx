@@ -9,31 +9,55 @@ type Props = {
     imagens?: string[] | null;
     nome?: string;
   };
+  /** Quando definido, vira a capa imediatamente (ex.: opção do questionário) */
+  destaqueUrl?: string | null;
   className?: string;
   heightClass?: string;
 };
 
-/** Galeria de produto/serviço: capa + miniaturas clicáveis. */
-export function ProductImageGallery({ item, className = '', heightClass = 'h-[280px]' }: Props) {
-  const fotos = galeriaServico(item);
+function comCacheBust(url: string) {
+  if (!url) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}v=3`;
+}
+
+/** Galeria de produto/serviço: capa + miniaturas; troca de destaque sem quebrar layout. */
+export function ProductImageGallery({
+  item,
+  destaqueUrl,
+  className = '',
+  heightClass = 'h-[280px]',
+}: Props) {
+  const fotosBase = galeriaServico(item);
   const reserva = fallbackFotoServico(item);
+  const destaque = String(destaqueUrl || '').trim() || null;
+  const fotos = destaque
+    ? [destaque, ...fotosBase.filter((u) => u !== destaque)]
+    : fotosBase;
   const [idx, setIdx] = useState(0);
+  const [opacidade, setOpacidade] = useState(1);
 
   useEffect(() => {
     setIdx(0);
-  }, [item.slug, item.imagemUrl, fotos.join('|')]);
+  }, [item.slug, destaque, item.imagemUrl]);
 
   const safeIdx = fotos.length ? Math.min(idx, fotos.length - 1) : 0;
   const mostrar = fotos[safeIdx] || fotoServico(item) || reserva;
+
+  useEffect(() => {
+    setOpacidade(0.92);
+    const t = window.setTimeout(() => setOpacidade(1), 40);
+    return () => window.clearTimeout(t);
+  }, [mostrar]);
 
   return (
     <div className={`overflow-hidden rounded-[12px] bg-white shadow-sm ${className}`}>
       <div className={`relative ${heightClass} w-full overflow-hidden bg-[#dbe7f5]`}>
         <img
-          key={mostrar}
-          src={`${mostrar}${mostrar.includes('?') ? '&' : '?'}v=3`}
+          src={comCacheBust(mostrar)}
           alt={item.nome || ''}
-          className="h-full w-full object-cover object-center"
+          className="h-full w-full object-cover object-center transition-opacity duration-200 ease-out"
+          style={{ opacity: opacidade }}
+          decoding="async"
           onError={(e) => {
             const el = e.currentTarget;
             if (!el.src.includes(reserva)) el.src = reserva;
@@ -52,7 +76,7 @@ export function ProductImageGallery({ item, className = '', heightClass = 'h-[28
               key={`${url}-${i}`}
               type="button"
               onClick={() => setIdx(i)}
-              className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 ${
+              className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 sm:h-16 sm:w-16 ${
                 i === safeIdx ? 'border-[#002d62]' : 'border-transparent opacity-80 hover:opacity-100'
               }`}
             >

@@ -6,13 +6,22 @@ import {
   imagemServicoComRespostas,
   temImagemOpcao,
 } from '../../config/imagens-opcoes';
+import {
+  prefetchImagem,
+  resolverImagemPrincipalPorRespostas,
+} from '../../utils/imagem-principal-opcao';
 import { gtmPush } from '../../utils/gtm';
 import { Button, Loading, Logo, TextoComMarca } from '../ui';
 
 export interface FluxoPergunta {
   id: string;
   titulo: string;
-  opcoes: Array<{ id: string; label: string }>;
+  opcoes: Array<{
+    id: string;
+    label: string;
+    imagemUrl?: string;
+    usarComoImagemPrincipal?: boolean;
+  }>;
   showIf?: { perguntaId: string; opcaoIds: string[] };
   papel?: 'quantidade' | 'numero' | 'normal';
   numeroMin?: number;
@@ -89,7 +98,22 @@ export function QuestionarioServico({
     [fluxo, respostas]
   );
 
-  const imagemAtual = imagemServicoComRespostas(slug, respostas, imagemCatalogo);
+  const imagemAtual = useMemo(() => {
+    if (fluxo?.perguntas?.length) {
+      const admin = resolverImagemPrincipalPorRespostas(
+        fluxo.perguntas,
+        respostas,
+        null
+      );
+      if (admin) return admin;
+    }
+    return imagemServicoComRespostas(slug, respostas, imagemCatalogo);
+  }, [fluxo?.perguntas, respostas, slug, imagemCatalogo]);
+
+  useEffect(() => {
+    prefetchImagem(imagemAtual);
+  }, [imagemAtual]);
+
   const perguntaAtual = visiveis.find((p) => !respostas[p.id]) ?? null;
   const perguntasRespondidas = visiveis.filter((p) => respostas[p.id]);
   const progresso = visiveis.length > 0
@@ -509,7 +533,7 @@ export function QuestionarioServico({
         <img
           src={imagemAtual}
           alt={nome}
-          className="aspect-[4/3] w-full rounded-xl border border-abs-gray bg-white object-contain object-center p-2 shadow-sm lg:sticky lg:top-4"
+          className="aspect-[4/3] w-full rounded-xl border border-abs-gray bg-white object-contain object-center p-2 shadow-sm transition-opacity duration-200 lg:sticky lg:top-4"
           loading="lazy"
           decoding="async"
           onError={(e) => {

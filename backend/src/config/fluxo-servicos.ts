@@ -35,6 +35,10 @@ export interface FluxoPerguntaOpcao {
    * Ex.: { fornecimentoTomada: ['nao'] } — só cobra se ABS fornecer.
    */
   when?: Record<string, string[]>;
+  /** URL da imagem desta opção (Supabase Storage ou path estático) */
+  imagemUrl?: string;
+  /** Se true, ao selecionar a opção a imagem principal do serviço muda para imagemUrl */
+  usarComoImagemPrincipal?: boolean;
 }
 
 export interface FluxoPerguntaShowIf {

@@ -76,6 +76,7 @@ export function QuestionariosAdminPage() {
   const [config, setConfig] = useState<FluxoConfigAdmin | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [uploadOpcaoKey, setUploadOpcaoKey] = useState<string | null>(null);
 
   const carregarLista = () => {
     setLoading(true);
@@ -1196,6 +1197,123 @@ export function QuestionariosAdminPage() {
                               )}
                             </div>
                           )}
+
+                          <div className="space-y-2 rounded-md border border-dashed border-[#c7d7ef] bg-[#f8fbff] p-2">
+                            <p className="text-xs font-semibold text-[#002d62]">Imagem da opção (opcional)</p>
+                            <div className="flex flex-wrap items-center gap-3">
+                              {op.imagemUrl ? (
+                                <img
+                                  src={op.imagemUrl}
+                                  alt=""
+                                  className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-slate-300 text-[10px] text-slate-400">
+                                  sem foto
+                                </div>
+                              )}
+                              <label className="cursor-pointer rounded-lg border border-[#002d62] px-3 py-1.5 text-xs font-semibold text-[#002d62]">
+                                {uploadOpcaoKey === `${p.id}:${op.id}` ? 'Enviando…' : 'Upload de imagem'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  disabled={uploadOpcaoKey === `${p.id}:${op.id}`}
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    e.target.value = '';
+                                    if (!file || !config) return;
+                                    const key = `${p.id}:${op.id}`;
+                                    setUploadOpcaoKey(key);
+                                    try {
+                                      const { url } = await fluxoAdminApi.uploadImagemOpcao(
+                                        config.slug,
+                                        p.id,
+                                        op.id,
+                                        file
+                                      );
+                                      const opcoes = [...p.opcoes];
+                                      opcoes[oIdx] = {
+                                        ...opcoes[oIdx],
+                                        imagemUrl: url,
+                                        usarComoImagemPrincipal:
+                                          opcoes[oIdx].usarComoImagemPrincipal ?? true,
+                                      };
+                                      atualizarPergunta(pIdx, { opcoes });
+                                      toast('Imagem da opção enviada. Salve o questionário.', 'success');
+                                    } catch (err) {
+                                      toast(err instanceof Error ? err.message : 'Erro no upload', 'error');
+                                    } finally {
+                                      setUploadOpcaoKey(null);
+                                    }
+                                  }}
+                                />
+                              </label>
+                              {op.imagemUrl && (
+                                <button
+                                  type="button"
+                                  className="text-xs text-red-600"
+                                  onClick={() => {
+                                    const opcoes = [...p.opcoes];
+                                    opcoes[oIdx] = {
+                                      ...opcoes[oIdx],
+                                      imagemUrl: undefined,
+                                      usarComoImagemPrincipal: false,
+                                    };
+                                    atualizarPergunta(pIdx, { opcoes });
+                                  }}
+                                >
+                                  Remover imagem
+                                </button>
+                              )}
+                            </div>
+                            <label className="block text-xs text-slate-600">
+                              Ou cole a URL da imagem
+                              <input
+                                className="mt-0.5 w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                                placeholder="https://… ou /opcoes/…"
+                                value={op.imagemUrl || ''}
+                                onChange={(e) => {
+                                  const opcoes = [...p.opcoes];
+                                  const url = e.target.value.trim();
+                                  opcoes[oIdx] = {
+                                    ...opcoes[oIdx],
+                                    imagemUrl: url || undefined,
+                                    usarComoImagemPrincipal: url
+                                      ? opcoes[oIdx].usarComoImagemPrincipal ?? true
+                                      : false,
+                                  };
+                                  atualizarPergunta(pIdx, { opcoes });
+                                }}
+                              />
+                            </label>
+                            <label className="flex items-start gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                className="mt-0.5"
+                                checked={Boolean(op.usarComoImagemPrincipal && op.imagemUrl)}
+                                disabled={!op.imagemUrl}
+                                onChange={(e) => {
+                                  const opcoes = [...p.opcoes];
+                                  opcoes[oIdx] = {
+                                    ...opcoes[oIdx],
+                                    usarComoImagemPrincipal: e.target.checked,
+                                  };
+                                  atualizarPergunta(pIdx, { opcoes });
+                                }}
+                              />
+                              <span>
+                                <span className="block font-medium text-slate-700">
+                                  Ao selecionar esta opção, exibir esta imagem como imagem principal do
+                                  serviço
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  Independente do preço. Sem opção marcada, usa a imagem padrão do
+                                  serviço.
+                                </span>
+                              </span>
+                            </label>
+                          </div>
                         </div>
                       ))}
                       <Button

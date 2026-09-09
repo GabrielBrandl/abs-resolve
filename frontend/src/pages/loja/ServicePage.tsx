@@ -20,6 +20,10 @@ import { ProductImageGallery } from '../../components/loja/ProductImageGallery';
 import { WHATSAPP_LINK } from '../../storefront/constants';
 import { findPeca, isPecaSlug, itemPath, pecasDoServico } from '../../storefront/pecas';
 import { totalComDescontoAPartirDaSegunda, DESCONTO_SEGUNDA_UNIDADE_PERCENT } from '../../utils/desconto-quantidade';
+import {
+  prefetchImagem,
+  resolverImagemPrincipalPorRespostas,
+} from '../../utils/imagem-principal-opcao';
 
 type FluxoPergunta = {
   id: string;
@@ -30,6 +34,8 @@ type FluxoPergunta = {
     precoAdicional?: number;
     modoCobranca?: string;
     when?: Record<string, string[]>;
+    imagemUrl?: string;
+    usarComoImagemPrincipal?: boolean;
   }>;
   showIf?: { perguntaId: string; opcaoIds: string[] };
   papel?: 'quantidade' | 'numero' | 'normal';
@@ -695,6 +701,16 @@ export function ServicePage() {
     );
   }, [fluxo, respostas, qty]);
 
+  // Imagem principal dinâmica (opções com usarComoImagemPrincipal) — não afeta preço
+  const imagemPrincipalOpcao = useMemo(() => {
+    if (!fluxo?.perguntas?.length) return null;
+    return resolverImagemPrincipalPorRespostas(fluxo.perguntas, respostas, null);
+  }, [fluxo?.perguntas, respostas]);
+
+  useEffect(() => {
+    prefetchImagem(imagemPrincipalOpcao);
+  }, [imagemPrincipalOpcao]);
+
   // Se a API ainda não cobrou kit/metros (ou falhou), usa o cálculo local do composto
   const precoEfetivo = useMemo(() => {
     if (!precoLocal) return precoCalc;
@@ -1001,12 +1017,13 @@ export function ServicePage() {
                   imagemUrl: varianteSel.imagemUrl,
                   imagens: varianteSel.imagens,
                 }}
+                destaqueUrl={imagemPrincipalOpcao}
               />
               <TrustStrip garantiaDias={servico.garantiaDias || 90} />
             </>
           ) : (
             <>
-              <ProductImageGallery item={servico} />
+              <ProductImageGallery item={servico} destaqueUrl={imagemPrincipalOpcao} />
               <TrustStrip garantiaDias={servico.garantiaDias || 90} />
             </>
           )}
