@@ -99,3 +99,31 @@ export function quantidadeDasRespostas(
   );
   return parsed && parsed > 0 ? parsed : 1;
 }
+
+/**
+ * Preço de mão de obra por faixa de quantidade (substitui preço-base).
+ * Se a qtd exata não existir, usa a maior faixa ≤ qtd; se nenhuma, undefined.
+ */
+export function precoMaoDeObraPorFaixa(
+  precosPorQuantidade: Record<string, number> | undefined | null,
+  quantidade: number
+): number | undefined {
+  if (!precosPorQuantidade || typeof precosPorQuantidade !== 'object') return undefined;
+  const qtd = Math.max(1, Math.floor(quantidade || 1));
+  const direta = precosPorQuantidade[String(qtd)];
+  if (direta != null && Number.isFinite(Number(direta)) && Number(direta) > 0) {
+    return Math.round(Number(direta) * 100) / 100;
+  }
+  const chaves = Object.keys(precosPorQuantidade)
+    .map((k) => Number(k))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+  if (!chaves.length) return undefined;
+  let escolhida = chaves[0];
+  for (const k of chaves) {
+    if (k <= qtd) escolhida = k;
+    else break;
+  }
+  const valor = Number(precosPorQuantidade[String(escolhida)]);
+  return Number.isFinite(valor) && valor > 0 ? Math.round(valor * 100) / 100 : undefined;
+}

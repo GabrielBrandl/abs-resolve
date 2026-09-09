@@ -3,6 +3,7 @@ import { Loading } from '../../components/ui';
 import { ServiceCard } from '../../components/loja/ServiceCard';
 import { ProductCarousel, ProductCarouselItem } from '../../components/loja/ProductCarousel';
 import { CashbackPromoBanner } from '../../components/loja/store-ui';
+import { HeroBannerCarousel } from '../../components/loja/HeroBannerCarousel';
 import { useCatalog } from '../../hooks/useCatalog';
 import { flattenServices } from '../../storefront/catalog';
 import { percentLabel, useStoreConfig } from '../../hooks/useStoreConfig';
@@ -50,21 +51,7 @@ export function HomePage() {
   return (
     <div className="space-y-6">
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16.5rem]">
-        <Link
-          to="/busca"
-          className="block overflow-hidden rounded-[14px] shadow-[0_10px_30px_rgba(0,45,98,0.18)]"
-          aria-label="ABS Resolve — solicitar orçamento agora"
-        >
-          <img
-            src="/hero-home.jpg"
-            alt="ABS Resolve — Sua casa em boas mãos. Serviços residenciais com preço na hora, agendamento online e garantia."
-            width={1600}
-            height={700}
-            fetchPriority="high"
-            decoding="async"
-            className="h-auto w-full object-cover object-left"
-          />
-        </Link>
+        <HeroBannerCarousel />
 
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none lg:mx-0 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:overflow-visible lg:px-0">
           {FEATURES.map((f) => (

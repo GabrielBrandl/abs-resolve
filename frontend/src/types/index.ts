@@ -482,6 +482,8 @@ export interface FluxoPerguntaConfig {
   numeroMax?: number;
   numeroPasso?: number;
   numeroUnidade?: string;
+  /** Preço total da mão de obra por qtd (substitui preço-base quando preenchido) */
+  precosPorQuantidade?: Record<string, number>;
 }
 
 export interface ItemPrecoConfig {

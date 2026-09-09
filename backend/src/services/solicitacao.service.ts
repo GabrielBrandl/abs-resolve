@@ -227,7 +227,15 @@ export class SolicitacaoService {
     await fluxoConfigService.refreshSlug(slug);
     const fluxo = fluxoConfigService.getFluxoEfetivo(slug);
     if (!fluxo) throw new Error(`Questionário não disponível para "${slug}"`);
-    return fluxo;
+    const preco = fluxoConfigService.getPrecoConfig(slug);
+    // Vitrine precisa do preço composto para exibir/recalcular kit+metros no site
+    return {
+      ...fluxo,
+      modoPreco: preco?.modoPreco ?? 'padrao',
+      precoBase: preco?.precoBase ?? null,
+      precoComposto: preco?.precoComposto ?? null,
+      itensPreco: preco?.itensPreco ?? [],
+    };
   }
 
   async obterMateriaisServico(slug: string, tipo?: string) {

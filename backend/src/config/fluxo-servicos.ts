@@ -44,7 +44,7 @@ export interface FluxoPergunta {
   showIf?: FluxoPerguntaShowIf;
   /**
    * normal = múltipla escolha
-   * quantidade = unidades do serviço (multiplica preço)
+   * quantidade = unidades do serviço (multiplica preço OU usa precosPorQuantidade)
    * numero = valor livre (ex.: metros) — cliente ajusta +/-
    */
   papel?: 'quantidade' | 'numero' | 'normal';
@@ -52,6 +52,11 @@ export interface FluxoPergunta {
   numeroMax?: number;
   numeroPasso?: number;
   numeroUnidade?: string;
+  /**
+   * Só para papel=quantidade: preço total da mão de obra por faixa de qtd.
+   * Ex.: { "1": 89, "2": 129, "3": 159 } — substitui o preço-base (não soma de novo).
+   */
+  precosPorQuantidade?: Record<string, number>;
 }
 
 export interface RegraValidacaoFluxo {
@@ -740,12 +745,6 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         opcao('acima-24000', 'Acima de 24.000'),
         opcao('nao-sei', 'Não sei'),
       ]),
-      pergunta('tipoImovelAr', 'Tipo de imóvel', [
-        opcao('casa', 'Casa'),
-        opcao('apartamento', 'Apartamento'),
-        opcao('loja', 'Loja'),
-        opcao('escritorio', 'Escritório'),
-      ]),
       {
         id: 'distanciaEvapCond',
         titulo: 'Metragem aproximada da instalação (evaporadora → condensadora)',
@@ -756,6 +755,16 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         numeroPasso: 1,
         numeroUnidade: 'm',
       },
+      pergunta('materiaisInstalacaoAr', 'Quem fornece o material?', [
+        opcao('sim', 'Sim, já possuo o material necessário'),
+        opcao('nao', 'Não, quero que a ABS forneça o material'),
+      ]),
+      pergunta('tipoImovelAr', 'Tipo de imóvel', [
+        opcao('casa', 'Casa'),
+        opcao('apartamento', 'Apartamento'),
+        opcao('loja', 'Loja'),
+        opcao('escritorio', 'Escritório'),
+      ]),
       pergunta('pontoEletricoExclusivo', 'Ponto elétrico exclusivo?', OPCOES_SIM_NAO_NAO_SEI),
       pergunta('localCondensadora', 'Local da condensadora', [
         opcao('chao', 'Chão'),
@@ -773,10 +782,6 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         opcao('convencional', 'Convencional'),
         opcao('inverter', 'Inverter'),
         opcao('nao-sei', 'Não sei'),
-      ]),
-      pergunta('materiaisInstalacaoAr', 'Quem fornece o material?', [
-        opcao('sim', 'Sim, já possuo o material necessário'),
-        opcao('nao', 'Não, quero que a ABS forneça o material'),
       ]),
     ],
     fotosObrigatorias: ['Local evaporadora', 'Local condensadora', 'Parede externa', 'Quadro elétrico', 'Etiqueta do aparelho', 'Ambiente completo'],

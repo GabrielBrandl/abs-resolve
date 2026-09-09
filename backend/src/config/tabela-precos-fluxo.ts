@@ -6,6 +6,7 @@ import {
   aplicarModoCobranca,
   quantidadeDasRespostas,
   resolverPerguntaQuantidadeId,
+  precoMaoDeObraPorFaixa,
   totalComDescontoAPartirDaSegunda,
   descontoAPartirDaSegundaPercent,
   type ModoCobranca,
@@ -206,13 +207,28 @@ function calcularPrecoPersonalizado(
   let valorMaterial = 0;
   let valorAdicionais = 0;
 
-  const valorBase = multiplicarBase ? base * qtd : base;
-  if (valorBase > 0) {
-    const labelBase = usaComposto
+  const perguntaQtd = fluxo.perguntas.find((p) => p.id === qtdPerguntaId);
+  const precoFaixa = precoMaoDeObraPorFaixa(perguntaQtd?.precosPorQuantidade, qtd);
+
+  // 1) Tabela por quantidade (substitui preço-base)
+  // 2) Multiplicar base × qtd
+  // 3) Base única
+  let valorBase = 0;
+  let labelBase = 'Preço base';
+  if (precoFaixa != null) {
+    valorBase = precoFaixa;
+    labelBase = `Mão de obra (${qtd} un.)`;
+  } else if (multiplicarBase) {
+    valorBase = base * qtd;
+    labelBase = usaComposto
       ? composto!.labelMaoDeObra || 'Mão de obra'
-      : multiplicarBase
-        ? `Preço base (${qtd} un.)`
-        : 'Preço base';
+      : `Preço base (${qtd} un.)`;
+  } else {
+    valorBase = base;
+    labelBase = usaComposto ? composto!.labelMaoDeObra || 'Mão de obra' : 'Preço base';
+  }
+
+  if (valorBase > 0) {
     adicionarItem(breakdown, labelBase, valorBase);
     valorMaoDeObra += valorBase;
   }

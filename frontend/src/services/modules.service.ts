@@ -262,10 +262,26 @@ export const solicitacaoApi = {
       perguntas: Array<{
         id: string;
         titulo: string;
-        opcoes: Array<{ id: string; label: string }>;
+        opcoes: Array<{ id: string; label: string; precoAdicional?: number; modoCobranca?: string }>;
         showIf?: { perguntaId: string; opcaoIds: string[] };
+        papel?: 'quantidade' | 'numero' | 'normal';
+        numeroMin?: number;
+        numeroMax?: number;
+        numeroPasso?: number;
+        numeroUnidade?: string;
+        precosPorQuantidade?: Record<string, number>;
       }>;
       fotosObrigatorias: string[];
+      modoPreco?: string;
+      precoBase?: number | null;
+      precoComposto?: unknown;
+      itensPreco?: Array<{
+        id: string;
+        label: string;
+        valor: number;
+        when?: Record<string, string[]>;
+        modoCobranca?: string;
+      }>;
     }>(`/solicitacao/fluxo/${slug}`),
   materiais: (slug: string, tipo?: string) => {
     const qs = tipo ? `?tipo=${encodeURIComponent(tipo)}` : '';

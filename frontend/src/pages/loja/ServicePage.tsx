@@ -24,7 +24,7 @@ import { totalComDescontoAPartirDaSegunda, DESCONTO_SEGUNDA_UNIDADE_PERCENT } fr
 type FluxoPergunta = {
   id: string;
   titulo: string;
-  opcoes: Array<{ id: string; label: string }>;
+  opcoes: Array<{ id: string; label: string; precoAdicional?: number; modoCobranca?: string }>;
   showIf?: { perguntaId: string; opcaoIds: string[] };
   papel?: 'quantidade' | 'numero' | 'normal';
   numeroMin?: number;
@@ -33,7 +33,46 @@ type FluxoPergunta = {
   numeroUnidade?: string;
 };
 
-type Fluxo = { perguntas?: FluxoPergunta[] };
+type FaixaComposto = {
+  opcaoId: string;
+  label?: string;
+  ajusteCapacidade?: number;
+  valorKitInicial?: number;
+  metrosInclusos: number;
+  precoPorMetroExtra: number;
+};
+
+type PrecoCompostoVitrine = {
+  ativo?: boolean;
+  perguntaCapacidadeId?: string;
+  perguntaMetrosId?: string;
+  perguntaFornecimentoId?: string;
+  opcoesAbsFornece?: string[];
+  metrosNumericos?: boolean;
+  mapaMetrosOpcao?: Record<string, number>;
+  metrosInclusosPadrao?: number;
+  labelMaoDeObra?: string;
+  labelAjusteCapacidade?: string;
+  labelKitInicial?: string;
+  labelMetrosExtras?: string;
+  faixas?: FaixaComposto[];
+};
+
+type ItemPrecoVitrine = {
+  id: string;
+  label: string;
+  valor: number;
+  when?: Record<string, string[]>;
+  modoCobranca?: 'fixo' | 'por_unidade';
+};
+
+type Fluxo = {
+  perguntas?: FluxoPergunta[];
+  precoBase?: number | null;
+  precoComposto?: PrecoCompostoVitrine | null;
+  itensPreco?: ItemPrecoVitrine[];
+  modoPreco?: string;
+};
 
 type MaterialVariante = {
   sku: string;
@@ -106,7 +145,122 @@ function isPerguntaNumero(p: FluxoPergunta) {
 }
 
 function isFornecimento(p: FluxoPergunta) {
-  return /fornecimento|fornecer|já possui|já comprou|comprado/i.test(p.id + p.titulo);
+  return /fornecimento|fornecer|já possui|já comprou|comprado|material/i.test(p.id + p.titulo);
+}
+
+/** Cálculo local do preço composto (ar-split) — garante kit/metros no site mesmo se a API atrasar. */
+function calcularCompostoLocal(
+  fluxo: Fluxo,
+  respostas: Record<string, string>
+): PrecoCalc | null {
+  const composto = fluxo.precoComposto;
+  if (!composto?.ativo || !composto.perguntaCapacidadeId) return null;
+
+  const base = Number(fluxo.precoBase) || 0;
+  const capId = respostas[composto.perguntaCapacidadeId];
+  const faixas = composto.faixas || [];
+  let faixa = faixas.find((f) => f.opcaoId === capId) || null;
+  if (!faixa && capId) {
+    const perguntaCap = (fluxo.perguntas || []).find((p) => p.id === composto.perguntaCapacidadeId);
+    const label = perguntaCap?.opcoes.find((o) => o.id === capId)?.label?.toLowerCase() || '';
+    faixa =
+      faixas.find((f) => (f.label || '').toLowerCase().includes(label.slice(0, 12)) || label.includes((f.label || '').toLowerCase().slice(0, 12))) ||
+      null;
+  }
+
+  const ajuste = Math.max(0, Number(faixa?.ajusteCapacidade) || 0);
+  const kit = Math.max(0, Number(faixa?.valorKitInicial) || 0);
+  const metrosInclusos = Number(faixa?.metrosInclusos ?? composto.metrosInclusosPadrao ?? 0) || 0;
+  const precoPorMetro = Math.max(0, Number(faixa?.precoPorMetroExtra) || 0);
+  const faixaLabel = faixa?.label || capId || 'capacidade';
+
+  const metrosId = composto.perguntaMetrosId || '';
+  const metrosRaw = metrosId ? respostas[metrosId] : '';
+  let metros = 0;
+  if (metrosRaw) {
+    if (composto.metrosNumericos || (fluxo.perguntas || []).find((p) => p.id === metrosId)?.papel === 'numero') {
+      metros = Math.max(0, Number(String(metrosRaw).replace(',', '.')) || 0);
+    } else if (composto.mapaMetrosOpcao?.[metrosRaw] != null) {
+      metros = composto.mapaMetrosOpcao[metrosRaw];
+    } else {
+      metros = Math.max(0, Number(String(metrosRaw).replace(',', '.')) || 0);
+    }
+  }
+
+  const fornId = (composto.perguntaFornecimentoId || '').trim();
+  const idsAbs = (composto.opcoesAbsFornece || []).map(String);
+  const respForn = fornId ? respostas[fornId] : '';
+  const cobraMaterial = !fornId
+    ? true
+    : Boolean(respForn && idsAbs.includes(respForn));
+
+  const metrosExtras = cobraMaterial ? Math.max(0, metros - metrosInclusos) : 0;
+  const valorExtras = cobraMaterial ? Math.round(metrosExtras * precoPorMetro * 100) / 100 : 0;
+  const valorKit = cobraMaterial ? kit : 0;
+
+  const breakdown: Array<{ label: string; valor: number }> = [];
+  if (base > 0) {
+    breakdown.push({ label: composto.labelMaoDeObra || 'Mão de obra base', valor: base });
+  }
+  if (ajuste > 0) {
+    breakdown.push({
+      label: `${composto.labelAjusteCapacidade || 'Ajuste por BTUs'} (${faixaLabel})`,
+      valor: ajuste,
+    });
+  }
+  if (valorKit > 0) {
+    breakdown.push({
+      label: `${composto.labelKitInicial || 'Kit de material ABS'} (${faixaLabel})`,
+      valor: valorKit,
+    });
+  }
+  if (valorExtras > 0) {
+    breakdown.push({
+      label: `${composto.labelMetrosExtras || 'Metros adicionais'} (${metrosExtras} m × R$ ${precoPorMetro.toFixed(2)})`,
+      valor: valorExtras,
+    });
+  }
+
+  for (const item of fluxo.itensPreco || []) {
+    if (item.when) {
+      const ok = Object.entries(item.when).every(([k, vals]) => vals.includes(respostas[k]));
+      if (!ok) continue;
+    }
+    const valor = Number(item.valor) || 0;
+    if (valor > 0) breakdown.push({ label: item.label, valor });
+  }
+
+  for (const pergunta of fluxo.perguntas || []) {
+    if (
+      pergunta.id === composto.perguntaCapacidadeId ||
+      pergunta.id === composto.perguntaMetrosId ||
+      pergunta.id === composto.perguntaFornecimentoId
+    ) {
+      continue;
+    }
+    const resp = respostas[pergunta.id];
+    if (!resp) continue;
+    const op = pergunta.opcoes.find((o) => o.id === resp) as
+      | { label: string; precoAdicional?: number }
+      | undefined;
+    const extra = Number(op?.precoAdicional) || 0;
+    if (op && extra > 0) breakdown.push({ label: op.label, valor: extra });
+  }
+
+  const preco = Math.round(breakdown.reduce((a, b) => a + b.valor, 0) * 100) / 100;
+  const valorMaterial = valorKit + valorExtras;
+  const valorAdicionais = breakdown
+    .filter((b) => !/mão de obra|mao de obra|ajuste|kit|metros/i.test(b.label))
+    .reduce((a, b) => a + b.valor, 0);
+
+  return {
+    preco,
+    breakdown,
+    valorServico: Math.round((base + ajuste + valorAdicionais) * 100) / 100,
+    valorMaterial: valorMaterial > 0 ? valorMaterial : undefined,
+    valorPeca: valorMaterial > 0 ? valorMaterial : undefined,
+    valorAdicionais: valorAdicionais > 0 ? valorAdicionais : undefined,
+  };
 }
 
 function pecaPreviewParaOpcao(slug: string, respostas: Record<string, string>, opcaoId: string) {
@@ -212,9 +366,10 @@ export function ServicePage() {
   }, [slug]);
 
   const perguntasBasicas = useMemo(() => {
-    const all = fluxo?.perguntas || [];
-    return materiaisCfg ? all.slice(0, 8) : all.slice(0, 6);
-  }, [fluxo?.perguntas, materiaisCfg]);
+    // Nunca truncar: no ar-split a pergunta de material ficava fora do slice(0,6)
+    // e o kit/metros não entravam no cálculo do site.
+    return fluxo?.perguntas || [];
+  }, [fluxo?.perguntas]);
 
   const visiveis = useMemo(
     () => perguntasVisiveis(perguntasBasicas, respostas),
@@ -307,22 +462,40 @@ export function ServicePage() {
     };
   }, [slug, respostas, qty, temPerguntaQty, qtyPerguntaId]);
 
+  const precoLocal = useMemo(
+    () => (fluxo ? calcularCompostoLocal(fluxo, respostas) : null),
+    [fluxo, respostas]
+  );
+
+  // Se a API ainda não cobrou kit/metros (ou falhou), usa o cálculo local do composto
+  const precoEfetivo = useMemo(() => {
+    if (!precoLocal) return precoCalc;
+    if (!precoCalc) return precoLocal;
+    const absId = fluxo?.precoComposto?.perguntaFornecimentoId;
+    const idsAbs = fluxo?.precoComposto?.opcoesAbsFornece || [];
+    const absEscolhido = Boolean(absId && idsAbs.includes(respostas[absId] || ''));
+    const apiSemMaterial = absEscolhido && !(toMoneyNumber(precoCalc.valorMaterial || precoCalc.valorPeca) > 0);
+    if (apiSemMaterial && toMoneyNumber(precoLocal.valorMaterial) > 0) return precoLocal;
+    if (toMoneyNumber(precoLocal.preco) > toMoneyNumber(precoCalc.preco)) return precoLocal;
+    return precoCalc;
+  }, [precoCalc, precoLocal, fluxo, respostas]);
+
   const price = toMoneyNumber(servico?.precoMinimo);
   // Fallback local: o total sobe com a qtd mesmo se a API atrasar/falhar
   const laborLocal = totalComDescontoAPartirDaSegunda(price, qty, DESCONTO_SEGUNDA_UNIDADE_PERCENT);
-  const valorAdicionaisApi = toMoneyNumber(precoCalc?.valorAdicionais);
+  const valorAdicionaisApi = toMoneyNumber(precoEfetivo?.valorAdicionais);
   const valorServico = toMoneyNumber(
-    precoCalc?.valorServico != null
-      ? precoCalc.valorServico
-      : precoCalc?.preco != null
-        ? Math.max(0, toMoneyNumber(precoCalc.preco) - toMoneyNumber(precoCalc.valorPeca))
+    precoEfetivo?.valorServico != null
+      ? precoEfetivo.valorServico
+      : precoEfetivo?.preco != null
+        ? Math.max(0, toMoneyNumber(precoEfetivo.preco) - toMoneyNumber(precoEfetivo.valorPeca))
         : laborLocal.total
   );
   // Na UI, "mão de obra" = base + ajuste BTU (sem adicionais soltos nem material)
   const valorMaoObraDisplay = Math.max(0, valorServico - valorAdicionaisApi);
   const valorPecaCatalogo = toMoneyNumber(
-    precoCalc?.valorPeca != null
-      ? precoCalc.valorPeca
+    precoEfetivo?.valorPeca != null
+      ? precoEfetivo.valorPeca
       : precisaMaterial && varianteSel?.disponivelParaCompra
         ? totalComDescontoAPartirDaSegunda(
             toMoneyNumber(varianteSel.preco),
@@ -334,12 +507,12 @@ export function ServicePage() {
   const total = toMoneyNumber(
     (() => {
       const base =
-        precoCalc?.preco != null ? toMoneyNumber(precoCalc.preco) : valorServico + valorPecaCatalogo;
+        precoEfetivo?.preco != null ? toMoneyNumber(precoEfetivo.preco) : valorServico + valorPecaCatalogo;
       const materialExtra =
-        precoCalc?.preco != null &&
+        precoEfetivo?.preco != null &&
         precisaMaterial &&
         varianteSel?.disponivelParaCompra &&
-        !(toMoneyNumber(precoCalc.valorPeca) > 0)
+        !(toMoneyNumber(precoEfetivo.valorPeca) > 0)
           ? totalComDescontoAPartirDaSegunda(
               toMoneyNumber(varianteSel.preco),
               qty,
@@ -351,9 +524,9 @@ export function ServicePage() {
   );
   const descontoQtd = toMoneyNumber(
     (() => {
-      const api = toMoneyNumber(precoCalc?.descontoQuantidade);
+      const api = toMoneyNumber(precoEfetivo?.descontoQuantidade);
       if (api > 0) return api;
-      if (precoCalc?.valorServico == null && qty > 1) return laborLocal.economia;
+      if (precoEfetivo?.valorServico == null && qty > 1) return laborLocal.economia;
       if (precisaMaterial && varianteSel?.disponivelParaCompra && qty > 1) {
         return totalComDescontoAPartirDaSegunda(
           toMoneyNumber(varianteSel.preco),
@@ -460,13 +633,13 @@ export function ServicePage() {
       respostasServico.materialModeloId = modeloSel?.id || '';
     }
 
-    // Serviço: total da API menos peça em linha separada (inclui adicionais + material composto)
-    const pecaSeparada = Boolean(precoCalc?.pecaSlug && toMoneyNumber(precoCalc.valorPeca) > 0);
+    // Serviço: total efetivo (API ou composto local) menos peça em linha separada
+    const pecaSeparada = Boolean(precoEfetivo?.pecaSlug && toMoneyNumber(precoEfetivo.valorPeca) > 0);
     const precoServicoCarrinho =
-      precoCalc?.preco != null
+      precoEfetivo?.preco != null
         ? pecaSeparada
-          ? Math.max(0, toMoneyNumber(precoCalc.preco) - toMoneyNumber(precoCalc.valorPeca))
-          : toMoneyNumber(precoCalc.preco)
+          ? Math.max(0, toMoneyNumber(precoEfetivo.preco) - toMoneyNumber(precoEfetivo.valorPeca))
+          : toMoneyNumber(precoEfetivo.preco)
         : valorServico;
 
     addToCart(
@@ -486,8 +659,8 @@ export function ServicePage() {
     );
 
     // Peça do catálogo (tomada/interruptor via ABS) — multiplica pela quantidade
-    if (precoCalc?.pecaSlug && toMoneyNumber(precoCalc.valorPeca) > 0) {
-      const peca = findPeca(precoCalc.pecaSlug);
+    if (precoEfetivo?.pecaSlug && toMoneyNumber(precoEfetivo.valorPeca) > 0) {
+      const peca = findPeca(precoEfetivo.pecaSlug);
       if (peca) {
         addToCart(
           {
@@ -902,9 +1075,9 @@ export function ServicePage() {
               Valores discriminados
             </p>
             <div className="mt-2 space-y-2 border-b border-slate-100 pb-3 text-sm">
-              {slug === 'instalacao-ar-split' && Array.isArray(precoCalc?.breakdown) && precoCalc!.breakdown.length > 0 ? (
+              {slug === 'instalacao-ar-split' && Array.isArray(precoEfetivo?.breakdown) && precoEfetivo!.breakdown.length > 0 ? (
                 <>
-                  {precoCalc!.breakdown
+                  {precoEfetivo!.breakdown
                     .filter((b) => b.valor !== 0 || /cliente|sem cobrança|incluso/i.test(b.label))
                     .map((b) => (
                       <div key={b.label} className="flex justify-between gap-2">
@@ -936,15 +1109,15 @@ export function ServicePage() {
               {valorPecaCatalogo > 0 && (
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-600">
-                    {precoCalc?.valorMaterial
+                    {precoEfetivo?.valorMaterial
                       ? 'Material (capacidade × metragem)'
-                      : precoCalc?.pecaNome ||
+                      : precoEfetivo?.pecaNome ||
                         (modeloSel && varianteSel
                           ? `${modeloSel.nome} — ${varianteSel.labelCor}`
                           : materiaisCfg?.labelProduto || 'Fornecido pela empresa')}
-                    {!precoCalc?.valorMaterial && (
+                    {!precoEfetivo?.valorMaterial && (
                       <span className="block text-xs text-slate-400">
-                        {precoCalc?.pecaNome
+                        {precoEfetivo?.pecaNome
                           ? qty > 1
                             ? ` · ${qty} un.`
                             : ''
@@ -955,7 +1128,7 @@ export function ServicePage() {
                               : 'Peça / material (ABS)'}
                       </span>
                     )}
-                    {precoCalc?.valorMaterial && (
+                    {precoEfetivo?.valorMaterial && (
                       <span className="block text-xs text-slate-400">
                         Conforme BTUs e metros respondidos
                       </span>
@@ -1008,8 +1181,8 @@ export function ServicePage() {
                   );
                 })()}
 
-              {Array.isArray(precoCalc?.breakdown) &&
-                precoCalc!.breakdown
+              {Array.isArray(precoEfetivo?.breakdown) &&
+                precoEfetivo!.breakdown
                   .filter(
                     (b) =>
                       b.valor > 0 &&

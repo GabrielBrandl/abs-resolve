@@ -278,7 +278,10 @@ export function QuestionariosAdminPage() {
                     />
                     <span>
                       <span className="block font-medium text-slate-700">Multiplicar preço base pela quantidade</span>
-                      <span className="text-xs text-slate-500">Ex.: R$ 89 × 3 tomadas = R$ 267</span>
+                      <span className="text-xs text-slate-500">
+                        Ex.: R$ 89 × 3 = R$ 267. Desligue se usar tabela por faixa na pergunta de quantidade
+                        (1=R$89, 2=R$129…). A tabela por faixa tem prioridade e substitui o preço-base.
+                      </span>
                     </span>
                   </label>
                 </div>
@@ -676,13 +679,19 @@ export function QuestionariosAdminPage() {
                                 numeroUnidade: p.numeroUnidade || 'm',
                               });
                             } else if (papel === 'quantidade') {
+                              const max = p.numeroMax ?? 5;
+                              const tabela: Record<string, number> = { ...(p.precosPorQuantidade || {}) };
+                              for (let q = 1; q <= max; q++) {
+                                if (tabela[String(q)] == null) tabela[String(q)] = 0;
+                              }
                               atualizarPergunta(pIdx, {
                                 papel,
                                 opcoes: [],
-                                numeroMin: undefined,
-                                numeroMax: undefined,
-                                numeroPasso: undefined,
-                                numeroUnidade: undefined,
+                                numeroMin: p.numeroMin ?? 1,
+                                numeroMax: max,
+                                numeroPasso: 1,
+                                numeroUnidade: 'un.',
+                                precosPorQuantidade: tabela,
                               });
                             } else {
                               atualizarPergunta(pIdx, {
@@ -765,10 +774,86 @@ export function QuestionariosAdminPage() {
                         </p>
                       </div>
                     ) : (p.papel || 'normal') === 'quantidade' ? (
-                      <p className="mb-2 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-xs text-slate-600">
-                        O cliente escolhe quantas unidades do serviço (ex.: 3 tomadas). Multiplica o preço-base
-                        se a opção estiver ligada acima.
-                      </p>
+                      <div className="mb-2 space-y-3 rounded-lg border border-dashed border-slate-300 bg-white p-3">
+                        <p className="text-xs text-slate-600">
+                          Preço por quantidade/faixa: o valor da faixa escolhida{' '}
+                          <strong className="font-semibold">substitui</strong> o preço-base (não soma de novo).
+                          Deixe em branco/zero para usar a regra “multiplicar preço-base” acima.
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <label className="text-sm">
+                            <span className="mb-1 block text-xs text-slate-500">Mín. unidades</span>
+                            <input
+                              type="number"
+                              min={1}
+                              className="w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                              value={p.numeroMin ?? 1}
+                              onChange={(e) =>
+                                atualizarPergunta(pIdx, { numeroMin: Math.max(1, Number(e.target.value) || 1) })
+                              }
+                            />
+                          </label>
+                          <label className="text-sm">
+                            <span className="mb-1 block text-xs text-slate-500">Máx. unidades (faixas)</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={20}
+                              className="w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                              value={p.numeroMax ?? 5}
+                              onChange={(e) => {
+                                const max = Math.max(1, Math.min(20, Number(e.target.value) || 5));
+                                const tabela: Record<string, number> = { ...(p.precosPorQuantidade || {}) };
+                                for (let q = 1; q <= max; q++) {
+                                  if (tabela[String(q)] == null) tabela[String(q)] = 0;
+                                }
+                                Object.keys(tabela).forEach((k) => {
+                                  if (Number(k) > max) delete tabela[k];
+                                });
+                                atualizarPergunta(pIdx, { numeroMax: max, precosPorQuantidade: tabela });
+                              }}
+                            />
+                          </label>
+                        </div>
+                        <div className="overflow-x-auto rounded-lg border border-slate-200">
+                          <table className="min-w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                              <tr>
+                                <th className="px-3 py-2">Qtd</th>
+                                <th className="px-3 py-2">Preço mão de obra (R$)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {Array.from({ length: p.numeroMax ?? 5 }, (_, i) => i + 1).map((q) => (
+                                <tr key={q} className="border-t border-slate-100">
+                                  <td className="px-3 py-2 font-medium text-slate-800">{q} un.</td>
+                                  <td className="px-3 py-2">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step={0.01}
+                                      className="w-28 rounded border border-abs-gray px-2 py-1"
+                                      placeholder="0"
+                                      value={p.precosPorQuantidade?.[String(q)] ?? ''}
+                                      onChange={(e) => {
+                                        const tabela = { ...(p.precosPorQuantidade || {}) };
+                                        const v = e.target.value;
+                                        if (!v) delete tabela[String(q)];
+                                        else tabela[String(q)] = Number(v) || 0;
+                                        atualizarPergunta(pIdx, { precosPorQuantidade: tabela });
+                                      }}
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Ex.: 1=89 · 2=129 · 3=159 · 4=189 · 5=219. Com 2 unidades o total de mão de obra vira
+                          R$129 (não R$89×2).
+                        </p>
+                      </div>
                     ) : (
                     <div className="space-y-2">
                       {p.opcoes.map((op, oIdx) => (
