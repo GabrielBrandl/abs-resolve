@@ -372,7 +372,6 @@ function calcularMultiUnidadeLocal(
   return {
     preco,
     breakdown,
-    requerValidacaoTecnica: false,
     valorServico: Math.round((valorMao + valorAdicionais) * 100) / 100,
     valorMaterial: valorMaterial > 0 ? valorMaterial : undefined,
     valorAdicionais: valorAdicionais > 0 ? valorAdicionais : undefined,
