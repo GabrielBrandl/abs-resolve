@@ -17,6 +17,7 @@ import { prisma } from '../utils/prisma.js';
 import { storageService } from './storage.service.js';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { precoMinimoVitrineDeFluxo, textoPrecoAPartirDe } from '../utils/preco-vitrine.js';
 
 export type { PrecoCompostoConfig, FaixaPrecoComposto } from '../config/preco-composto.js';
 
@@ -360,7 +361,41 @@ export class FluxoConfigService {
     });
 
     await this.reloadCache();
+    await this.sincronizarPrecoVitrineCatalogo(
+      slug,
+      data.perguntas,
+      data.precoBase !== undefined
+        ? data.precoBase
+        : row.precoBase != null
+          ? Number(row.precoBase)
+          : null
+    );
     return this.obterFromRow(row);
+  }
+
+  /** Atualiza “A partir de” no card do catálogo com base no questionário (faixas / precoBase). */
+  private async sincronizarPrecoVitrineCatalogo(
+    slug: string,
+    perguntas: FluxoPerguntaConfig[],
+    precoBase?: number | null
+  ) {
+    const vitrine = precoMinimoVitrineDeFluxo({ perguntas, precoBase });
+    if (vitrine == null || vitrine <= 0) return;
+    try {
+      await prisma.catalogoServico.updateMany({
+        where: { slug },
+        data: {
+          precoMinimo: vitrine,
+          precoTexto: textoPrecoAPartirDe(vitrine),
+          tipoPreco: 'a_partir',
+        },
+      });
+    } catch (err) {
+      console.warn(
+        '[fluxo] não foi possível sincronizar preço de vitrine:',
+        err instanceof Error ? err.message : err
+      );
+    }
   }
 
   async restaurarPadrao(slug: string) {

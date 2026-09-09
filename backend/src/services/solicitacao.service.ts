@@ -29,6 +29,7 @@ import { formatarRespostasItem } from '../utils/fluxo-respostas.js';
 import { storageService } from './storage.service.js';
 import { pagamentosService } from './pagamentos.service.js';
 import { normalizarGaleria, capaDaGaleria } from '../utils/galeria-imagens.js';
+import { precoMinimoVitrineDeFluxo, textoPrecoAPartirDe } from '../utils/preco-vitrine.js';
 
 function descontoPixPercent(): number {
   // Desconto automático no PIX desativado — permanece cashback / fidelidade 2ª compra.
@@ -133,6 +134,34 @@ export class SolicitacaoService {
         orderBy: [{ categoria: 'asc' }, { ordem: 'asc' }, { nome: 'asc' }],
       });
 
+      // Preços de vitrine: prioriza faixas progressivas / precoBase do questionário (admin)
+      const fluxos = await prisma.fluxoServicoConfig.findMany({
+        select: { slug: true, precoBase: true, perguntas: true },
+      });
+      const fluxoBySlug = new Map(
+        fluxos.map((f) => {
+          let perguntas: Array<{ precosPorQuantidade?: Record<string, number> }> = [];
+          const raw = f.perguntas;
+          if (Array.isArray(raw)) {
+            perguntas = raw as Array<{ precosPorQuantidade?: Record<string, number> }>;
+          } else if (typeof raw === 'string') {
+            try {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) perguntas = parsed;
+            } catch {
+              perguntas = [];
+            }
+          }
+          return [
+            f.slug,
+            {
+              precoBase: f.precoBase != null ? Number(f.precoBase) : null,
+              perguntas,
+            },
+          ] as const;
+        })
+      );
+
       const bySlug = new Map(SERVICOS_CATALOGO.map((s) => [s.slug, { ...s }]));
       for (const s of servicos) {
         const def = bySlug.get(s.slug);
@@ -140,13 +169,33 @@ export class SolicitacaoService {
           s.imagemUrl || def?.imagemUrl,
           (s as { imagens?: unknown }).imagens ?? def?.imagens
         );
+        const fluxo = fluxoBySlug.get(s.slug);
+        const derivadoFluxo = fluxo
+          ? precoMinimoVitrineDeFluxo({
+              perguntas: fluxo.perguntas,
+              precoBase: fluxo.precoBase,
+            })
+          : null;
+        const dbPreco = toNumber(s.precoMinimo);
+        // 1) progressivo/base do questionário  2) preço no catálogo (DB)  3) fallback estático
+        const precoMinimo =
+          derivadoFluxo ??
+          (dbPreco > 0 ? dbPreco : null) ??
+          def?.precoMinimo ??
+          null;
+        const precoTexto =
+          precoMinimo != null && precoMinimo > 0
+            ? textoPrecoAPartirDe(precoMinimo)
+            : def?.precoTexto || s.precoTexto;
         bySlug.set(s.slug, {
           ...def,
           ...s,
-          // Preços de vitrine acompanham o catálogo/código (alinhado ao fluxo de cálculo)
-          precoMinimo: def?.precoMinimo ?? toNumber(s.precoMinimo),
-          precoTexto: def?.precoTexto || s.precoTexto,
-          tipoPreco: def?.tipoPreco || s.tipoPreco,
+          precoMinimo,
+          precoTexto,
+          tipoPreco:
+            precoMinimo != null && precoMinimo > 0
+              ? 'a_partir'
+              : def?.tipoPreco || s.tipoPreco,
           categoria: def?.categoria || String(s.categoria || '').toLowerCase(),
           imagemUrl: capaDaGaleria(s.imagemUrl || def?.imagemUrl, imagens) || def?.imagemUrl || null,
           imagens,
