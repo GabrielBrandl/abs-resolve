@@ -31,6 +31,8 @@ type FluxoPergunta = {
   numeroMax?: number;
   numeroPasso?: number;
   numeroUnidade?: string;
+  /** Total da mão de obra por quantidade (substitui preço-base) */
+  precosPorQuantidade?: Record<string, number>;
 };
 
 type FaixaComposto = {
@@ -72,6 +74,8 @@ type Fluxo = {
   precoComposto?: PrecoCompostoVitrine | null;
   itensPreco?: ItemPrecoVitrine[];
   modoPreco?: string;
+  multiplicarBasePorQuantidade?: boolean;
+  perguntaQuantidadeId?: string | null;
 };
 
 type MaterialVariante = {
@@ -145,7 +149,106 @@ function isPerguntaNumero(p: FluxoPergunta) {
 }
 
 function isFornecimento(p: FluxoPergunta) {
-  return /fornecimento|fornecer|já possui|já comprou|comprado|material/i.test(p.id + p.titulo);
+  return /fornecimento|fornecer|material/i.test(p.id + p.titulo);
+}
+
+const IDS_ABS_FORNECE_CONHECIDOS = [
+  'abs-fornece-kit',
+  'nao',
+  'nao-abs',
+  'abs',
+  'abs-padrao',
+  'abs-premium',
+];
+
+/** Resolve cobrança de kit/metros só por ID da opção (nunca pelo label). */
+function resolverCobrancaMaterialLocal(
+  composto: PrecoCompostoVitrine,
+  perguntas: FluxoPergunta[],
+  respostas: Record<string, string>
+): { cobraMaterial: boolean; perguntaId?: string } {
+  const configurados = (composto.opcoesAbsFornece || []).map(String).filter(Boolean);
+
+  const opcaoExiste = (p: FluxoPergunta, id: string) => p.opcoes.some((o) => o.id === id);
+
+  const scorePergunta = (p: FluxoPergunta) => {
+    let score = 0;
+    const key = `${p.id} ${p.titulo || ''}`.toLowerCase();
+    if (/material|forne/.test(key)) score += 10;
+    if (/aparelho|comprado|equipamento/.test(key) && !/material|forne/.test(key)) score -= 5;
+    score += configurados.filter((id) => opcaoExiste(p, id)).length * 3;
+    const soSimNao =
+      p.opcoes.length > 0 && p.opcoes.every((o) => o.id === 'sim' || o.id === 'nao');
+    if (soSimNao && /material|forne/.test(key)) score += 5;
+    return score;
+  };
+
+  const configuradaId = (composto.perguntaFornecimentoId || '').trim();
+  let pergunta = (configuradaId && perguntas.find((p) => p.id === configuradaId)) || undefined;
+
+  if (pergunta && configurados.length > 0) {
+    const temAbs = configurados.some((id) => opcaoExiste(pergunta!, id));
+    if (!temAbs) {
+      const candidatas = perguntas
+        .filter((p) => configurados.some((id) => opcaoExiste(p, id)))
+        .sort((a, b) => scorePergunta(b) - scorePergunta(a));
+      if (candidatas[0]) pergunta = candidatas[0];
+    } else {
+      const soSimNao =
+        pergunta.opcoes.length > 0 &&
+        pergunta.opcoes.every((o) => o.id === 'sim' || o.id === 'nao');
+      if (soSimNao || configurados.every((id) => id === 'sim' || id === 'nao' || id === 'nao-abs')) {
+        const melhor = [...perguntas]
+          .filter(
+            (p) =>
+              configurados.some((id) => opcaoExiste(p, id)) ||
+              IDS_ABS_FORNECE_CONHECIDOS.some((id) => opcaoExiste(p, id))
+          )
+          .sort((a, b) => scorePergunta(b) - scorePergunta(a))[0];
+        if (melhor && scorePergunta(melhor) > scorePergunta(pergunta)) pergunta = melhor;
+      }
+    }
+  }
+
+  if (!pergunta && configurados.length > 0) {
+    pergunta = [...perguntas]
+      .filter((p) => configurados.some((id) => opcaoExiste(p, id)))
+      .sort((a, b) => scorePergunta(b) - scorePergunta(a))[0];
+  }
+
+  if (!configuradaId && !pergunta) return { cobraMaterial: true };
+  if (!pergunta) return { cobraMaterial: false };
+
+  let idsAbs = configurados.filter((id) => opcaoExiste(pergunta!, id));
+  if (configurados.length > 0 && idsAbs.length === 0) {
+    idsAbs = IDS_ABS_FORNECE_CONHECIDOS.filter((id) => opcaoExiste(pergunta!, id));
+  }
+  if (idsAbs.length === 0 && configurados.length === 0) {
+    idsAbs = IDS_ABS_FORNECE_CONHECIDOS.filter((id) => opcaoExiste(pergunta!, id));
+  }
+
+  const resp = (respostas[pergunta.id] || '').trim();
+  if (!resp) {
+    for (const [chave, valor] of Object.entries(respostas)) {
+      const tid = String(valor || '').trim();
+      const pChave = perguntas.find((p) => p.id === chave);
+      if (
+        tid &&
+        idsAbs.includes(tid) &&
+        pChave &&
+        opcaoExiste(pChave, tid) &&
+        scorePergunta(pChave) >= 10
+      ) {
+        return { cobraMaterial: true, perguntaId: chave };
+      }
+    }
+    return { cobraMaterial: false, perguntaId: pergunta.id };
+  }
+
+  return {
+    cobraMaterial: idsAbs.includes(resp) || (configurados.includes(resp) && opcaoExiste(pergunta, resp)),
+    perguntaId: pergunta.id,
+  };
 }
 
 /** Cálculo local do preço composto (ar-split) — garante kit/metros no site mesmo se a API atrasar. */
@@ -187,12 +290,11 @@ function calcularCompostoLocal(
     }
   }
 
-  const fornId = (composto.perguntaFornecimentoId || '').trim();
-  const idsAbs = (composto.opcoesAbsFornece || []).map(String);
-  const respForn = fornId ? respostas[fornId] : '';
-  const cobraMaterial = !fornId
-    ? true
-    : Boolean(respForn && idsAbs.includes(respForn));
+  const { cobraMaterial, perguntaId: fornResolvido } = resolverCobrancaMaterialLocal(
+    composto,
+    fluxo.perguntas || [],
+    respostas
+  );
 
   const metrosExtras = cobraMaterial ? Math.max(0, metros - metrosInclusos) : 0;
   const valorExtras = cobraMaterial ? Math.round(metrosExtras * precoPorMetro * 100) / 100 : 0;
@@ -200,17 +302,17 @@ function calcularCompostoLocal(
 
   const breakdown: Array<{ label: string; valor: number }> = [];
   if (base > 0) {
-    breakdown.push({ label: composto.labelMaoDeObra || 'Mão de obra base', valor: base });
+    breakdown.push({ label: composto.labelMaoDeObra || 'Mão de obra', valor: base });
   }
   if (ajuste > 0) {
     breakdown.push({
-      label: `${composto.labelAjusteCapacidade || 'Ajuste por BTUs'} (${faixaLabel})`,
+      label: `${composto.labelAjusteCapacidade || 'Ajuste por capacidade'} (${faixaLabel})`,
       valor: ajuste,
     });
   }
   if (valorKit > 0) {
     breakdown.push({
-      label: `${composto.labelKitInicial || 'Kit de material ABS'} (${faixaLabel})`,
+      label: `${composto.labelKitInicial || 'Kit/material ABS'} (${faixaLabel})`,
       valor: valorKit,
     });
   }
@@ -219,6 +321,13 @@ function calcularCompostoLocal(
       label: `${composto.labelMetrosExtras || 'Metros adicionais'} (${metrosExtras} m × R$ ${precoPorMetro.toFixed(2)})`,
       valor: valorExtras,
     });
+  } else if (cobraMaterial && metros > 0 && metrosInclusos > 0) {
+    breakdown.push({
+      label: `Metros inclusos no kit (até ${metrosInclusos} m — ${faixaLabel})`,
+      valor: 0,
+    });
+  } else if (!cobraMaterial && fornResolvido && respostas[fornResolvido]) {
+    breakdown.push({ label: 'Material do cliente (sem cobrança de kit/metros)', valor: 0 });
   }
 
   for (const item of fluxo.itensPreco || []) {
@@ -234,7 +343,8 @@ function calcularCompostoLocal(
     if (
       pergunta.id === composto.perguntaCapacidadeId ||
       pergunta.id === composto.perguntaMetrosId ||
-      pergunta.id === composto.perguntaFornecimentoId
+      pergunta.id === composto.perguntaFornecimentoId ||
+      pergunta.id === fornResolvido
     ) {
       continue;
     }
@@ -250,7 +360,7 @@ function calcularCompostoLocal(
   const preco = Math.round(breakdown.reduce((a, b) => a + b.valor, 0) * 100) / 100;
   const valorMaterial = valorKit + valorExtras;
   const valorAdicionais = breakdown
-    .filter((b) => !/mão de obra|mao de obra|ajuste|kit|metros/i.test(b.label))
+    .filter((b) => !/mão de obra|mao de obra|ajuste|kit|metros|material do cliente/i.test(b.label))
     .reduce((a, b) => a + b.valor, 0);
 
   return {
@@ -260,6 +370,82 @@ function calcularCompostoLocal(
     valorMaterial: valorMaterial > 0 ? valorMaterial : undefined,
     valorPeca: valorMaterial > 0 ? valorMaterial : undefined,
     valorAdicionais: valorAdicionais > 0 ? valorAdicionais : undefined,
+  };
+}
+
+/** Preço progressivo por quantidade: a faixa substitui a mão de obra (não multiplica base). */
+function precoMaoObraPorFaixaLocal(
+  tabela: Record<string, number> | undefined,
+  quantidade: number
+): number | undefined {
+  if (!tabela) return undefined;
+  const qtd = Math.max(1, Math.floor(quantidade || 1));
+  const direta = tabela[String(qtd)];
+  if (direta != null && Number(direta) > 0) return Math.round(Number(direta) * 100) / 100;
+  const chaves = Object.keys(tabela)
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+  if (!chaves.length) return undefined;
+  let escolhida = chaves[0];
+  for (const k of chaves) {
+    if (k <= qtd) escolhida = k;
+    else break;
+  }
+  const valor = Number(tabela[String(escolhida)]);
+  return Number.isFinite(valor) && valor > 0 ? Math.round(valor * 100) / 100 : undefined;
+}
+
+function calcularProgressivoLocal(
+  fluxo: Fluxo,
+  respostas: Record<string, string>,
+  quantidade: number
+): PrecoCalc | null {
+  const perguntaQtd =
+    (fluxo.perguntas || []).find((p) => p.papel === 'quantidade') ||
+    (fluxo.perguntas || []).find((p) => p.id === (fluxo.perguntaQuantidadeId || 'quantidade')) ||
+    (fluxo.perguntas || []).find((p) => /quantidad/i.test(p.titulo));
+  const faixa = precoMaoObraPorFaixaLocal(perguntaQtd?.precosPorQuantidade, quantidade);
+  if (faixa == null) return null;
+
+  const breakdown: Array<{ label: string; valor: number }> = [
+    {
+      label: quantidade > 1 ? `Mão de obra (${quantidade} un.)` : 'Mão de obra',
+      valor: faixa,
+    },
+  ];
+  let adicionais = 0;
+
+  for (const item of fluxo.itensPreco || []) {
+    if (item.when) {
+      const ok = Object.entries(item.when).every(([k, vals]) => vals.includes(respostas[k]));
+      if (!ok) continue;
+    }
+    const valor = Number(item.valor) || 0;
+    if (valor > 0) {
+      breakdown.push({ label: item.label, valor });
+      adicionais += valor;
+    }
+  }
+
+  for (const pergunta of fluxo.perguntas || []) {
+    if (pergunta.id === perguntaQtd?.id) continue;
+    const resp = respostas[pergunta.id];
+    if (!resp) continue;
+    const op = pergunta.opcoes.find((o) => o.id === resp);
+    const extra = Number(op?.precoAdicional) || 0;
+    if (op && extra > 0) {
+      breakdown.push({ label: op.label, valor: extra });
+      adicionais += extra;
+    }
+  }
+
+  const preco = Math.round((faixa + adicionais) * 100) / 100;
+  return {
+    preco,
+    breakdown,
+    valorServico: preco,
+    valorAdicionais: adicionais > 0 ? adicionais : undefined,
   };
 }
 
@@ -462,21 +648,40 @@ export function ServicePage() {
     };
   }, [slug, respostas, qty, temPerguntaQty, qtyPerguntaId]);
 
-  const precoLocal = useMemo(
-    () => (fluxo ? calcularCompostoLocal(fluxo, respostas) : null),
-    [fluxo, respostas]
-  );
+  const precoLocal = useMemo(() => {
+    if (!fluxo) return null;
+    // Composto (ar-split) tem prioridade; senão tabela progressiva por quantidade
+    return (
+      calcularCompostoLocal(fluxo, respostas) ||
+      calcularProgressivoLocal(fluxo, respostas, qty)
+    );
+  }, [fluxo, respostas, qty]);
 
   // Se a API ainda não cobrou kit/metros (ou falhou), usa o cálculo local do composto
   const precoEfetivo = useMemo(() => {
     if (!precoLocal) return precoCalc;
     if (!precoCalc) return precoLocal;
-    const absId = fluxo?.precoComposto?.perguntaFornecimentoId;
-    const idsAbs = fluxo?.precoComposto?.opcoesAbsFornece || [];
-    const absEscolhido = Boolean(absId && idsAbs.includes(respostas[absId] || ''));
-    const apiSemMaterial = absEscolhido && !(toMoneyNumber(precoCalc.valorMaterial || precoCalc.valorPeca) > 0);
-    if (apiSemMaterial && toMoneyNumber(precoLocal.valorMaterial) > 0) return precoLocal;
+    if (fluxo?.precoComposto?.ativo) {
+      const cobranca = resolverCobrancaMaterialLocal(
+        fluxo.precoComposto,
+        fluxo.perguntas || [],
+        respostas
+      );
+      const apiSemMaterial =
+        cobranca.cobraMaterial && !(toMoneyNumber(precoCalc.valorMaterial || precoCalc.valorPeca) > 0);
+      if (apiSemMaterial && toMoneyNumber(precoLocal.valorMaterial) > 0) return precoLocal;
+    }
     if (toMoneyNumber(precoLocal.preco) > toMoneyNumber(precoCalc.preco)) return precoLocal;
+    // Progressivo: se a API ainda multiplicou a base, preferir a faixa local
+    if (
+      toMoneyNumber(precoLocal.preco) > 0 &&
+      Math.abs(toMoneyNumber(precoLocal.preco) - toMoneyNumber(precoCalc.preco)) > 0.009
+    ) {
+      const temFaixa = (fluxo?.perguntas || []).some((p) =>
+        Object.values(p.precosPorQuantidade || {}).some((v) => Number(v) > 0)
+      );
+      if (temFaixa) return precoLocal;
+    }
     return precoCalc;
   }, [precoCalc, precoLocal, fluxo, respostas]);
 

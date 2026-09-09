@@ -127,3 +127,11 @@ export function precoMaoDeObraPorFaixa(
   const valor = Number(precosPorQuantidade[String(escolhida)]);
   return Number.isFinite(valor) && valor > 0 ? Math.round(valor * 100) / 100 : undefined;
 }
+
+/** True se a pergunta tem ao menos uma faixa com valor > 0. */
+export function temPrecoProgressivoPorQuantidade(
+  precosPorQuantidade: Record<string, number> | undefined | null
+): boolean {
+  if (!precosPorQuantidade || typeof precosPorQuantidade !== 'object') return false;
+  return Object.values(precosPorQuantidade).some((v) => Number(v) > 0);
+}

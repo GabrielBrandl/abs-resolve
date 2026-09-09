@@ -17,6 +17,22 @@ function novaPergunta(): FluxoPerguntaConfig {
   };
 }
 
+function temTabelaProgressiva(p: FluxoPerguntaConfig): boolean {
+  return Object.values(p.precosPorQuantidade || {}).some((v) => Number(v) > 0);
+}
+
+function tabelaProgressivaPadrao(max = 5, base = 0): Record<string, number> {
+  const tabela: Record<string, number> = {};
+  for (let q = 1; q <= max; q++) tabela[String(q)] = base > 0 && q === 1 ? base : 0;
+  return tabela;
+}
+
+function parecePerguntaQuantidade(p: FluxoPerguntaConfig): boolean {
+  if (p.papel === 'quantidade') return true;
+  if (p.papel === 'numero') return false;
+  return p.id === 'quantidade' || /quantidad/i.test(p.titulo);
+}
+
 function precoCompostoVazio(): PrecoCompostoConfig {
   return {
     ativo: false,
@@ -137,6 +153,15 @@ export function QuestionariosAdminPage() {
         ...config.precoComposto,
         metrosNumericos: patch.papel === 'numero',
       };
+    }
+    // Preço progressivo ativo → desliga multiplicação e força modo personalizado
+    if (perguntas.some(temTabelaProgressiva)) {
+      next.multiplicarBasePorQuantidade = false;
+      next.modoPreco = 'personalizado';
+      if (!next.perguntaQuantidadeId) {
+        const qtd = perguntas.find((p) => p.papel === 'quantidade' || p.id === 'quantidade');
+        if (qtd) next.perguntaQuantidadeId = qtd.id;
+      }
     }
     setConfig(next);
   };
@@ -264,26 +289,35 @@ export function QuestionariosAdminPage() {
                       ))}
                     </select>
                     <span className="mt-1 block text-xs text-slate-500">
-                      Essa resposta vira o multiplicador (ex.: 4 tomadas).
+                      Controla o − / + de unidades na loja.
                     </span>
                   </label>
-                  <label className="flex items-start gap-2 pt-6 text-sm">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={config.multiplicarBasePorQuantidade !== false}
-                      onChange={(e) =>
-                        setConfig({ ...config, multiplicarBasePorQuantidade: e.target.checked })
-                      }
-                    />
-                    <span>
-                      <span className="block font-medium text-slate-700">Multiplicar preço base pela quantidade</span>
-                      <span className="text-xs text-slate-500">
-                        Ex.: R$ 89 × 3 = R$ 267. Desligue se usar tabela por faixa na pergunta de quantidade
-                        (1=R$89, 2=R$129…). A tabela por faixa tem prioridade e substitui o preço-base.
-                      </span>
-                    </span>
-                  </label>
+                  {(() => {
+                    const progressivoAtivo = config.perguntas.some(temTabelaProgressiva);
+                    return (
+                      <label className={`flex items-start gap-2 pt-6 text-sm ${progressivoAtivo ? 'opacity-60' : ''}`}>
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          disabled={progressivoAtivo}
+                          checked={progressivoAtivo ? false : config.multiplicarBasePorQuantidade !== false}
+                          onChange={(e) =>
+                            setConfig({ ...config, multiplicarBasePorQuantidade: e.target.checked })
+                          }
+                        />
+                        <span>
+                          <span className="block font-medium text-slate-700">
+                            Multiplicar preço base pela quantidade
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {progressivoAtivo
+                              ? 'Desativado enquanto houver preço progressivo na pergunta de quantidade (evita cobrança duplicada).'
+                              : 'Ex.: R$ 89 × 3 = R$ 267. Use em serviços lineares. Não combine com preço progressivo.'}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -679,19 +713,15 @@ export function QuestionariosAdminPage() {
                                 numeroUnidade: p.numeroUnidade || 'm',
                               });
                             } else if (papel === 'quantidade') {
-                              const max = p.numeroMax ?? 5;
-                              const tabela: Record<string, number> = { ...(p.precosPorQuantidade || {}) };
-                              for (let q = 1; q <= max; q++) {
-                                if (tabela[String(q)] == null) tabela[String(q)] = 0;
-                              }
                               atualizarPergunta(pIdx, {
                                 papel,
                                 opcoes: [],
                                 numeroMin: p.numeroMin ?? 1,
-                                numeroMax: max,
+                                numeroMax: p.numeroMax ?? 5,
                                 numeroPasso: 1,
                                 numeroUnidade: 'un.',
-                                precosPorQuantidade: tabela,
+                                // Não ativa progressivo automaticamente — admin marca o checkbox
+                                precosPorQuantidade: p.precosPorQuantidade,
                               });
                             } else {
                               atualizarPergunta(pIdx, {
@@ -774,12 +804,7 @@ export function QuestionariosAdminPage() {
                         </p>
                       </div>
                     ) : (p.papel || 'normal') === 'quantidade' ? (
-                      <div className="mb-2 space-y-3 rounded-lg border border-dashed border-slate-300 bg-white p-3">
-                        <p className="text-xs text-slate-600">
-                          Preço por quantidade/faixa: o valor da faixa escolhida{' '}
-                          <strong className="font-semibold">substitui</strong> o preço-base (não soma de novo).
-                          Deixe em branco/zero para usar a regra “multiplicar preço-base” acima.
-                        </p>
+                      <div className="mb-2 space-y-3 rounded-lg border border-dashed border-[#002d62]/30 bg-[#f8fbff] p-3">
                         <div className="grid gap-2 sm:grid-cols-3">
                           <label className="text-sm">
                             <span className="mb-1 block text-xs text-slate-500">Mín. unidades</span>
@@ -794,7 +819,7 @@ export function QuestionariosAdminPage() {
                             />
                           </label>
                           <label className="text-sm">
-                            <span className="mb-1 block text-xs text-slate-500">Máx. unidades (faixas)</span>
+                            <span className="mb-1 block text-xs text-slate-500">Máx. unidades</span>
                             <input
                               type="number"
                               min={1}
@@ -815,47 +840,145 @@ export function QuestionariosAdminPage() {
                             />
                           </label>
                         </div>
-                        <div className="overflow-x-auto rounded-lg border border-slate-200">
-                          <table className="min-w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                              <tr>
-                                <th className="px-3 py-2">Qtd</th>
-                                <th className="px-3 py-2">Preço mão de obra (R$)</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {Array.from({ length: p.numeroMax ?? 5 }, (_, i) => i + 1).map((q) => (
-                                <tr key={q} className="border-t border-slate-100">
-                                  <td className="px-3 py-2 font-medium text-slate-800">{q} un.</td>
-                                  <td className="px-3 py-2">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step={0.01}
-                                      className="w-28 rounded border border-abs-gray px-2 py-1"
-                                      placeholder="0"
-                                      value={p.precosPorQuantidade?.[String(q)] ?? ''}
-                                      onChange={(e) => {
-                                        const tabela = { ...(p.precosPorQuantidade || {}) };
-                                        const v = e.target.value;
-                                        if (!v) delete tabela[String(q)];
-                                        else tabela[String(q)] = Number(v) || 0;
-                                        atualizarPergunta(pIdx, { precosPorQuantidade: tabela });
-                                      }}
-                                    />
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        <p className="text-xs text-slate-500">
-                          Ex.: 1=89 · 2=129 · 3=159 · 4=189 · 5=219. Com 2 unidades o total de mão de obra vira
-                          R$129 (não R$89×2).
-                        </p>
+
+                        <label className="flex items-start gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={temTabelaProgressiva(p) || Boolean(p.precosPorQuantidade && Object.keys(p.precosPorQuantidade).length)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const max = p.numeroMax ?? 5;
+                                const base = Number(config.precoBase) || 0;
+                                const tabela =
+                                  p.precosPorQuantidade && Object.keys(p.precosPorQuantidade).length
+                                    ? { ...p.precosPorQuantidade }
+                                    : tabelaProgressivaPadrao(max, base);
+                                for (let q = 1; q <= max; q++) {
+                                  if (tabela[String(q)] == null) tabela[String(q)] = 0;
+                                }
+                                if (!config) return;
+                                const perguntas = [...config.perguntas];
+                                perguntas[pIdx] = {
+                                  ...perguntas[pIdx],
+                                  precosPorQuantidade: tabela,
+                                };
+                                setConfig({
+                                  ...config,
+                                  perguntas,
+                                  modoPreco: 'personalizado',
+                                  multiplicarBasePorQuantidade: false,
+                                  perguntaQuantidadeId: config.perguntaQuantidadeId || p.id,
+                                });
+                              } else {
+                                atualizarPergunta(pIdx, { precosPorQuantidade: undefined });
+                              }
+                            }}
+                          />
+                          <span>
+                            <span className="block font-semibold text-[#002d62]">
+                              Usar preço progressivo por quantidade
+                            </span>
+                            <span className="text-xs text-slate-600">
+                              O valor da faixa é o total da mão de obra para aquela quantidade (substitui o
+                              preço-base — não soma e não multiplica). Ex.: 3 un. = R$159.
+                            </span>
+                          </span>
+                        </label>
+
+                        {(temTabelaProgressiva(p) ||
+                          Boolean(p.precosPorQuantidade && Object.keys(p.precosPorQuantidade).length)) && (
+                          <>
+                            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                              <table className="min-w-full text-left text-sm">
+                                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                                  <tr>
+                                    <th className="px-3 py-2">Quantidade</th>
+                                    <th className="px-3 py-2">Mão de obra total (R$)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {Array.from({ length: p.numeroMax ?? 5 }, (_, i) => i + 1).map((q) => (
+                                    <tr key={q} className="border-t border-slate-100">
+                                      <td className="px-3 py-2 font-medium text-slate-800">
+                                        {q} {q === 1 ? 'unidade' : 'unidades'}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step={0.01}
+                                          className="w-28 rounded border border-abs-gray px-2 py-1"
+                                          placeholder={q === 1 ? '89' : q === 2 ? '129' : q === 3 ? '159' : ''}
+                                          value={p.precosPorQuantidade?.[String(q)] ?? ''}
+                                          onChange={(e) => {
+                                            const tabela = { ...(p.precosPorQuantidade || {}) };
+                                            const v = e.target.value;
+                                            if (!v) delete tabela[String(q)];
+                                            else tabela[String(q)] = Number(v) || 0;
+                                            atualizarPergunta(pIdx, { precosPorQuantidade: tabela });
+                                          }}
+                                        />
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <p className="text-xs text-slate-500">
+                              Ex.: 1 = R$89 · 2 = R$129 · 3 = R$159 · 4 = R$189 · 5 = R$219. Com 3 unidades a mão
+                              de obra é só R$159 (não R$89×3 nem R$89+R$159).
+                            </p>
+                          </>
+                        )}
                       </div>
                     ) : (
                     <div className="space-y-2">
+                      {parecePerguntaQuantidade(p) && (
+                        <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                          <p className="font-medium">Esta pergunta parece ser de quantidade</p>
+                          <p className="mt-0.5 text-xs">
+                            Para o − / + na loja e o preço progressivo, converta o tipo para “Quantidade do
+                            serviço (+/− unidades)”.
+                          </p>
+                          <button
+                            type="button"
+                            className="mt-2 rounded-lg bg-[#002d62] px-3 py-1.5 text-xs font-semibold text-white"
+                            onClick={() => {
+                              const max = Math.max(
+                                5,
+                                ...p.opcoes.map((o) => Number(o.id)).filter((n) => Number.isFinite(n) && n > 0)
+                              );
+                              const maxFinal = Math.min(20, max || 5);
+                              const tabela = tabelaProgressivaPadrao(
+                                maxFinal,
+                                Number(config.precoBase) || 0
+                              );
+                              if (!config) return;
+                              const perguntas = [...config.perguntas];
+                              perguntas[pIdx] = {
+                                ...perguntas[pIdx],
+                                papel: 'quantidade',
+                                opcoes: [],
+                                numeroMin: 1,
+                                numeroMax: maxFinal,
+                                numeroPasso: 1,
+                                numeroUnidade: 'un.',
+                                precosPorQuantidade: tabela,
+                              };
+                              setConfig({
+                                ...config,
+                                perguntas,
+                                modoPreco: 'personalizado',
+                                multiplicarBasePorQuantidade: false,
+                                perguntaQuantidadeId: p.id,
+                              });
+                            }}
+                          >
+                            Converter para quantidade (+/−) e habilitar preço progressivo
+                          </button>
+                        </div>
+                      )}
                       {p.opcoes.map((op, oIdx) => (
                         <div key={`${op.id}-${oIdx}`} className="flex flex-wrap items-end gap-2">
                           <input

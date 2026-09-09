@@ -235,6 +235,8 @@ export class SolicitacaoService {
       precoBase: preco?.precoBase ?? null,
       precoComposto: preco?.precoComposto ?? null,
       itensPreco: preco?.itensPreco ?? [],
+      perguntaQuantidadeId: preco?.perguntaQuantidadeId ?? null,
+      multiplicarBasePorQuantidade: preco?.multiplicarBasePorQuantidade ?? true,
     };
   }
 

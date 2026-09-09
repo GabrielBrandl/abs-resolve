@@ -43,6 +43,145 @@ export interface PrecoCompostoConfig {
   faixas: FaixaPrecoComposto[];
 }
 
+export const IDS_ABS_FORNECE_CONHECIDOS = [
+  'abs-fornece-kit',
+  'nao',
+  'nao-abs',
+  'abs',
+  'abs-padrao',
+  'abs-premium',
+] as const;
+
+export function idsAbsForneceConfigurados(composto: PrecoCompostoConfig): string[] {
+  return (composto.opcoesAbsFornece || []).map((x) => String(x).trim()).filter(Boolean);
+}
+
+/**
+ * Resolve qual pergunta de fornecimento usar e se a resposta atual cobra kit/metros.
+ * Usa apenas IDs (opcoesAbsFornece), nunca o texto/label da opção.
+ * Evita confundir com outras perguntas sim/não (ex.: aparelho já comprado).
+ */
+export function resolverCobrancaMaterialAbs(
+  composto: PrecoCompostoConfig,
+  perguntas: Array<{ id: string; titulo?: string; opcoes: Array<{ id: string }> }>,
+  respostas: Record<string, unknown>
+): { cobraMaterial: boolean; respondeuFornecimento: boolean; perguntaId?: string; respostaId?: string } {
+  const configurados = idsAbsForneceConfigurados(composto);
+
+  const lerResposta = (perguntaId: string): string => {
+    const v = respostas[perguntaId];
+    if (v == null || v === '') return '';
+    if (Array.isArray(v)) return String(v[0] ?? '').trim();
+    return String(v).trim();
+  };
+
+  const opcaoExiste = (
+    p: { opcoes: Array<{ id: string }> },
+    id: string
+  ) => p.opcoes.some((o) => o.id === id);
+
+  const scorePergunta = (p: { id: string; titulo?: string; opcoes: Array<{ id: string }> }) => {
+    let score = 0;
+    const key = `${p.id} ${p.titulo || ''}`.toLowerCase();
+    if (/material|forne/.test(key)) score += 10;
+    if (/aparelho|comprado|equipamento/.test(key) && !/material|forne/.test(key)) score -= 5;
+    const hits = configurados.filter((id) => opcaoExiste(p, id)).length;
+    score += hits * 3;
+    // Pergunta ambígua só com sim/nao: preferir a de material
+    const soSimNao =
+      p.opcoes.length > 0 && p.opcoes.every((o) => o.id === 'sim' || o.id === 'nao');
+    if (soSimNao && /material|forne/.test(key)) score += 5;
+    return score;
+  };
+
+  const configuradaId = composto.perguntaFornecimentoId?.trim();
+  let pergunta =
+    (configuradaId && perguntas.find((p) => p.id === configuradaId)) || undefined;
+
+  // Se a pergunta configurada não contém nenhum ID marcado como ABS, tenta achar a certa
+  if (pergunta && configurados.length > 0) {
+    const temAbs = configurados.some((id) => opcaoExiste(pergunta!, id));
+    if (!temAbs) {
+      const candidatas = perguntas
+        .filter((p) => configurados.some((id) => opcaoExiste(p, id)))
+        .sort((a, b) => scorePergunta(b) - scorePergunta(a));
+      if (candidatas[0]) pergunta = candidatas[0];
+    } else {
+      // sim/nao em várias perguntas (aparelho vs material): preferir a de material/fornecimento
+      const soSimNao =
+        pergunta.opcoes.length > 0 &&
+        pergunta.opcoes.every((o) => o.id === 'sim' || o.id === 'nao');
+      if (soSimNao || configurados.every((id) => id === 'sim' || id === 'nao' || id === 'nao-abs')) {
+        const melhor = [...perguntas]
+          .filter((p) => {
+            const idsRelevantes =
+              configurados.filter((id) => opcaoExiste(p, id)).length > 0 ||
+              IDS_ABS_FORNECE_CONHECIDOS.some((id) => opcaoExiste(p, id));
+            return idsRelevantes;
+          })
+          .sort((a, b) => scorePergunta(b) - scorePergunta(a))[0];
+        if (melhor && scorePergunta(melhor) > scorePergunta(pergunta)) pergunta = melhor;
+      }
+    }
+  }
+
+  if (!pergunta && configurados.length > 0) {
+    pergunta = [...perguntas]
+      .filter((p) => configurados.some((id) => opcaoExiste(p, id)))
+      .sort((a, b) => scorePergunta(b) - scorePergunta(a))[0];
+  }
+
+  // Sem pergunta de fornecimento → cobra material (compat)
+  if (!configuradaId && !pergunta) {
+    return { cobraMaterial: true, respondeuFornecimento: false };
+  }
+
+  if (!pergunta) {
+    return { cobraMaterial: false, respondeuFornecimento: false };
+  }
+
+  // IDs ABS efetivos: configurados que existem na pergunta; se nenhum, inclui conhecidos presentes
+  let idsAbs = configurados.filter((id) => opcaoExiste(pergunta!, id));
+  if (configurados.length > 0 && idsAbs.length === 0) {
+    idsAbs = IDS_ABS_FORNECE_CONHECIDOS.filter((id) => opcaoExiste(pergunta!, id));
+  }
+  if (idsAbs.length === 0 && configurados.length === 0) {
+    idsAbs = IDS_ABS_FORNECE_CONHECIDOS.filter((id) => opcaoExiste(pergunta!, id));
+  }
+
+  const resp = lerResposta(pergunta.id);
+  if (!resp) {
+    // Fallback: resposta ABS só em pergunta de material/fornecimento (não aparelho sim/não)
+    for (const [chave, valor] of Object.entries(respostas)) {
+      const id = valor == null ? '' : Array.isArray(valor) ? String(valor[0] ?? '') : String(valor);
+      const tid = id.trim();
+      const pChave = perguntas.find((p) => p.id === chave);
+      if (
+        tid &&
+        idsAbs.includes(tid) &&
+        pChave &&
+        opcaoExiste(pChave, tid) &&
+        scorePergunta(pChave) >= 10
+      ) {
+        return {
+          cobraMaterial: true,
+          respondeuFornecimento: true,
+          perguntaId: chave,
+          respostaId: tid,
+        };
+      }
+    }
+    return { cobraMaterial: false, respondeuFornecimento: false, perguntaId: pergunta.id };
+  }
+
+  return {
+    cobraMaterial: idsAbs.includes(resp) || (configurados.includes(resp) && opcaoExiste(pergunta, resp)),
+    respondeuFornecimento: true,
+    perguntaId: pergunta.id,
+    respostaId: resp,
+  };
+}
+
 export const PRECO_COMPOSTO_VAZIO: PrecoCompostoConfig = {
   ativo: false,
   perguntaCapacidadeId: '',
@@ -141,7 +280,7 @@ export function enriquecerPrecoComposto(slug: string, raw: unknown): PrecoCompos
         : [...(def.opcoesAbsFornece || [])];
       // Migração: pergunta no formato Sim/Não usa id "nao" para ABS fornecer
       if (base.includes('abs-fornece-kit') && !base.includes('nao')) base.push('nao');
-      return base;
+      return [...new Set(base.map(String))];
     })(),
     mapaMetrosOpcao: atual.mapaMetrosOpcao && Object.keys(atual.mapaMetrosOpcao).length
       ? atual.mapaMetrosOpcao

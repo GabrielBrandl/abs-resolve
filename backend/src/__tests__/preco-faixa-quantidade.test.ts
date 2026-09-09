@@ -69,4 +69,18 @@ describe('preço por faixa de quantidade (substitui base)', () => {
     );
     expect(r.preco).toBe(139); // 129 + 10
   });
+
+  it('aplica tabela progressiva mesmo com modoPreco padrão', () => {
+    (fluxoConfigService as unknown as { getPrecoConfig: () => unknown }).getPrecoConfig = () => ({
+      modoPreco: 'padrao',
+      precoBase: 89,
+      itensPreco: [],
+      precoComposto: { ativo: false },
+      perguntaQuantidadeId: 'quantidade',
+      multiplicarBasePorQuantidade: true,
+    });
+    const r = calcularPrecoFluxo('troca-tomada', { quantidade: '3' }, 3);
+    expect(r.preco).toBe(159);
+    expect(r.preco).not.toBe(89 * 3);
+  });
 });

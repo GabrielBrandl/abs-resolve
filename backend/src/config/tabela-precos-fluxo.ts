@@ -2,11 +2,13 @@ import { SERVICOS_CATALOGO } from './catalogo-servicos.js';
 import { findPeca } from './pecas-catalogo.js';
 import { type FluxoServico, type RespostasFluxo, type SlugFluxoServico } from './fluxo-servicos.js';
 import { fluxoConfigService, type ItemPrecoConfig, type PrecoCompostoConfig } from '../services/fluxo-config.service.js';
+import { resolverCobrancaMaterialAbs } from './preco-composto.js';
 import {
   aplicarModoCobranca,
   quantidadeDasRespostas,
   resolverPerguntaQuantidadeId,
   precoMaoDeObraPorFaixa,
+  temPrecoProgressivoPorQuantidade,
   totalComDescontoAPartirDaSegunda,
   descontoAPartirDaSegundaPercent,
   type ModoCobranca,
@@ -233,6 +235,10 @@ function calcularPrecoPersonalizado(
     valorMaoDeObra += valorBase;
   }
 
+  const fornecimentoResolvido = usaComposto
+    ? resolverCobrancaMaterialAbs(composto!, fluxo.perguntas, respostas).perguntaId
+    : undefined;
+
   // Opções com preço adicional = adicionais (não misturar com material/capacidade compostos)
   for (const pergunta of fluxo.perguntas) {
     if (pergunta.id === qtdPerguntaId) continue;
@@ -240,7 +246,8 @@ function calcularPrecoPersonalizado(
       usaComposto &&
       (pergunta.id === composto!.perguntaCapacidadeId ||
         pergunta.id === composto!.perguntaMetrosId ||
-        pergunta.id === composto!.perguntaFornecimentoId)
+        pergunta.id === composto!.perguntaFornecimentoId ||
+        pergunta.id === fornecimentoResolvido)
     ) {
       continue; // preço vem da tabela composta
     }
@@ -364,45 +371,6 @@ function acharFaixaCapacidade(
   );
 }
 
-function idsAbsFornece(composto: PrecoCompostoConfig): string[] {
-  return (composto.opcoesAbsFornece || []).map((x) => String(x).trim()).filter(Boolean);
-}
-
-/**
- * Cobra kit/metros somente se a resposta (ID) estiver em opcoesAbsFornece do admin.
- * Não usa texto visível das opções.
- */
-function deveCobrarMaterialAbs(
-  composto: PrecoCompostoConfig,
-  respostas: RespostasFluxo
-): { cobraMaterial: boolean; respondeuFornecimento: boolean } {
-  const fornecimentoId = composto.perguntaFornecimentoId?.trim();
-  const idsAbs = idsAbsFornece(composto);
-
-  // Sem pergunta de fornecimento → cobra material (compat)
-  if (!fornecimentoId) {
-    return { cobraMaterial: true, respondeuFornecimento: false };
-  }
-
-  const respDireta = resposta(respostas, fornecimentoId);
-  if (respDireta != null && String(respDireta).trim() !== '') {
-    const id = String(respDireta).trim();
-    return { cobraMaterial: idsAbs.includes(id), respondeuFornecimento: true };
-  }
-
-  // Fallback se perguntaId no admin estiver desatualizada: achar ID ABS em qualquer resposta
-  if (idsAbs.length > 0) {
-    for (const valor of Object.values(respostas)) {
-      const id = valor == null ? '' : String(valor).trim();
-      if (id && idsAbs.includes(id)) {
-        return { cobraMaterial: true, respondeuFornecimento: true };
-      }
-    }
-  }
-
-  return { cobraMaterial: false, respondeuFornecimento: false };
-}
-
 function calcularMaterialComposto(
   composto: PrecoCompostoConfig,
   respostas: RespostasFluxo,
@@ -458,7 +426,12 @@ function calcularMaterialComposto(
     capacidadeId ||
     'capacidade';
 
-  const { cobraMaterial, respondeuFornecimento } = deveCobrarMaterialAbs(composto, respostas);
+  // Vínculo por ID da opção (opcoesAbsFornece), resolvendo a pergunta certa (não o label)
+  const { cobraMaterial, respondeuFornecimento } = resolverCobrancaMaterialAbs(
+    composto,
+    fluxo.perguntas,
+    respostas
+  );
 
   const metrosExtras = cobraMaterial ? Math.max(0, metrosRespondidos - metrosInclusos) : 0;
   const valorExtras = cobraMaterial ? roundCurrency(metrosExtras * precoPorMetro) : 0;
@@ -556,12 +529,20 @@ export function calcularPrecoFluxo(
   const fluxo = fluxoConfigService.getFluxoEfetivo(slug);
   const precoConfig = fluxoConfigService.getPrecoConfig(slug);
 
-  // Só o modo personalizado / preço composto usa precoBase, precoAdicional e itensPreco do admin.
-  // Em "padrao", a tabela hardcoded abaixo ainda vale (editar preços no painel exige modo personalizado).
+  // Preço progressivo por quantidade (tabela na pergunta) tem prioridade e substitui a mão de obra.
+  // Funciona em qualquer serviço — inclusive se o modo ainda estiver "padrão".
+  const usaPrecoProgressivo = Boolean(
+    fluxo?.perguntas.some((p) => temPrecoProgressivoPorQuantidade(p.precosPorQuantidade))
+  );
+
+  // Só o modo personalizado / preço composto / tabela progressiva usa precoBase e itens do admin.
+  // Em "padrao" puro (sem tabela), a tabela hardcoded abaixo ainda vale.
   if (
     fluxo &&
     precoConfig &&
-    (precoConfig.modoPreco === 'personalizado' || precoConfig.precoComposto?.ativo)
+    (precoConfig.modoPreco === 'personalizado' ||
+      precoConfig.precoComposto?.ativo ||
+      usaPrecoProgressivo)
   ) {
     return calcularPrecoPersonalizado(slug, fluxo, precoConfig, respostas, quantidade);
   }
