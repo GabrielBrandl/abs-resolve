@@ -470,6 +470,8 @@ export interface FluxoPerguntaOpcaoConfig {
   label: string;
   precoAdicional?: number;
   modoCobranca?: 'fixo' | 'por_unidade';
+  /** Só cobra o adicional se as respostas baterem (ex.: ABS fornece material) */
+  when?: Record<string, string[]>;
 }
 
 export interface FluxoPerguntaConfig {

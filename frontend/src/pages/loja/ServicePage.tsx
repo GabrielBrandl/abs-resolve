@@ -24,7 +24,13 @@ import { totalComDescontoAPartirDaSegunda, DESCONTO_SEGUNDA_UNIDADE_PERCENT } fr
 type FluxoPergunta = {
   id: string;
   titulo: string;
-  opcoes: Array<{ id: string; label: string; precoAdicional?: number; modoCobranca?: string }>;
+  opcoes: Array<{
+    id: string;
+    label: string;
+    precoAdicional?: number;
+    modoCobranca?: string;
+    when?: Record<string, string[]>;
+  }>;
   showIf?: { perguntaId: string; opcaoIds: string[] };
   papel?: 'quantidade' | 'numero' | 'normal';
   numeroMin?: number;
@@ -348,13 +354,16 @@ function calcularCompostoLocal(
     ) {
       continue;
     }
+    if (!perguntaVisivelLocal(pergunta, respostas)) continue;
     const resp = respostas[pergunta.id];
     if (!resp) continue;
-    const op = pergunta.opcoes.find((o) => o.id === resp) as
-      | { label: string; precoAdicional?: number }
-      | undefined;
+    const op = pergunta.opcoes.find((o) => o.id === resp);
     const extra = Number(op?.precoAdicional) || 0;
-    if (op && extra > 0) breakdown.push({ label: op.label, valor: extra });
+    if (!op || extra <= 0) continue;
+    if (!condicaoWhenLocal(op.when, respostas)) continue;
+    // No composto, quantidade do serviço costuma ser 1; ainda respeita modoCobranca
+    const valor = aplicarModoLocal(extra, op.modoCobranca || 'fixo', 1);
+    if (valor > 0) breakdown.push({ label: op.label, valor });
   }
 
   const preco = Math.round(breakdown.reduce((a, b) => a + b.valor, 0) * 100) / 100;
@@ -396,6 +405,29 @@ function precoMaoObraPorFaixaLocal(
   return Number.isFinite(valor) && valor > 0 ? Math.round(valor * 100) / 100 : undefined;
 }
 
+function condicaoWhenLocal(
+  when: Record<string, string[]> | undefined,
+  respostas: Record<string, string>
+): boolean {
+  if (!when || !Object.keys(when).length) return true;
+  return Object.entries(when).every(([k, ids]) => ids.includes(respostas[k] || ''));
+}
+
+function perguntaVisivelLocal(
+  pergunta: FluxoPergunta,
+  respostas: Record<string, string>
+): boolean {
+  if (!pergunta.showIf) return true;
+  return pergunta.showIf.opcaoIds.includes(respostas[pergunta.showIf.perguntaId] || '');
+}
+
+function aplicarModoLocal(valor: number, modo: string | undefined, quantidade: number): number {
+  const v = Number(valor) || 0;
+  if (!v) return 0;
+  if (modo === 'fixo') return v;
+  return v * Math.max(1, Math.floor(quantidade || 1));
+}
+
 function calcularProgressivoLocal(
   fluxo: Fluxo,
   respostas: Record<string, string>,
@@ -417,11 +449,9 @@ function calcularProgressivoLocal(
   let adicionais = 0;
 
   for (const item of fluxo.itensPreco || []) {
-    if (item.when) {
-      const ok = Object.entries(item.when).every(([k, vals]) => vals.includes(respostas[k]));
-      if (!ok) continue;
-    }
-    const valor = Number(item.valor) || 0;
+    if (item.when && !condicaoWhenLocal(item.when, respostas)) continue;
+    const modo = item.modoCobranca || 'por_unidade';
+    const valor = aplicarModoLocal(Number(item.valor) || 0, modo, quantidade);
     if (valor > 0) {
       breakdown.push({ label: item.label, valor });
       adicionais += valor;
@@ -430,14 +460,22 @@ function calcularProgressivoLocal(
 
   for (const pergunta of fluxo.perguntas || []) {
     if (pergunta.id === perguntaQtd?.id) continue;
+    if (!perguntaVisivelLocal(pergunta, respostas)) continue;
     const resp = respostas[pergunta.id];
     if (!resp) continue;
     const op = pergunta.opcoes.find((o) => o.id === resp);
     const extra = Number(op?.precoAdicional) || 0;
-    if (op && extra > 0) {
-      breakdown.push({ label: op.label, valor: extra });
-      adicionais += extra;
-    }
+    if (!op || extra <= 0) continue;
+    if (!condicaoWhenLocal(op.when, respostas)) continue;
+    const modo = op.modoCobranca || 'por_unidade';
+    const valor = aplicarModoLocal(extra, modo, quantidade);
+    if (valor <= 0) continue;
+    const label =
+      modo !== 'fixo' && quantidade > 1
+        ? `${op.label} (${quantidade} × R$ ${extra.toFixed(2)})`
+        : op.label;
+    breakdown.push({ label, valor });
+    adicionais += valor;
   }
 
   const preco = Math.round((faixa + adicionais) * 100) / 100;

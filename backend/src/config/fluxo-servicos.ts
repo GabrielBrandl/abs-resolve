@@ -28,8 +28,13 @@ export interface FluxoPerguntaOpcao {
   id: string;
   label: string;
   precoAdicional?: number;
-  /** fixo = soma o valor uma vez; por_unidade = valor × quantidade */
+  /** fixo = soma o valor uma vez; por_unidade = valor × quantidade do serviço */
   modoCobranca?: ModoCobrancaOpcao;
+  /**
+   * Condição genérica para cobrar este adicional.
+   * Ex.: { fornecimentoTomada: ['nao'] } — só cobra se ABS fornecer.
+   */
+  when?: Record<string, string[]>;
 }
 
 export interface FluxoPerguntaShowIf {

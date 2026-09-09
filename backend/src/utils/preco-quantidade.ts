@@ -135,3 +135,35 @@ export function temPrecoProgressivoPorQuantidade(
   if (!precosPorQuantidade || typeof precosPorQuantidade !== 'object') return false;
   return Object.values(precosPorQuantidade).some((v) => Number(v) > 0);
 }
+
+/** True se todas as chaves de `when` têm resposta ∈ lista de opções. Sem when → true. */
+export function condicaoWhenSatisfeita(
+  when: Record<string, string[]> | undefined | null,
+  respostas: Record<string, unknown>
+): boolean {
+  if (!when || typeof when !== 'object') return true;
+  const entradas = Object.entries(when);
+  if (!entradas.length) return true;
+  return entradas.every(([chave, opcaoIds]) => {
+    if (!Array.isArray(opcaoIds) || !opcaoIds.length) return true;
+    const bruto = respostas[chave];
+    const atual = Array.isArray(bruto)
+      ? String(bruto[0] ?? '').trim()
+      : bruto == null
+        ? ''
+        : String(bruto).trim();
+    return opcaoIds.map(String).includes(atual);
+  });
+}
+
+/** showIf da pergunta: se definido e não satisfeito, a pergunta não entra no preço. */
+export function perguntaVisivelPorShowIf(
+  pergunta: { showIf?: { perguntaId: string; opcaoIds: string[] } } | undefined | null,
+  respostas: Record<string, unknown>
+): boolean {
+  if (!pergunta?.showIf?.perguntaId || !pergunta.showIf.opcaoIds?.length) return true;
+  return condicaoWhenSatisfeita(
+    { [pergunta.showIf.perguntaId]: pergunta.showIf.opcaoIds },
+    respostas
+  );
+}

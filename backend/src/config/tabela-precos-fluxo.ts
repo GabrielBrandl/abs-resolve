@@ -9,6 +9,8 @@ import {
   resolverPerguntaQuantidadeId,
   precoMaoDeObraPorFaixa,
   temPrecoProgressivoPorQuantidade,
+  condicaoWhenSatisfeita,
+  perguntaVisivelPorShowIf,
   totalComDescontoAPartirDaSegunda,
   descontoAPartirDaSegundaPercent,
   type ModoCobranca,
@@ -239,7 +241,7 @@ function calcularPrecoPersonalizado(
     ? resolverCobrancaMaterialAbs(composto!, fluxo.perguntas, respostas).perguntaId
     : undefined;
 
-  // Opções com preço adicional = adicionais (não misturar com material/capacidade compostos)
+  // Opções com preço adicional = adicionais genéricos (fixo ou × quantidade do serviço)
   for (const pergunta of fluxo.perguntas) {
     if (pergunta.id === qtdPerguntaId) continue;
     if (
@@ -251,16 +253,31 @@ function calcularPrecoPersonalizado(
     ) {
       continue; // preço vem da tabela composta
     }
+    // Pergunta condicional (showIf) não cobrada se a condição não estiver satisfeita
+    if (!perguntaVisivelPorShowIf(pergunta, respostas)) continue;
+
     const resp = resposta(respostas, pergunta.id);
     if (!resp) continue;
     const op = pergunta.opcoes.find((o) => o.id === resp) as
-      | { label: string; precoAdicional?: number; modoCobranca?: ModoCobranca }
+      | {
+          label: string;
+          precoAdicional?: number;
+          modoCobranca?: ModoCobranca;
+          when?: Record<string, string[]>;
+        }
       | undefined;
     const extra = Number(op?.precoAdicional) || 0;
     if (!op || !extra) continue;
+    // Condição por opção (ex.: só se ABS fornecer o material)
+    if (!condicaoWhenSatisfeita(op.when, respostas)) continue;
+
     const modo: ModoCobranca = op.modoCobranca === 'fixo' ? 'fixo' : 'por_unidade';
     const valor = aplicarModoCobranca(extra, modo, qtd);
-    adicionarItem(breakdown, op.label, valor);
+    const label =
+      modo === 'por_unidade' && qtd > 1
+        ? `${op.label} (${qtd} × R$ ${extra.toFixed(2)})`
+        : op.label;
+    adicionarItem(breakdown, label, valor);
     valorAdicionais += valor;
   }
 

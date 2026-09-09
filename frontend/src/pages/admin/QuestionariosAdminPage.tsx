@@ -752,6 +752,67 @@ export function QuestionariosAdminPage() {
                       </p>
                     )}
 
+                    {(p.papel || 'normal') === 'normal' && (
+                      <div className="mb-2 grid gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-2 sm:grid-cols-2">
+                        <label className="text-xs text-slate-600">
+                          Exibir esta pergunta somente se
+                          <select
+                            className="mt-0.5 w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                            value={p.showIf?.perguntaId || ''}
+                            onChange={(e) => {
+                              const pid = e.target.value;
+                              if (!pid) {
+                                atualizarPergunta(pIdx, { showIf: undefined });
+                                return;
+                              }
+                              atualizarPergunta(pIdx, {
+                                showIf: {
+                                  perguntaId: pid,
+                                  opcaoIds: p.showIf?.perguntaId === pid ? p.showIf.opcaoIds : [],
+                                },
+                              });
+                            }}
+                          >
+                            <option value="">Sempre visível</option>
+                            {config.perguntas
+                              .filter((q) => q.id !== p.id)
+                              .map((q) => (
+                                <option key={q.id} value={q.id}>
+                                  {q.titulo}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        {p.showIf?.perguntaId && (
+                          <label className="text-xs text-slate-600">
+                            for a opção
+                            <select
+                              className="mt-0.5 w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                              value={p.showIf.opcaoIds[0] || ''}
+                              onChange={(e) => {
+                                atualizarPergunta(pIdx, {
+                                  showIf: {
+                                    perguntaId: p.showIf!.perguntaId,
+                                    opcaoIds: e.target.value ? [e.target.value] : [],
+                                  },
+                                });
+                              }}
+                            >
+                              <option value="">Selecione…</option>
+                              {(
+                                config.perguntas.find((q) => q.id === p.showIf?.perguntaId)?.opcoes ||
+                                []
+                              ).map((o) => (
+                                <option key={o.id} value={o.id}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                      </div>
+                    )}
+
                     {(p.papel || 'normal') === 'numero' ? (
                       <div className="mb-2 grid gap-3 rounded-lg border border-dashed border-slate-300 bg-white p-3 sm:grid-cols-4">
                         <label className="text-sm">
@@ -980,70 +1041,161 @@ export function QuestionariosAdminPage() {
                         </div>
                       )}
                       {p.opcoes.map((op, oIdx) => (
-                        <div key={`${op.id}-${oIdx}`} className="flex flex-wrap items-end gap-2">
-                          <input
-                            className="min-w-[100px] flex-1 rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
-                            placeholder="ID opção"
-                            value={op.id}
-                            onChange={(e) => {
-                              const opcoes = [...p.opcoes];
-                              opcoes[oIdx] = { ...opcoes[oIdx], id: e.target.value };
-                              atualizarPergunta(pIdx, { opcoes });
-                            }}
-                          />
-                          <input
-                            className="min-w-[140px] flex-[2] rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
-                            placeholder="Texto da opção"
-                            value={op.label}
-                            onChange={(e) => {
-                              const opcoes = [...p.opcoes];
-                              opcoes[oIdx] = { ...opcoes[oIdx], label: e.target.value };
-                              atualizarPergunta(pIdx, { opcoes });
-                            }}
-                          />
+                        <div
+                          key={`${op.id}-${oIdx}`}
+                          className="rounded-lg border border-slate-200 bg-white p-2.5 space-y-2"
+                        >
+                          <div className="flex flex-wrap items-end gap-2">
+                            <input
+                              className="min-w-[100px] flex-1 rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                              placeholder="ID opção"
+                              value={op.id}
+                              onChange={(e) => {
+                                const opcoes = [...p.opcoes];
+                                opcoes[oIdx] = { ...opcoes[oIdx], id: e.target.value };
+                                atualizarPergunta(pIdx, { opcoes });
+                              }}
+                            />
+                            <input
+                              className="min-w-[140px] flex-[2] rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                              placeholder="Texto da opção"
+                              value={op.label}
+                              onChange={(e) => {
+                                const opcoes = [...p.opcoes];
+                                opcoes[oIdx] = { ...opcoes[oIdx], label: e.target.value };
+                                atualizarPergunta(pIdx, { opcoes });
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="text-xs text-red-500"
+                              onClick={() => {
+                                const opcoes = p.opcoes.filter((_, i) => i !== oIdx);
+                                atualizarPergunta(pIdx, { opcoes });
+                              }}
+                            >
+                              Remover
+                            </button>
+                          </div>
+
                           {config.modoPreco === 'personalizado' && (
-                            <>
-                              <input
-                                type="number"
-                                className="w-24 rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
-                                placeholder="+ R$"
-                                value={op.precoAdicional ?? ''}
-                                onChange={(e) => {
-                                  const opcoes = [...p.opcoes];
-                                  opcoes[oIdx] = {
-                                    ...opcoes[oIdx],
-                                    precoAdicional: e.target.value ? Number(e.target.value) : undefined,
-                                  };
-                                  atualizarPergunta(pIdx, { opcoes });
-                                }}
-                              />
-                              <select
-                                className="w-40 rounded-lg border border-abs-gray px-2 py-1.5 text-xs"
-                                value={op.modoCobranca || 'por_unidade'}
-                                onChange={(e) => {
-                                  const opcoes = [...p.opcoes];
-                                  opcoes[oIdx] = {
-                                    ...opcoes[oIdx],
-                                    modoCobranca: e.target.value as 'fixo' | 'por_unidade',
-                                  };
-                                  atualizarPergunta(pIdx, { opcoes });
-                                }}
-                              >
-                                <option value="por_unidade">Por unidade × qtd</option>
-                                <option value="fixo">Valor fixo</option>
-                              </select>
-                            </>
+                            <div className="space-y-2 rounded-md border border-dashed border-slate-200 bg-slate-50 p-2">
+                              <div className="flex flex-wrap items-center gap-3">
+                                <label className="text-xs text-slate-600">
+                                  Adicional (R$)
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    className="mt-0.5 block w-28 rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                                    placeholder="0"
+                                    value={op.precoAdicional ?? ''}
+                                    onChange={(e) => {
+                                      const opcoes = [...p.opcoes];
+                                      opcoes[oIdx] = {
+                                        ...opcoes[oIdx],
+                                        precoAdicional: e.target.value
+                                          ? Number(e.target.value)
+                                          : undefined,
+                                      };
+                                      atualizarPergunta(pIdx, { opcoes });
+                                    }}
+                                  />
+                                </label>
+                                <label className="flex items-start gap-2 text-sm pt-4">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5"
+                                    checked={(op.modoCobranca || 'por_unidade') === 'por_unidade'}
+                                    disabled={!op.precoAdicional}
+                                    onChange={(e) => {
+                                      const opcoes = [...p.opcoes];
+                                      opcoes[oIdx] = {
+                                        ...opcoes[oIdx],
+                                        modoCobranca: e.target.checked ? 'por_unidade' : 'fixo',
+                                      };
+                                      atualizarPergunta(pIdx, { opcoes });
+                                    }}
+                                  />
+                                  <span>
+                                    <span className="block font-medium text-slate-700">
+                                      Multiplicar este adicional pela quantidade do serviço
+                                    </span>
+                                    <span className="text-xs text-slate-500">
+                                      Ex.: R$12 × 3 un. = R$36. Desmarcado = cobra uma vez só.
+                                    </span>
+                                  </span>
+                                </label>
+                              </div>
+
+                              {(Number(op.precoAdicional) || 0) > 0 && (
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  <label className="text-xs text-slate-600">
+                                    Aplicar adicional somente se a pergunta
+                                    <select
+                                      className="mt-0.5 w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                                      value={Object.keys(op.when || {})[0] || ''}
+                                      onChange={(e) => {
+                                        const opcoes = [...p.opcoes];
+                                        const pid = e.target.value;
+                                        if (!pid) {
+                                          const { when: _w, ...rest } = opcoes[oIdx];
+                                          opcoes[oIdx] = rest;
+                                        } else {
+                                          opcoes[oIdx] = {
+                                            ...opcoes[oIdx],
+                                            when: { [pid]: op.when?.[pid] || [] },
+                                          };
+                                        }
+                                        atualizarPergunta(pIdx, { opcoes });
+                                      }}
+                                    >
+                                      <option value="">Sempre (sem condição)</option>
+                                      {config.perguntas
+                                        .filter((q) => q.id !== p.id && (q.papel || 'normal') === 'normal')
+                                        .map((q) => (
+                                          <option key={q.id} value={q.id}>
+                                            {q.titulo}
+                                          </option>
+                                        ))}
+                                    </select>
+                                  </label>
+                                  {Object.keys(op.when || {})[0] && (
+                                    <label className="text-xs text-slate-600">
+                                      for igual a
+                                      <select
+                                        className="mt-0.5 w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                                        value={(op.when?.[Object.keys(op.when)[0]] || [])[0] || ''}
+                                        onChange={(e) => {
+                                          const chave = Object.keys(op.when || {})[0];
+                                          if (!chave) return;
+                                          const opcoes = [...p.opcoes];
+                                          opcoes[oIdx] = {
+                                            ...opcoes[oIdx],
+                                            when: e.target.value
+                                              ? { [chave]: [e.target.value] }
+                                              : { [chave]: [] },
+                                          };
+                                          atualizarPergunta(pIdx, { opcoes });
+                                        }}
+                                      >
+                                        <option value="">Selecione a opção…</option>
+                                        {(
+                                          config.perguntas.find(
+                                            (q) => q.id === Object.keys(op.when || {})[0]
+                                          )?.opcoes || []
+                                        ).map((o) => (
+                                          <option key={o.id} value={o.id}>
+                                            {o.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )}
-                          <button
-                            type="button"
-                            className="text-xs text-red-500"
-                            onClick={() => {
-                              const opcoes = p.opcoes.filter((_, i) => i !== oIdx);
-                              atualizarPergunta(pIdx, { opcoes });
-                            }}
-                          >
-                            Remover
-                          </button>
                         </div>
                       ))}
                       <Button
