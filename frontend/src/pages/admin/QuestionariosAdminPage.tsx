@@ -745,6 +745,28 @@ export function QuestionariosAdminPage() {
                           Use “Número livre” para metragem sem criar dezenas de opções.
                         </span>
                       </label>
+                      {(p.papel || 'normal') !== 'quantidade' && (
+                        <label className="flex items-start gap-2 text-sm sm:col-span-2">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={Boolean(p.replicarPorUnidade)}
+                            onChange={(e) =>
+                              atualizarPergunta(pIdx, { replicarPorUnidade: e.target.checked })
+                            }
+                          />
+                          <span>
+                            <span className="block font-medium text-slate-700">
+                              Repetir esta pergunta para cada unidade
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              Com quantidade &gt; 1, o cliente responde de novo (ex.: Aparelho 1, Aparelho 2).
+                              Use em capacidade, metragem, material etc. Deixe desmarcado para perguntas
+                              compartilhadas (tipo de imóvel, andaime).
+                            </span>
+                          </span>
+                        </label>
+                      )}
                     </div>
 
                     {p.showIf && (
@@ -1120,10 +1142,11 @@ export function QuestionariosAdminPage() {
                                   />
                                   <span>
                                     <span className="block font-medium text-slate-700">
-                                      Multiplicar este adicional pela quantidade do serviço
+                                      Cobrar por unidade (multiplicar pela quantidade)
                                     </span>
                                     <span className="text-xs text-slate-500">
-                                      Ex.: R$12 × 3 un. = R$36. Desmarcado = cobra uma vez só.
+                                      Marcado = R$12 × 3 un. = R$36. Desmarcado = uma vez por atendimento
+                                      (ex.: andaime compartilhado), sem multiplicar.
                                     </span>
                                   </span>
                                 </label>

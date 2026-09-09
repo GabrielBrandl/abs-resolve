@@ -10,6 +10,11 @@ import {
   prefetchImagem,
   resolverImagemPrincipalPorRespostas,
 } from '../../utils/imagem-principal-opcao';
+import {
+  expandirPerguntasPorUnidade,
+  migrarRespostasParaMultiUnidade,
+  temReplicacaoPorUnidade,
+} from '../../utils/multi-unidade';
 import { gtmPush } from '../../utils/gtm';
 import { Button, Loading, Logo, TextoComMarca } from '../ui';
 
@@ -28,6 +33,7 @@ export interface FluxoPergunta {
   numeroMax?: number;
   numeroPasso?: number;
   numeroUnidade?: string;
+  replicarPorUnidade?: boolean;
 }
 
 export interface FluxoServicoData {
@@ -93,9 +99,29 @@ export function QuestionarioServico({
       .finally(() => setLoading(false));
   }, [slug]);
 
+  const labelUnidade = /ar-split|ar.condicionado/i.test(slug) ? 'Aparelho' : 'Unidade';
+  const usaMulti = temReplicacaoPorUnidade(fluxo?.perguntas || []);
+
+  useEffect(() => {
+    if (!usaMulti || quantidade <= 1 || !fluxo) return;
+    const next = migrarRespostasParaMultiUnidade(respostas, fluxo.perguntas, quantidade);
+    for (const [k, v] of Object.entries(next)) {
+      if (v && respostas[k] !== v) onResposta(k, v);
+    }
+    // Só ao mudar a quantidade — evita loop com onResposta
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quantidade, usaMulti]);
+
+  const perguntasExpandidas = useMemo(() => {
+    if (!fluxo) return [];
+    return usaMulti
+      ? expandirPerguntasPorUnidade(fluxo.perguntas, quantidade, labelUnidade)
+      : fluxo.perguntas;
+  }, [fluxo, quantidade, usaMulti, labelUnidade]);
+
   const visiveis = useMemo(
-    () => (fluxo ? perguntasVisiveis(fluxo.perguntas, respostas) : []),
-    [fluxo, respostas]
+    () => perguntasVisiveis(perguntasExpandidas, respostas),
+    [perguntasExpandidas, respostas]
   );
 
   const imagemAtual = useMemo(() => {

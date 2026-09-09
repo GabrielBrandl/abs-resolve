@@ -490,6 +490,8 @@ export interface FluxoPerguntaConfig {
   numeroUnidade?: string;
   /** Preço total da mão de obra por qtd (substitui preço-base quando preenchido) */
   precosPorQuantidade?: Record<string, number>;
+  /** Repete a pergunta para cada unidade (respostas id__uN) */
+  replicarPorUnidade?: boolean;
 }
 
 export interface ItemPrecoConfig {

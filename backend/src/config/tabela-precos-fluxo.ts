@@ -15,6 +15,11 @@ import {
   descontoAPartirDaSegundaPercent,
   type ModoCobranca,
 } from '../utils/preco-quantidade.js';
+import {
+  labelUnidadeServico,
+  respostasDaUnidade,
+  temReplicacaoPorUnidade,
+} from '../utils/multi-unidade.js';
 
 export interface PrecoFluxoBreakdownItem {
   label: string;
@@ -196,6 +201,184 @@ function calcularPrecoPersonalizado(
   respostas: RespostasFluxo,
   quantidade?: number
 ): ResultadoPrecoFluxo {
+  const qtdPerguntaId = resolverPerguntaQuantidadeId(fluxo.perguntas, precoConfig.perguntaQuantidadeId);
+  const qtd = quantidadeDasRespostas(respostas, qtdPerguntaId, quantidade);
+
+  // Várias unidades com perguntas individuais (ex.: Aparelho 1, 2, 3)
+  if (temReplicacaoPorUnidade(fluxo.perguntas) && qtd > 1) {
+    return calcularPrecoMultiUnidade(slug, fluxo, precoConfig, respostas, qtd, qtdPerguntaId);
+  }
+
+  return calcularPrecoPersonalizadoSimples(slug, fluxo, precoConfig, respostas, quantidade);
+}
+
+function calcularPrecoMultiUnidade(
+  slug: string,
+  fluxo: FluxoServico,
+  precoConfig: {
+    precoBase: number | null;
+    itensPreco: ItemPrecoConfig[];
+    precoComposto?: PrecoCompostoConfig;
+    perguntaQuantidadeId?: string | null;
+    multiplicarBasePorQuantidade?: boolean;
+  },
+  respostas: RespostasFluxo,
+  qtd: number,
+  qtdPerguntaId: string
+): ResultadoPrecoFluxo {
+  const breakdown: PrecoFluxoBreakdownItem[] = [];
+  const mensagens = new Set<string>();
+  let valorMaoDeObra = 0;
+  let valorMaterial = 0;
+  let valorAdicionais = 0;
+  const labelBase = /ar-split|ar.condicionado/i.test(slug) ? 'Aparelho' : 'Unidade';
+
+  for (let i = 1; i <= qtd; i++) {
+    const rUnit = respostasDaUnidade(
+      respostas,
+      fluxo.perguntas,
+      i,
+      qtdPerguntaId
+    ) as RespostasFluxo;
+    for (const m of avaliarRegrasFluxoComFluxo(fluxo, rUnit)) mensagens.add(m);
+
+    const parcial = calcularPrecoPersonalizadoSimples(
+      slug,
+      fluxo,
+      {
+        ...precoConfig,
+        // Cada unidade tem mão de obra própria (não usa tabela progressiva agregada)
+        multiplicarBasePorQuantidade: false,
+        itensPreco: [], // itens compartilhados entram depois
+      },
+      rUnit,
+      1,
+      {
+        prefixoLabel: labelUnidadeServico(i, labelBase),
+        apenasExtrasReplicados: true,
+        ignorarProgressivo: true,
+      }
+    );
+
+    for (const item of parcial.breakdown) {
+      adicionarItem(breakdown, item.label, item.valor);
+    }
+    valorMaoDeObra += Number(parcial.valorServico || 0) - Number(parcial.valorAdicionais || 0);
+    valorMaterial += Number(parcial.valorMaterial || parcial.valorPeca || 0);
+    valorAdicionais += Number(parcial.valorAdicionais || 0);
+  }
+
+  // Adicionais compartilhados (perguntas sem replicarPorUnidade) — fixo = 1× atendimento
+  const composto = precoConfig.precoComposto;
+  const usaComposto = Boolean(composto?.ativo && composto.perguntaCapacidadeId);
+  const fornecimentoResolvido = usaComposto
+    ? resolverCobrancaMaterialAbs(composto!, fluxo.perguntas, respostas).perguntaId
+    : undefined;
+
+  for (const pergunta of fluxo.perguntas) {
+    if (pergunta.id === qtdPerguntaId) continue;
+    if (pergunta.replicarPorUnidade) continue; // já cobrado por unidade
+    if (
+      usaComposto &&
+      (pergunta.id === composto!.perguntaCapacidadeId ||
+        pergunta.id === composto!.perguntaMetrosId ||
+        pergunta.id === composto!.perguntaFornecimentoId ||
+        pergunta.id === fornecimentoResolvido)
+    ) {
+      continue;
+    }
+    if (!perguntaVisivelPorShowIf(pergunta, respostas)) continue;
+    const resp = resposta(respostas, pergunta.id);
+    if (!resp) continue;
+    const op = pergunta.opcoes.find((o) => o.id === resp) as
+      | { label: string; precoAdicional?: number; modoCobranca?: ModoCobranca; when?: Record<string, string[]> }
+      | undefined;
+    const extra = Number(op?.precoAdicional) || 0;
+    if (!op || !extra) continue;
+    if (!condicaoWhenSatisfeita(op.when, respostas)) continue;
+    const modo: ModoCobranca = op.modoCobranca === 'fixo' ? 'fixo' : 'por_unidade';
+    // fixo = uma vez por atendimento; por_unidade ainda multiplica (legado)
+    const valor = aplicarModoCobranca(extra, modo, qtd);
+    const label =
+      modo === 'fixo'
+        ? `${op.label} (1× por atendimento)`
+        : modo === 'por_unidade' && qtd > 1
+          ? `${op.label} (${qtd} × R$ ${extra.toFixed(2)})`
+          : op.label;
+    adicionarItem(breakdown, label, valor);
+    valorAdicionais += valor;
+  }
+
+  const idsReplicados = new Set(
+    fluxo.perguntas.filter((p) => p.replicarPorUnidade && p.papel !== 'quantidade').map((p) => p.id)
+  );
+
+  for (const item of precoConfig.itensPreco) {
+    const modo: ModoCobranca = item.modoCobranca === 'fixo' ? 'fixo' : 'por_unidade';
+    const whenKeys = item.when ? Object.keys(item.when) : [];
+    const whenUsaReplicada = whenKeys.some((k) => idsReplicados.has(k));
+
+    if (whenUsaReplicada) {
+      // Ex.: suporte de parede depende do local de cada aparelho
+      let matches = 0;
+      for (let i = 1; i <= qtd; i++) {
+        const rUnit = respostasDaUnidade(respostas, fluxo.perguntas, i, qtdPerguntaId) as RespostasFluxo;
+        const ok = !item.when || Object.entries(item.when).every(([k, v]) => tem(rUnit, k, v));
+        if (ok) matches += 1;
+      }
+      if (matches === 0) continue;
+      const vezes = modo === 'fixo' ? 1 : matches;
+      const valor = Math.round(item.valor * vezes * 100) / 100;
+      const label =
+        modo === 'fixo'
+          ? `${item.label} (1× por atendimento)`
+          : matches > 1
+            ? `${item.label} (${matches} × R$ ${item.valor.toFixed(2)})`
+            : item.label;
+      adicionarItem(breakdown, label, valor);
+      valorAdicionais += valor;
+      continue;
+    }
+
+    if (item.when) {
+      const match = Object.entries(item.when).every(([k, v]) => tem(respostas, k, v));
+      if (!match) continue;
+    }
+    const valor = aplicarModoCobranca(item.valor, modo, qtd);
+    const label =
+      modo === 'fixo' ? `${item.label} (1× por atendimento)` : item.label;
+    adicionarItem(breakdown, label, valor);
+    valorAdicionais += valor;
+  }
+
+  return finalizarResultado(breakdown, mensagens, {
+    valorServico: valorMaoDeObra + valorAdicionais,
+    valorMaterial: valorMaterial > 0 ? valorMaterial : undefined,
+    valorAdicionais: valorAdicionais > 0 ? valorAdicionais : undefined,
+    valorPeca: valorMaterial > 0 ? valorMaterial : undefined,
+    quantidade: qtd,
+  });
+}
+
+function calcularPrecoPersonalizadoSimples(
+  slug: string,
+  fluxo: FluxoServico,
+  precoConfig: {
+    precoBase: number | null;
+    itensPreco: ItemPrecoConfig[];
+    precoComposto?: PrecoCompostoConfig;
+    perguntaQuantidadeId?: string | null;
+    multiplicarBasePorQuantidade?: boolean;
+  },
+  respostas: RespostasFluxo,
+  quantidade?: number,
+  opts?: {
+    prefixoLabel?: string;
+    apenasExtrasReplicados?: boolean;
+    ignorarProgressivo?: boolean;
+  }
+): ResultadoPrecoFluxo {
+  const prefix = opts?.prefixoLabel ? `${opts.prefixoLabel} — ` : '';
   const breakdown: PrecoFluxoBreakdownItem[] = [];
   const mensagens = new Set<string>(avaliarRegrasFluxoComFluxo(fluxo, respostas));
   const qtdPerguntaId = resolverPerguntaQuantidadeId(fluxo.perguntas, precoConfig.perguntaQuantidadeId);
@@ -212,7 +395,9 @@ function calcularPrecoPersonalizado(
   let valorAdicionais = 0;
 
   const perguntaQtd = fluxo.perguntas.find((p) => p.id === qtdPerguntaId);
-  const precoFaixa = precoMaoDeObraPorFaixa(perguntaQtd?.precosPorQuantidade, qtd);
+  const precoFaixa = opts?.ignorarProgressivo
+    ? undefined
+    : precoMaoDeObraPorFaixa(perguntaQtd?.precosPorQuantidade, qtd);
 
   // 1) Tabela por quantidade (substitui preço-base)
   // 2) Multiplicar base × qtd
@@ -233,7 +418,7 @@ function calcularPrecoPersonalizado(
   }
 
   if (valorBase > 0) {
-    adicionarItem(breakdown, labelBase, valorBase);
+    adicionarItem(breakdown, `${prefix}${labelBase}`, valorBase);
     valorMaoDeObra += valorBase;
   }
 
@@ -244,6 +429,7 @@ function calcularPrecoPersonalizado(
   // Opções com preço adicional = adicionais genéricos (fixo ou × quantidade do serviço)
   for (const pergunta of fluxo.perguntas) {
     if (pergunta.id === qtdPerguntaId) continue;
+    if (opts?.apenasExtrasReplicados && !pergunta.replicarPorUnidade) continue;
     if (
       usaComposto &&
       (pergunta.id === composto!.perguntaCapacidadeId ||
@@ -277,7 +463,7 @@ function calcularPrecoPersonalizado(
       modo === 'por_unidade' && qtd > 1
         ? `${op.label} (${qtd} × R$ ${extra.toFixed(2)})`
         : op.label;
-    adicionarItem(breakdown, label, valor);
+    adicionarItem(breakdown, `${prefix}${label}`, valor);
     valorAdicionais += valor;
   }
 
@@ -288,9 +474,11 @@ function calcularPrecoPersonalizado(
     if (mat.ajusteCapacidade > 0) {
       adicionarItem(
         breakdown,
-        composto!.labelAjusteCapacidade
-          ? `${composto!.labelAjusteCapacidade} (${mat.faixaLabel})`
-          : `Ajuste mão de obra (${mat.faixaLabel})`,
+        `${prefix}${
+          composto!.labelAjusteCapacidade
+            ? `${composto!.labelAjusteCapacidade} (${mat.faixaLabel})`
+            : `Ajuste mão de obra (${mat.faixaLabel})`
+        }`,
         mat.ajusteCapacidade
       );
       valorMaoDeObra += mat.ajusteCapacidade;
@@ -300,9 +488,11 @@ function calcularPrecoPersonalizado(
       if (mat.valorKit > 0) {
         adicionarItem(
           breakdown,
-          composto!.labelKitInicial
-            ? `${composto!.labelKitInicial} (${mat.faixaLabel})`
-            : `Kit/material inicial ABS (${mat.faixaLabel})`,
+          `${prefix}${
+            composto!.labelKitInicial
+              ? `${composto!.labelKitInicial} (${mat.faixaLabel})`
+              : `Kit/material inicial ABS (${mat.faixaLabel})`
+          }`,
           mat.valorKit
         );
         valorMaterial += mat.valorKit;
@@ -311,20 +501,22 @@ function calcularPrecoPersonalizado(
         const labelMetros =
           composto!.labelMetrosExtras || 'Metros adicionais de material';
         const label = `${labelMetros} (${mat.metrosExtras} m × R$ ${mat.precoPorMetro.toFixed(2)} — ${mat.faixaLabel})`;
-        adicionarItem(breakdown, label, mat.valorExtras);
+        adicionarItem(breakdown, `${prefix}${label}`, mat.valorExtras);
         valorMaterial += mat.valorExtras;
       } else if (mat.metrosRespondidos > 0 && mat.metrosInclusos > 0) {
         adicionarItem(
           breakdown,
-          composto!.labelMaterialIncluso ||
-            `Metros do kit inclusos (até ${mat.metrosInclusos} m — ${mat.faixaLabel})`,
+          `${prefix}${
+            composto!.labelMaterialIncluso ||
+            `Metros do kit inclusos (até ${mat.metrosInclusos} m — ${mat.faixaLabel})`
+          }`,
           0
         );
       }
     } else if (mat.respondeuFornecimento) {
       adicionarItem(
         breakdown,
-        composto!.labelClienteFornece || 'Material do cliente (sem cobrança de kit/metros)',
+        `${prefix}${composto!.labelClienteFornece || 'Material do cliente (sem cobrança de kit/metros)'}`,
         0
       );
     }
@@ -337,7 +529,7 @@ function calcularPrecoPersonalizado(
     }
     const modo: ModoCobranca = item.modoCobranca === 'fixo' ? 'fixo' : 'por_unidade';
     const valor = aplicarModoCobranca(item.valor, modo, qtd);
-    adicionarItem(breakdown, item.label, valor);
+    adicionarItem(breakdown, `${prefix}${item.label}`, valor);
     valorAdicionais += valor;
   }
 

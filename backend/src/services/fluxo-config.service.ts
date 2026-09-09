@@ -44,6 +44,8 @@ export interface FluxoPerguntaConfig {
   numeroUnidade?: string;
   /** Preço total da mão de obra por qtd (substitui preço-base quando preenchido) */
   precosPorQuantidade?: Record<string, number>;
+  /** Repete a pergunta para cada unidade (respostas id__uN) */
+  replicarPorUnidade?: boolean;
 }
 
 export interface ItemPrecoConfig {
@@ -211,7 +213,7 @@ export class FluxoConfigService {
                     label: 'Suporte de parede para condensadora',
                     valor: 80,
                     when: { localCondensadora: ['suporte-parede'] },
-                    modoCobranca: 'fixo',
+                    modoCobranca: 'por_unidade',
                   },
                 ])
               : [],
@@ -427,7 +429,7 @@ export class FluxoConfigService {
                   label: 'Suporte de parede para condensadora',
                   valor: 80,
                   when: { localCondensadora: ['suporte-parede'] },
-                  modoCobranca: 'fixo',
+                  modoCobranca: 'por_unidade',
                 },
               ])
             : [],

@@ -28,7 +28,10 @@ export interface FluxoPerguntaOpcao {
   id: string;
   label: string;
   precoAdicional?: number;
-  /** fixo = soma o valor uma vez; por_unidade = valor × quantidade do serviço */
+  /**
+   * por_unidade = valor × quantidade (ou por cada aparelho)
+   * fixo = uma vez por atendimento (compartilhado, ex.: andaime)
+   */
   modoCobranca?: ModoCobrancaOpcao;
   /**
    * Condição genérica para cobrar este adicional.
@@ -66,6 +69,11 @@ export interface FluxoPergunta {
    * Ex.: { "1": 89, "2": 129, "3": 159 } — substitui o preço-base (não soma de novo).
    */
   precosPorQuantidade?: Record<string, number>;
+  /**
+   * Se true, a pergunta é repetida para cada unidade (Aparelho 1, 2, …).
+   * Respostas gravadas como id__u1, id__u2. Perguntas sem a flag = compartilhadas no atendimento.
+   */
+  replicarPorUnidade?: boolean;
 }
 
 export interface RegraValidacaoFluxo {
@@ -746,14 +754,37 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
     slug: 'instalacao-ar-split',
     nome: nomeServico('instalacao-ar-split'),
     perguntas: [
-      pergunta('aparelhoComprado', 'Aparelho já comprado?', OPCOES_SIM_NAO),
-      pergunta('capacidadeBtu', 'Capacidade', [
-        opcao('ate-12000', 'Até 12.000 BTUs'),
-        opcao('12001-18000', '12.001 a 18.000'),
-        opcao('18001-24000', '18.001 a 24.000'),
-        opcao('acima-24000', 'Acima de 24.000'),
-        opcao('nao-sei', 'Não sei'),
+      {
+        id: 'quantidade',
+        titulo: 'Quantos aparelhos deseja instalar?',
+        papel: 'quantidade',
+        opcoes: [],
+        numeroMin: 1,
+        numeroMax: 10,
+        numeroPasso: 1,
+        numeroUnidade: 'un.',
+      },
+      pergunta('tipoImovelAr', 'Tipo de imóvel', [
+        opcao('casa', 'Casa'),
+        opcao('apartamento', 'Apartamento'),
+        opcao('loja', 'Loja'),
+        opcao('escritorio', 'Escritório'),
       ]),
+      pergunta('pontoEletricoExclusivo', 'Ponto elétrico exclusivo?', OPCOES_SIM_NAO_NAO_SEI),
+      {
+        ...pergunta('aparelhoComprado', 'Aparelho já comprado?', OPCOES_SIM_NAO),
+        replicarPorUnidade: true,
+      },
+      {
+        ...pergunta('capacidadeBtu', 'Capacidade', [
+          opcao('ate-12000', 'Até 12.000 BTUs'),
+          opcao('12001-18000', '12.001 a 18.000'),
+          opcao('18001-24000', '18.001 a 24.000'),
+          opcao('acima-24000', 'Acima de 24.000'),
+          opcao('nao-sei', 'Não sei'),
+        ]),
+        replicarPorUnidade: true,
+      },
       {
         id: 'distanciaEvapCond',
         titulo: 'Metragem aproximada da instalação (evaporadora → condensadora)',
@@ -763,35 +794,41 @@ export const FLUXOS_SERVICO: Record<SlugFluxoServico, FluxoServico> = {
         numeroMax: 30,
         numeroPasso: 1,
         numeroUnidade: 'm',
+        replicarPorUnidade: true,
       },
-      pergunta('materiaisInstalacaoAr', 'Quem fornece o material?', [
-        opcao('sim', 'Sim, já possuo o material necessário'),
-        opcao('nao', 'Não, quero que a ABS forneça o material'),
-      ]),
-      pergunta('tipoImovelAr', 'Tipo de imóvel', [
-        opcao('casa', 'Casa'),
-        opcao('apartamento', 'Apartamento'),
-        opcao('loja', 'Loja'),
-        opcao('escritorio', 'Escritório'),
-      ]),
-      pergunta('pontoEletricoExclusivo', 'Ponto elétrico exclusivo?', OPCOES_SIM_NAO_NAO_SEI),
-      pergunta('localCondensadora', 'Local da condensadora', [
-        opcao('chao', 'Chão'),
-        opcao('suporte-parede', 'Suporte de parede'),
-        opcao('sacada', 'Sacada'),
-        opcao('fachada-externa', 'Fachada externa'),
-      ]),
-      pergunta('alturaInstalacao', 'Altura', [
-        opcao('terreo', 'Térreo'),
-        opcao('primeiro-andar', '1º andar'),
-        opcao('segundo-andar', '2º andar'),
-        opcao('acima-segundo-andar', 'Acima do 2º andar'),
-      ]),
-      pergunta('tipoEquipamentoAr', 'Tipo do equipamento', [
-        opcao('convencional', 'Convencional'),
-        opcao('inverter', 'Inverter'),
-        opcao('nao-sei', 'Não sei'),
-      ]),
+      {
+        ...pergunta('materiaisInstalacaoAr', 'Quem fornece o material?', [
+          opcao('sim', 'Sim, já possuo o material necessário'),
+          opcao('nao', 'Não, quero que a ABS forneça o material'),
+        ]),
+        replicarPorUnidade: true,
+      },
+      {
+        ...pergunta('localCondensadora', 'Local da condensadora', [
+          opcao('chao', 'Chão'),
+          opcao('suporte-parede', 'Suporte de parede'),
+          opcao('sacada', 'Sacada'),
+          opcao('fachada-externa', 'Fachada externa'),
+        ]),
+        replicarPorUnidade: true,
+      },
+      {
+        ...pergunta('alturaInstalacao', 'Altura', [
+          opcao('terreo', 'Térreo'),
+          opcao('primeiro-andar', '1º andar'),
+          opcao('segundo-andar', '2º andar'),
+          opcao('acima-segundo-andar', 'Acima do 2º andar'),
+        ]),
+        replicarPorUnidade: true,
+      },
+      {
+        ...pergunta('tipoEquipamentoAr', 'Tipo do equipamento', [
+          opcao('convencional', 'Convencional'),
+          opcao('inverter', 'Inverter'),
+          opcao('nao-sei', 'Não sei'),
+        ]),
+        replicarPorUnidade: true,
+      },
     ],
     fotosObrigatorias: ['Local evaporadora', 'Local condensadora', 'Parede externa', 'Quadro elétrico', 'Etiqueta do aparelho', 'Ambiente completo'],
     regrasValidacao: [

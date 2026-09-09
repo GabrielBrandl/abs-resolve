@@ -24,6 +24,12 @@ import {
   prefetchImagem,
   resolverImagemPrincipalPorRespostas,
 } from '../../utils/imagem-principal-opcao';
+import {
+  expandirPerguntasPorUnidade,
+  migrarRespostasParaMultiUnidade,
+  respostasDaUnidade,
+  temReplicacaoPorUnidade,
+} from '../../utils/multi-unidade';
 
 type FluxoPergunta = {
   id: string;
@@ -45,6 +51,8 @@ type FluxoPergunta = {
   numeroUnidade?: string;
   /** Total da mão de obra por quantidade (substitui preço-base) */
   precosPorQuantidade?: Record<string, number>;
+  /** Repete a pergunta para cada unidade (respostas id__uN) */
+  replicarPorUnidade?: boolean;
 };
 
 type FaixaComposto = {
@@ -263,10 +271,121 @@ function resolverCobrancaMaterialLocal(
   };
 }
 
+/** Soma preço composto/progressivo por unidade + extras compartilhados (fallback da API). */
+function calcularMultiUnidadeLocal(
+  fluxo: Fluxo,
+  respostas: Record<string, string>,
+  quantidade: number,
+  labelBase = 'Unidade'
+): PrecoCalc | null {
+  if (!temReplicacaoPorUnidade(fluxo.perguntas || []) || quantidade <= 1) return null;
+  const qtdId =
+    fluxo.perguntaQuantidadeId ||
+    (fluxo.perguntas || []).find((p) => p.papel === 'quantidade')?.id ||
+    'quantidade';
+  const breakdown: Array<{ label: string; valor: number }> = [];
+  let valorMao = 0;
+  let valorMaterial = 0;
+  let valorAdicionais = 0;
+  const idsReplicados = new Set(
+    (fluxo.perguntas || [])
+      .filter((p) => p.replicarPorUnidade && p.papel !== 'quantidade')
+      .map((p) => p.id)
+  );
+
+  for (let u = 1; u <= quantidade; u++) {
+    const rUnit = respostasDaUnidade(respostas, fluxo.perguntas || [], u, qtdId);
+    const parcial =
+      calcularCompostoLocal(fluxo, rUnit, { apenasUnidade: true }) ||
+      calcularProgressivoLocal(fluxo, rUnit, 1, { apenasUnidade: true });
+    if (!parcial) continue;
+    const prefix = `${labelBase} ${u} — `;
+    for (const item of parcial.breakdown) {
+      breakdown.push({
+        label: item.label.startsWith(prefix) ? item.label : `${prefix}${item.label}`,
+        valor: item.valor,
+      });
+    }
+    valorMao += Math.max(
+      0,
+      toMoneyNumber(parcial.valorServico) - toMoneyNumber(parcial.valorAdicionais)
+    );
+    valorMaterial += toMoneyNumber(parcial.valorMaterial || parcial.valorPeca);
+    valorAdicionais += toMoneyNumber(parcial.valorAdicionais);
+  }
+
+  for (const pergunta of fluxo.perguntas || []) {
+    if (pergunta.replicarPorUnidade || pergunta.papel === 'quantidade') continue;
+    if (!perguntaVisivelLocal(pergunta, respostas)) continue;
+    const resp = respostas[pergunta.id];
+    const op = pergunta.opcoes.find((o) => o.id === resp);
+    const extra = Number(op?.precoAdicional) || 0;
+    if (!op || !extra) continue;
+    if (!condicaoWhenLocal(op.when, respostas)) continue;
+    const modo = op.modoCobranca || 'por_unidade';
+    const valor = aplicarModoLocal(extra, modo, quantidade);
+    breakdown.push({
+      label: modo === 'fixo' ? `${op.label} (1× por atendimento)` : op.label,
+      valor,
+    });
+    valorAdicionais += valor;
+  }
+
+  for (const item of fluxo.itensPreco || []) {
+    const modo = item.modoCobranca || 'por_unidade';
+    const whenKeys = item.when ? Object.keys(item.when) : [];
+    const whenUsaReplicada = whenKeys.some((k) => idsReplicados.has(k));
+    if (whenUsaReplicada) {
+      let matches = 0;
+      for (let u = 1; u <= quantidade; u++) {
+        const rUnit = respostasDaUnidade(respostas, fluxo.perguntas || [], u, qtdId);
+        if (condicaoWhenLocal(item.when, rUnit)) matches += 1;
+      }
+      if (matches === 0) continue;
+      const vezes = modo === 'fixo' ? 1 : matches;
+      const valor = Math.round((Number(item.valor) || 0) * vezes * 100) / 100;
+      if (valor <= 0) continue;
+      breakdown.push({
+        label:
+          modo === 'fixo'
+            ? `${item.label} (1× por atendimento)`
+            : matches > 1
+              ? `${item.label} (${matches} × R$ ${Number(item.valor).toFixed(2)})`
+              : item.label,
+        valor,
+      });
+      valorAdicionais += valor;
+      continue;
+    }
+    if (item.when && !condicaoWhenLocal(item.when, respostas)) continue;
+    const valor = aplicarModoLocal(Number(item.valor) || 0, modo, quantidade);
+    if (valor <= 0) continue;
+    breakdown.push({
+      label: modo === 'fixo' ? `${item.label} (1× por atendimento)` : item.label,
+      valor,
+    });
+    valorAdicionais += valor;
+  }
+
+  const preco = Math.round(breakdown.reduce((a, b) => a + b.valor, 0) * 100) / 100;
+  if (preco <= 0 && breakdown.length === 0) return null;
+  return {
+    preco,
+    breakdown,
+    requerValidacaoTecnica: false,
+    valorServico: Math.round((valorMao + valorAdicionais) * 100) / 100,
+    valorMaterial: valorMaterial > 0 ? valorMaterial : undefined,
+    valorAdicionais: valorAdicionais > 0 ? valorAdicionais : undefined,
+    valorPeca: valorMaterial > 0 ? valorMaterial : undefined,
+    quantidade,
+  };
+}
+
 /** Cálculo local do preço composto (ar-split) — garante kit/metros no site mesmo se a API atrasar. */
 function calcularCompostoLocal(
   fluxo: Fluxo,
-  respostas: Record<string, string>
+  respostas: Record<string, string>,
+  opts?: { apenasUnidade?: boolean }
 ): PrecoCalc | null {
   const composto = fluxo.precoComposto;
   if (!composto?.ativo || !composto.perguntaCapacidadeId) return null;
@@ -342,13 +461,15 @@ function calcularCompostoLocal(
     breakdown.push({ label: 'Material do cliente (sem cobrança de kit/metros)', valor: 0 });
   }
 
-  for (const item of fluxo.itensPreco || []) {
-    if (item.when) {
-      const ok = Object.entries(item.when).every(([k, vals]) => vals.includes(respostas[k]));
-      if (!ok) continue;
+  if (!opts?.apenasUnidade) {
+    for (const item of fluxo.itensPreco || []) {
+      if (item.when) {
+        const ok = Object.entries(item.when).every(([k, vals]) => vals.includes(respostas[k]));
+        if (!ok) continue;
+      }
+      const valor = Number(item.valor) || 0;
+      if (valor > 0) breakdown.push({ label: item.label, valor });
     }
-    const valor = Number(item.valor) || 0;
-    if (valor > 0) breakdown.push({ label: item.label, valor });
   }
 
   for (const pergunta of fluxo.perguntas || []) {
@@ -360,6 +481,7 @@ function calcularCompostoLocal(
     ) {
       continue;
     }
+    if (opts?.apenasUnidade && !pergunta.replicarPorUnidade) continue;
     if (!perguntaVisivelLocal(pergunta, respostas)) continue;
     const resp = respostas[pergunta.id];
     if (!resp) continue;
@@ -437,35 +559,44 @@ function aplicarModoLocal(valor: number, modo: string | undefined, quantidade: n
 function calcularProgressivoLocal(
   fluxo: Fluxo,
   respostas: Record<string, string>,
-  quantidade: number
+  quantidade: number,
+  opts?: { apenasUnidade?: boolean }
 ): PrecoCalc | null {
   const perguntaQtd =
     (fluxo.perguntas || []).find((p) => p.papel === 'quantidade') ||
     (fluxo.perguntas || []).find((p) => p.id === (fluxo.perguntaQuantidadeId || 'quantidade')) ||
     (fluxo.perguntas || []).find((p) => /quantidad/i.test(p.titulo));
-  const faixa = precoMaoObraPorFaixaLocal(perguntaQtd?.precosPorQuantidade, quantidade);
+  // Em modo multi-unidade, cada aparelho usa preço-base (não tabela progressiva agregada)
+  const faixa = opts?.apenasUnidade
+    ? Number(fluxo.precoBase) > 0
+      ? Number(fluxo.precoBase)
+      : undefined
+    : precoMaoObraPorFaixaLocal(perguntaQtd?.precosPorQuantidade, quantidade);
   if (faixa == null) return null;
 
   const breakdown: Array<{ label: string; valor: number }> = [
     {
-      label: quantidade > 1 ? `Mão de obra (${quantidade} un.)` : 'Mão de obra',
+      label: !opts?.apenasUnidade && quantidade > 1 ? `Mão de obra (${quantidade} un.)` : 'Mão de obra',
       valor: faixa,
     },
   ];
   let adicionais = 0;
 
-  for (const item of fluxo.itensPreco || []) {
-    if (item.when && !condicaoWhenLocal(item.when, respostas)) continue;
-    const modo = item.modoCobranca || 'por_unidade';
-    const valor = aplicarModoLocal(Number(item.valor) || 0, modo, quantidade);
-    if (valor > 0) {
-      breakdown.push({ label: item.label, valor });
-      adicionais += valor;
+  if (!opts?.apenasUnidade) {
+    for (const item of fluxo.itensPreco || []) {
+      if (item.when && !condicaoWhenLocal(item.when, respostas)) continue;
+      const modo = item.modoCobranca || 'por_unidade';
+      const valor = aplicarModoLocal(Number(item.valor) || 0, modo, quantidade);
+      if (valor > 0) {
+        breakdown.push({ label: item.label, valor });
+        adicionais += valor;
+      }
     }
   }
 
   for (const pergunta of fluxo.perguntas || []) {
     if (pergunta.id === perguntaQtd?.id) continue;
+    if (opts?.apenasUnidade && !pergunta.replicarPorUnidade) continue;
     if (!perguntaVisivelLocal(pergunta, respostas)) continue;
     const resp = respostas[pergunta.id];
     if (!resp) continue;
@@ -474,10 +605,10 @@ function calcularProgressivoLocal(
     if (!op || extra <= 0) continue;
     if (!condicaoWhenLocal(op.when, respostas)) continue;
     const modo = op.modoCobranca || 'por_unidade';
-    const valor = aplicarModoLocal(extra, modo, quantidade);
+    const valor = aplicarModoLocal(extra, modo, opts?.apenasUnidade ? 1 : quantidade);
     if (valor <= 0) continue;
     const label =
-      modo !== 'fixo' && quantidade > 1
+      !opts?.apenasUnidade && modo !== 'fixo' && quantidade > 1
         ? `${op.label} (${quantidade} × R$ ${extra.toFixed(2)})`
         : op.label;
     breakdown.push({ label, valor });
@@ -601,9 +732,33 @@ export function ServicePage() {
     return fluxo?.perguntas || [];
   }, [fluxo?.perguntas]);
 
+  const labelUnidade = /ar-split|ar.condicionado/i.test(slug) ? 'Aparelho' : 'Unidade';
+  const usaMultiUnidade = temReplicacaoPorUnidade(perguntasBasicas);
+
+  // Ao aumentar quantidade, copia respostas da unidade 1 (sem sufixo) para __u1
+  useEffect(() => {
+    if (!usaMultiUnidade || qty <= 1) return;
+    setRespostas((r) => {
+      const next = migrarRespostasParaMultiUnidade(r, perguntasBasicas, qty);
+      return next === r || JSON.stringify(next) === JSON.stringify(r) ? r : next;
+    });
+  }, [qty, usaMultiUnidade, perguntasBasicas]);
+
+  const perguntasExpandidas = useMemo(
+    () =>
+      usaMultiUnidade
+        ? expandirPerguntasPorUnidade(perguntasBasicas, qty, labelUnidade)
+        : perguntasBasicas.map((p) => ({
+            ...p,
+            perguntaIdOriginal: p.id,
+            respostaKey: p.id,
+          })),
+    [perguntasBasicas, qty, usaMultiUnidade, labelUnidade]
+  );
+
   const visiveis = useMemo(
-    () => perguntasVisiveis(perguntasBasicas, respostas),
-    [perguntasBasicas, respostas]
+    () => perguntasVisiveis(perguntasExpandidas, respostas),
+    [perguntasExpandidas, respostas]
   );
 
   const precisaMaterial = Boolean(
@@ -694,12 +849,14 @@ export function ServicePage() {
 
   const precoLocal = useMemo(() => {
     if (!fluxo) return null;
+    const multi = calcularMultiUnidadeLocal(fluxo, respostas, qty, labelUnidade);
+    if (multi) return multi;
     // Composto (ar-split) tem prioridade; senão tabela progressiva por quantidade
     return (
       calcularCompostoLocal(fluxo, respostas) ||
       calcularProgressivoLocal(fluxo, respostas, qty)
     );
-  }, [fluxo, respostas, qty]);
+  }, [fluxo, respostas, qty, labelUnidade]);
 
   // Imagem principal dinâmica (opções com usarComoImagemPrincipal) — não afeta preço
   const imagemPrincipalOpcao = useMemo(() => {
@@ -1090,8 +1247,9 @@ export function ServicePage() {
                       </button>
                     </div>
                     <p className="mt-1.5 text-xs text-slate-500">
-                      A partir da 2ª unidade: {DESCONTO_SEGUNDA_UNIDADE_PERCENT}% de desconto na mão de obra e nas
-                      peças/materiais.
+                      {usaMultiUnidade
+                        ? `As próximas perguntas se repetem para cada ${labelUnidade.toLowerCase()}.`
+                        : `A partir da 2ª unidade: ${DESCONTO_SEGUNDA_UNIDADE_PERCENT}% de desconto na mão de obra e nas peças/materiais.`}
                     </p>
                   </div>
                 );
@@ -1335,10 +1493,12 @@ export function ServicePage() {
               Valores discriminados
             </p>
             <div className="mt-2 space-y-2 border-b border-slate-100 pb-3 text-sm">
-              {slug === 'instalacao-ar-split' && Array.isArray(precoEfetivo?.breakdown) && precoEfetivo!.breakdown.length > 0 ? (
+              {(usaMultiUnidade || slug === 'instalacao-ar-split') &&
+              Array.isArray(precoEfetivo?.breakdown) &&
+              precoEfetivo!.breakdown.length > 0 ? (
                 <>
                   {precoEfetivo!.breakdown
-                    .filter((b) => b.valor !== 0 || /cliente|sem cobrança|incluso/i.test(b.label))
+                    .filter((b) => b.valor !== 0 || /cliente|sem cobrança|incluso|atendimento/i.test(b.label))
                     .map((b) => (
                       <div key={b.label} className="flex justify-between gap-2">
                         <span className="text-slate-600">{b.label}</span>
@@ -1460,7 +1620,7 @@ export function ServicePage() {
                 </>
               )}
 
-              {descontoQtd > 0 && (
+              {descontoQtd > 0 && !usaMultiUnidade && (
                 <p className="text-xs font-semibold text-emerald-700">
                   Desconto a partir da 2ª unidade: −{money(descontoQtd)}
                 </p>
