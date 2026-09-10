@@ -1,3 +1,6 @@
+import type { FluxoPerguntaShowIf } from './show-if';
+import { isShowIfLegado, normalizarShowIf } from './show-if';
+
 /** Chaves de resposta por unidade: perguntaId__u1, perguntaId__u2, … */
 
 export const SUFIXO_UNIDADE = '__u';
@@ -65,13 +68,39 @@ export type PerguntaExpandida<
     titulo: string;
     replicarPorUnidade?: boolean;
     papel?: string;
-    showIf?: { perguntaId: string; opcaoIds: string[] };
+    showIf?: FluxoPerguntaShowIf;
   },
 > = T & {
   perguntaIdOriginal: string;
   respostaKey: string;
   unidade?: number;
 };
+
+function remapShowIfUnidade(
+  showIf: FluxoPerguntaShowIf | undefined,
+  unidade: number,
+  idsReplicados: Set<string>
+): FluxoPerguntaShowIf | undefined {
+  if (!showIf) return showIf;
+  const remap = (pid: string) =>
+    idsReplicados.has(pid) ? chaveRespostaUnidade(pid, unidade) : pid;
+
+  if (isShowIfLegado(showIf)) {
+    return { ...showIf, perguntaId: remap(showIf.perguntaId) };
+  }
+  const all = normalizarShowIf(showIf).map((c) => ({
+    ...c,
+    perguntaId: remap(c.perguntaId),
+  }));
+  // Mantém incompletas do editor se existirem em showIf.all
+  const raw = Array.isArray(showIf.all) ? showIf.all : all;
+  return {
+    all: raw.map((c) => ({
+      perguntaId: remap(String(c?.perguntaId || '')),
+      opcaoIds: Array.isArray(c?.opcaoIds) ? c.opcaoIds : [],
+    })),
+  };
+}
 
 /** Expande perguntas replicáveis em N blocos para a UI. */
 export function expandirPerguntasPorUnidade<
@@ -80,7 +109,7 @@ export function expandirPerguntasPorUnidade<
     titulo: string;
     replicarPorUnidade?: boolean;
     papel?: string;
-    showIf?: { perguntaId: string; opcaoIds: string[] };
+    showIf?: FluxoPerguntaShowIf;
   },
 >(perguntas: T[], quantidade: number, labelBase = 'Unidade'): PerguntaExpandida<T>[] {
   const qtd = Math.max(1, Math.floor(quantidade || 1));
@@ -99,13 +128,7 @@ export function expandirPerguntasPorUnidade<
   for (let u = 1; u <= qtd; u++) {
     for (const p of replicaveis) {
       const key = qtd === 1 ? p.id : chaveRespostaUnidade(p.id, u);
-      let showIf = p.showIf;
-      if (showIf && qtd > 1 && idsReplicados.has(showIf.perguntaId)) {
-        showIf = {
-          ...showIf,
-          perguntaId: chaveRespostaUnidade(showIf.perguntaId, u),
-        };
-      }
+      const showIf = qtd > 1 ? remapShowIfUnidade(p.showIf, u, idsReplicados) : p.showIf;
       out.push({
         ...p,
         id: key,

@@ -15,6 +15,7 @@ import {
   migrarRespostasParaMultiUnidade,
   temReplicacaoPorUnidade,
 } from '../../utils/multi-unidade';
+import { avaliarShowIf, type FluxoPerguntaShowIf } from '../../utils/show-if';
 import { gtmPush } from '../../utils/gtm';
 import { Button, Loading, Logo, TextoComMarca } from '../ui';
 
@@ -27,7 +28,7 @@ export interface FluxoPergunta {
     imagemUrl?: string;
     usarComoImagemPrincipal?: boolean;
   }>;
-  showIf?: { perguntaId: string; opcaoIds: string[] };
+  showIf?: FluxoPerguntaShowIf;
   papel?: 'quantidade' | 'numero' | 'normal';
   numeroMin?: number;
   numeroMax?: number;
@@ -51,11 +52,7 @@ export interface PrecoCalculado {
 }
 
 function perguntasVisiveis(perguntas: FluxoPergunta[], respostas: Record<string, string>) {
-  return perguntas.filter((p) => {
-    if (!p.showIf) return true;
-    const val = respostas[p.showIf.perguntaId];
-    return val != null && p.showIf.opcaoIds.includes(val);
-  });
+  return perguntas.filter((p) => avaliarShowIf(p.showIf, respostas));
 }
 
 interface Props {

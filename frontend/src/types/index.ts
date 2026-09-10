@@ -482,7 +482,9 @@ export interface FluxoPerguntaConfig {
   id: string;
   titulo: string;
   opcoes: FluxoPerguntaOpcaoConfig[];
-  showIf?: { perguntaId: string; opcaoIds: string[] };
+  showIf?:
+    | { perguntaId: string; opcaoIds: string[] }
+    | { all: Array<{ perguntaId: string; opcaoIds: string[] }> };
   papel?: 'quantidade' | 'numero' | 'normal';
   numeroMin?: number;
   numeroMax?: number;

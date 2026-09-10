@@ -14,6 +14,7 @@ import { fluxoConfigService } from './fluxo-config.service.js';
 import { calcularPrecoFluxo } from '../config/tabela-precos-fluxo.js';
 import { isMaterialSku } from '../config/materiais-catalogo.js';
 import { parseQuantidadeOpcao, quantidadeDasRespostas, resolverPerguntaQuantidadeId, totalComDescontoAPartirDaSegunda, descontoAPartirDaSegundaPercent } from '../utils/preco-quantidade.js';
+import { avaliarShowIf } from '../utils/show-if.js';
 import { estoqueService } from './estoque.service.js';
 import { calcularPrecoFixo, calcularPrecoVariavel, getConfigPrecificacao } from '../engines/pricing.engine.js';
 import {
@@ -54,12 +55,7 @@ function pontosSolicitacao(sol: { opcoes: unknown; servico: { slug: string; pont
 }
 
 function perguntasVisiveis(fluxo: FluxoServico, respostas: RespostasFluxo) {
-  return fluxo.perguntas.filter((p) => {
-    if (!p.showIf) return true;
-    const val = respostas[p.showIf.perguntaId];
-    const selected = Array.isArray(val) ? val.map(String) : val != null && val !== '' ? [String(val)] : [];
-    return p.showIf.opcaoIds.some((id) => selected.includes(id));
-  });
+  return fluxo.perguntas.filter((p) => avaliarShowIf(p.showIf, respostas));
 }
 
 function validarRespostasFluxo(slug: string, respostas: RespostasFluxo) {

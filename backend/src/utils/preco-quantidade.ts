@@ -156,14 +156,20 @@ export function condicaoWhenSatisfeita(
   });
 }
 
+import { perguntaVisivelPorShowIf as perguntaVisivelPorShowIfImpl } from './show-if.js';
+import type { FluxoPerguntaShowIf } from './show-if.js';
+
+export type { FluxoPerguntaShowIf, ShowIfCondicao } from './show-if.js';
+export {
+  avaliarShowIf,
+  normalizarShowIf,
+  serializarShowIf,
+} from './show-if.js';
+
 /** showIf da pergunta: se definido e não satisfeito, a pergunta não entra no preço. */
 export function perguntaVisivelPorShowIf(
-  pergunta: { showIf?: { perguntaId: string; opcaoIds: string[] } } | undefined | null,
+  pergunta: { showIf?: FluxoPerguntaShowIf | null } | undefined | null,
   respostas: Record<string, unknown>
 ): boolean {
-  if (!pergunta?.showIf?.perguntaId || !pergunta.showIf.opcaoIds?.length) return true;
-  return condicaoWhenSatisfeita(
-    { [pergunta.showIf.perguntaId]: pergunta.showIf.opcaoIds },
-    respostas
-  );
+  return perguntaVisivelPorShowIfImpl(pergunta, respostas);
 }

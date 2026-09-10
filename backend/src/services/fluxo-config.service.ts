@@ -4,6 +4,7 @@ import {
   getFluxo,
   SLUGS_FLUXO_SERVICO,
   type FluxoServico,
+  type FluxoPerguntaShowIf,
   type RegraValidacaoFluxo,
 } from '../config/fluxo-servicos.js';
 import {
@@ -18,6 +19,7 @@ import { storageService } from './storage.service.js';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { precoMinimoVitrineDeFluxo, textoPrecoAPartirDe } from '../utils/preco-vitrine.js';
+import { normalizarShowIf } from '../utils/show-if.js';
 
 export type { PrecoCompostoConfig, FaixaPrecoComposto } from '../config/preco-composto.js';
 
@@ -36,7 +38,7 @@ export interface FluxoPerguntaConfig {
   id: string;
   titulo: string;
   opcoes: FluxoPerguntaOpcaoConfig[];
-  showIf?: { perguntaId: string; opcaoIds: string[] };
+  showIf?: FluxoPerguntaShowIf;
   papel?: 'quantidade' | 'numero' | 'normal';
   numeroMin?: number;
   numeroMax?: number;
@@ -122,26 +124,25 @@ function validarPerguntas(perguntas: FluxoPerguntaConfig[]) {
     if (ids.has(p.id)) throw new Error(`Pergunta duplicada: ${p.id}`);
     ids.add(p.id);
     const papel = p.papel || 'normal';
-    if (papel === 'numero' || papel === 'quantidade') {
-      // número/quantidade não exigem lista de opções
-      continue;
-    }
-    if (!p.opcoes?.length) throw new Error(`Pergunta "${p.titulo}" precisa de opções`);
-    const opIds = new Set<string>();
-    for (const op of p.opcoes) {
-      if (!op.id?.trim() || !op.label?.trim()) {
-        throw new Error(`Opção inválida na pergunta "${p.titulo}"`);
+    if (papel !== 'numero' && papel !== 'quantidade') {
+      if (!p.opcoes?.length) throw new Error(`Pergunta "${p.titulo}" precisa de opções`);
+      const opIds = new Set<string>();
+      for (const op of p.opcoes) {
+        if (!op.id?.trim() || !op.label?.trim()) {
+          throw new Error(`Opção inválida na pergunta "${p.titulo}"`);
+        }
+        if (opIds.has(op.id)) throw new Error(`Opção duplicada (${op.id}) em "${p.titulo}"`);
+        opIds.add(op.id);
       }
-      if (opIds.has(op.id)) throw new Error(`Opção duplicada (${op.id}) em "${p.titulo}"`);
-      opIds.add(op.id);
-    }
-    if (p.showIf && !perguntas.some((q) => q.id === p.showIf!.perguntaId)) {
-      throw new Error(`Condição showIf inválida na pergunta "${p.titulo}"`);
     }
   }
   for (const p of perguntas) {
-    if (p.showIf && !perguntas.some((q) => q.id === p.showIf!.perguntaId)) {
-      throw new Error(`Condição showIf inválida na pergunta "${p.titulo}"`);
+    for (const cond of normalizarShowIf(p.showIf)) {
+      if (!perguntas.some((q) => q.id === cond.perguntaId)) {
+        throw new Error(
+          `Condição de exibição inválida na pergunta "${p.titulo}" (ref: ${cond.perguntaId})`
+        );
+      }
     }
   }
 }

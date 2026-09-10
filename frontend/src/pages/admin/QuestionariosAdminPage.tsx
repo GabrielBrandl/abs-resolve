@@ -3,6 +3,7 @@ import { fluxoAdminApi } from '../../services/modules.service';
 import type { FluxoConfigAdmin, FluxoPerguntaConfig, PrecoCompostoConfig } from '../../types';
 import { PageHeader, Loading, Card, Button } from '../../components/ui';
 import { useToast } from '../../components/Toast';
+import { serializarShowIf, showIfParaEdicao } from '../../utils/show-if';
 
 function novaPergunta(): FluxoPerguntaConfig {
   const id = `pergunta-${Date.now()}`;
@@ -864,70 +865,152 @@ export function QuestionariosAdminPage() {
                       )}
                     </div>
 
-                    {p.showIf && (
-                      <p className="mb-2 text-xs text-amber-700">
-                        Exibida se &quot;{p.showIf.perguntaId}&quot; ∈ [{p.showIf.opcaoIds.join(', ')}]
-                      </p>
-                    )}
+                    {(() => {
+                      const conds = showIfParaEdicao(p.showIf);
+                      if (!conds.length) return null;
+                      return (
+                        <p className="mb-2 text-xs text-amber-700">
+                          Exibida se{' '}
+                          {conds
+                            .filter((c) => c.perguntaId && c.opcaoIds.length)
+                            .map((c) => `"${c.perguntaId}" ∈ [${c.opcaoIds.join(', ')}]`)
+                            .join(' E ')}
+                        </p>
+                      );
+                    })()}
 
-                    {(p.papel || 'normal') === 'normal' && (
-                      <div className="mb-2 grid gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-2 sm:grid-cols-2">
-                        <label className="text-xs text-slate-600">
-                          Exibir esta pergunta somente se
-                          <select
-                            className="mt-0.5 w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
-                            value={p.showIf?.perguntaId || ''}
-                            onChange={(e) => {
-                              const pid = e.target.value;
-                              if (!pid) {
-                                atualizarPergunta(pIdx, { showIf: undefined });
-                                return;
-                              }
-                              atualizarPergunta(pIdx, {
-                                showIf: {
-                                  perguntaId: pid,
-                                  opcaoIds: p.showIf?.perguntaId === pid ? p.showIf.opcaoIds : [],
-                                },
-                              });
-                            }}
-                          >
-                            <option value="">Sempre visível</option>
-                            {config.perguntas
-                              .filter((q) => q.id !== p.id)
-                              .map((q) => (
-                                <option key={q.id} value={q.id}>
-                                  {q.titulo}
-                                </option>
-                              ))}
-                          </select>
-                        </label>
-                        {p.showIf?.perguntaId && (
-                          <label className="text-xs text-slate-600">
-                            for a opção
-                            <select
-                              className="mt-0.5 w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
-                              value={p.showIf.opcaoIds[0] || ''}
-                              onChange={(e) => {
+                    {(p.papel || 'normal') !== 'quantidade' && (
+                      <div className="mb-2 space-y-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Exibir somente se (todas as condições — E)
+                        </p>
+                        {showIfParaEdicao(p.showIf).map((cond, cIdx) => {
+                          const perguntaRef = config.perguntas.find((q) => q.id === cond.perguntaId);
+                          return (
+                            <div
+                              key={`showif-${pIdx}-${cIdx}`}
+                              className="grid gap-2 rounded-md border border-slate-200 bg-white p-2 sm:grid-cols-[1fr_1fr_auto]"
+                            >
+                              {cIdx > 0 && (
+                                <p className="sm:col-span-3 text-[11px] font-bold uppercase text-slate-400">
+                                  e também
+                                </p>
+                              )}
+                              <label className="text-xs text-slate-600">
+                                Pergunta
+                                <select
+                                  className="mt-0.5 w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                                  value={cond.perguntaId || ''}
+                                  onChange={(e) => {
+                                    const lista = showIfParaEdicao(p.showIf);
+                                    const pid = e.target.value;
+                                    if (!pid && lista.length === 1) {
+                                      atualizarPergunta(pIdx, { showIf: undefined });
+                                      return;
+                                    }
+                                    lista[cIdx] = {
+                                      perguntaId: pid,
+                                      opcaoIds:
+                                        lista[cIdx].perguntaId === pid ? lista[cIdx].opcaoIds : [],
+                                    };
+                                    atualizarPergunta(pIdx, {
+                                      showIf: serializarShowIf(lista.filter((c) => c.perguntaId)),
+                                    });
+                                  }}
+                                >
+                                  <option value="">Selecione…</option>
+                                  {config.perguntas
+                                    .filter((q) => q.id !== p.id)
+                                    .map((q) => (
+                                      <option key={q.id} value={q.id}>
+                                        {q.titulo}
+                                      </option>
+                                    ))}
+                                </select>
+                              </label>
+                              <label className="text-xs text-slate-600">
+                                for a opção
+                                <select
+                                  className="mt-0.5 w-full rounded-lg border border-abs-gray px-2 py-1.5 text-sm"
+                                  value={cond.opcaoIds[0] || ''}
+                                  disabled={!cond.perguntaId}
+                                  onChange={(e) => {
+                                    const lista = showIfParaEdicao(p.showIf);
+                                    lista[cIdx] = {
+                                      perguntaId: lista[cIdx].perguntaId,
+                                      opcaoIds: e.target.value ? [e.target.value] : [],
+                                    };
+                                    atualizarPergunta(pIdx, {
+                                      showIf: serializarShowIf(lista),
+                                    });
+                                  }}
+                                >
+                                  <option value="">Selecione…</option>
+                                  {(perguntaRef?.opcoes || []).map((o) => (
+                                    <option key={o.id} value={o.id}>
+                                      {o.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <button
+                                type="button"
+                                className="self-end rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                                onClick={() => {
+                                  const lista = showIfParaEdicao(p.showIf).filter((_, i) => i !== cIdx);
+                                  atualizarPergunta(pIdx, {
+                                    showIf: serializarShowIf(lista),
+                                  });
+                                }}
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          );
+                        })}
+                        <div className="flex flex-wrap gap-2">
+                          {!showIfParaEdicao(p.showIf).length && (
+                            <button
+                              type="button"
+                              className="rounded-lg border border-abs-gray bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                              onClick={() =>
                                 atualizarPergunta(pIdx, {
-                                  showIf: {
-                                    perguntaId: p.showIf!.perguntaId,
-                                    opcaoIds: e.target.value ? [e.target.value] : [],
-                                  },
-                                });
+                                  showIf: { all: [{ perguntaId: '', opcaoIds: [] }] },
+                                })
+                              }
+                            >
+                              + Adicionar condição
+                            </button>
+                          )}
+                          {showIfParaEdicao(p.showIf).length > 0 && (
+                            <button
+                              type="button"
+                              className="rounded-lg border border-[#002d62]/30 bg-[#f4f8ff] px-3 py-1.5 text-xs font-semibold text-[#002d62] hover:bg-[#e8f0ff]"
+                              onClick={() => {
+                                const lista = [
+                                  ...showIfParaEdicao(p.showIf),
+                                  { perguntaId: '', opcaoIds: [] as string[] },
+                                ];
+                                atualizarPergunta(pIdx, { showIf: { all: lista } });
                               }}
                             >
-                              <option value="">Selecione…</option>
-                              {(
-                                config.perguntas.find((q) => q.id === p.showIf?.perguntaId)?.opcoes ||
-                                []
-                              ).map((o) => (
-                                <option key={o.id} value={o.id}>
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        )}
+                              + Adicionar condição
+                            </button>
+                          )}
+                          {showIfParaEdicao(p.showIf).length > 0 && (
+                            <button
+                              type="button"
+                              className="rounded-lg px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
+                              onClick={() => atualizarPergunta(pIdx, { showIf: undefined })}
+                            >
+                              Sempre visível
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          A pergunta só aparece quando todas as condições forem verdadeiras ao mesmo
+                          tempo.
+                        </p>
                       </div>
                     )}
 

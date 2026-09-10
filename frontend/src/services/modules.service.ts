@@ -263,7 +263,9 @@ export const solicitacaoApi = {
         id: string;
         titulo: string;
         opcoes: Array<{ id: string; label: string; precoAdicional?: number; modoCobranca?: string }>;
-        showIf?: { perguntaId: string; opcaoIds: string[] };
+        showIf?:
+          | { perguntaId: string; opcaoIds: string[] }
+          | { all: Array<{ perguntaId: string; opcaoIds: string[] }> };
         papel?: 'quantidade' | 'numero' | 'normal';
         numeroMin?: number;
         numeroMax?: number;

@@ -44,10 +44,15 @@ export interface FluxoPerguntaOpcao {
   usarComoImagemPrincipal?: boolean;
 }
 
-export interface FluxoPerguntaShowIf {
+export interface FluxoPerguntaShowIfCondicao {
   perguntaId: string;
   opcaoIds: string[];
 }
+
+/** Uma condição (legado) ou várias com lógica E (`all`). */
+export type FluxoPerguntaShowIf =
+  | FluxoPerguntaShowIfCondicao
+  | { all: FluxoPerguntaShowIfCondicao[] };
 
 export interface FluxoPergunta {
   id: string;

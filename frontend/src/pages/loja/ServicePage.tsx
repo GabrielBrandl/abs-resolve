@@ -31,6 +31,8 @@ import {
   temReplicacaoPorUnidade,
 } from '../../utils/multi-unidade';
 
+import { avaliarShowIf, type FluxoPerguntaShowIf } from '../../utils/show-if';
+
 type FluxoPergunta = {
   id: string;
   titulo: string;
@@ -43,7 +45,7 @@ type FluxoPergunta = {
     imagemUrl?: string;
     usarComoImagemPrincipal?: boolean;
   }>;
-  showIf?: { perguntaId: string; opcaoIds: string[] };
+  showIf?: FluxoPerguntaShowIf;
   papel?: 'quantidade' | 'numero' | 'normal';
   numeroMin?: number;
   numeroMax?: number;
@@ -151,11 +153,7 @@ const INCLUSOS_PADRAO = [
 ];
 
 function perguntasVisiveis(perguntas: FluxoPergunta[], respostas: Record<string, string>) {
-  return perguntas.filter((p) => {
-    if (!p.showIf) return true;
-    const val = respostas[p.showIf.perguntaId];
-    return val != null && p.showIf.opcaoIds.includes(val);
-  });
+  return perguntas.filter((p) => avaliarShowIf(p.showIf, respostas));
 }
 
 function isPerguntaQuantidade(p: FluxoPergunta) {
@@ -544,8 +542,7 @@ function perguntaVisivelLocal(
   pergunta: FluxoPergunta,
   respostas: Record<string, string>
 ): boolean {
-  if (!pergunta.showIf) return true;
-  return pergunta.showIf.opcaoIds.includes(respostas[pergunta.showIf.perguntaId] || '');
+  return avaliarShowIf(pergunta.showIf, respostas);
 }
 
 function aplicarModoLocal(valor: number, modo: string | undefined, quantidade: number): number {

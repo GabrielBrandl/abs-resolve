@@ -4,6 +4,7 @@ import { leadsApi, solicitacaoApi } from '../services/modules.service';
 import { useAuthStore } from '../store/authStore';
 import { formatCurrency } from '../types';
 import { gtmPush } from '../utils/gtm';
+import { avaliarShowIf, type FluxoPerguntaShowIf } from '../utils/show-if';
 
 const STORAGE_KEY = 'abs-guided-selling';
 
@@ -22,7 +23,7 @@ interface Pergunta {
   id: string;
   titulo: string;
   opcoes: Array<{ id: string; label: string }>;
-  showIf?: { perguntaId: string; opcaoIds: string[] };
+  showIf?: FluxoPerguntaShowIf;
 }
 
 interface Mensagem {
@@ -50,8 +51,7 @@ function normalizar(texto: string) {
 function perguntasVisiveis(perguntas: Pergunta[], respostas: Record<string, string>) {
   return perguntas.filter((p) => {
     if (!p.showIf) return true;
-    const valor = respostas[p.showIf.perguntaId];
-    return !!valor && p.showIf.opcaoIds.includes(valor);
+    return avaliarShowIf(p.showIf, respostas);
   });
 }
 
