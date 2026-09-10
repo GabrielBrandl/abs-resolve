@@ -2,6 +2,22 @@
 
 Guia completo para subir o sistema em produção. O repositório já inclui `docker-compose.yml`, Dockerfiles e variáveis prontas.
 
+**Estado atual:** branch `main` no GitHub já contém financeiro gerencial, dashboard executivo, CRM comercial e ficha 360º. No start do backend rodam automaticamente `prisma migrate deploy` + seed do plano de contas.
+
+## Só falta no EasyPanel (checklist curto)
+
+Se o projeto Compose **já existe**:
+
+1. Source → GitHub `GabrielBrandl/abs-resolve` → branch **`main`**
+2. Environment (painel esquerdo) com `deploy/easypanel.env.local` e **"Create .env file"** ligado
+3. Clique **Deploy / Rebuild**
+4. Nos logs do **backend**, confira: `Prisma migrate deploy`, `Plano financeiro OK`, `ABS Resolve API starting`
+5. Teste `https://absresolve.com.br/gestao` e `https://absresolve.com.br/financeiro`
+
+Não há variáveis novas obrigatórias neste release.
+
+---
+
 ## Pré-requisitos
 
 | Item | Status |
@@ -81,8 +97,9 @@ Se o toggle não aparecer ou não funcionar:
 2. Aguarde o build dos dois serviços (`backend` e `web`) — primeira vez pode levar **5–15 minutos**
 3. Nos logs do `backend`, confira:
    - `Prisma migrate deploy` — sem erros
+   - `Plano financeiro OK`
    - `Seed (RUN_SEED=true)` — se for o primeiro deploy
-   - `ABS Resolve API v2.0 rodando`
+   - `ABS Resolve API starting`
 
 ### 5. Verificar se está funcionando
 
@@ -90,8 +107,10 @@ Substitua `SEU-DOMINIO` pelo domínio configurado:
 
 | URL | Resultado esperado |
 |-----|-------------------|
-| `https://SEU-DOMINIO/` | Tela de login ABS Resolve |
+| `https://SEU-DOMINIO/` | Loja / login ABS Resolve |
 | `https://SEU-DOMINIO/api/health` | JSON com `"database": "connected"` |
+| `https://SEU-DOMINIO/gestao` | Dashboard executivo |
+| `https://SEU-DOMINIO/financeiro` | Módulo financeiro |
 | `https://SEU-DOMINIO/cadastro` | Página de cadastro de cliente |
 
 Teste login admin (após seed):
@@ -161,7 +180,7 @@ Internet → web (nginx :80)
 
 1. Faça `git push` na branch `main`
 2. No EasyPanel → projeto → **Deploy** (ou ative auto-deploy no GitHub)
-3. O `backend` roda `prisma migrate deploy` automaticamente a cada start
+3. O `backend` roda `prisma migrate deploy` + plano financeiro automaticamente a cada start
 
 ---
 
