@@ -50,6 +50,10 @@ echo "==> Env OK (DATABASE_URL definida, ASAAS_MOCK=${ASAAS_MOCK:-false})"
 echo "==> Prisma migrate deploy..."
 npx prisma migrate deploy
 
+# Plano financeiro (categorias/contas/centros) — idempotente, seguro em todo start
+echo "==> Garantindo plano financeiro padrão..."
+node --input-type=module -e "import('./dist/services/financeiro.service.js').then((m)=>m.garantirPlanoFinanceiroPadrao()).then(()=>{console.log('Plano financeiro OK');process.exit(0)}).catch((e)=>{console.warn('Plano financeiro:', e?.message||e);process.exit(0)})" || true
+
 if [ "$RUN_SEED" = "true" ]; then
   echo "==> Seed (RUN_SEED=true)..."
   npx tsx prisma/seed.ts || true
