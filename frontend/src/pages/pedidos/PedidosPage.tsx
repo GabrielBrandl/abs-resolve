@@ -14,6 +14,9 @@ export function PedidosPage() {
   const [status, setStatus] = useState('');
   const [modal, setModal] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [telefoneBusca, setTelefoneBusca] = useState('');
+  const [clientesTelefone, setClientesTelefone] = useState<Array<{ id: string; nome: string; telefone: string; email: string; status: string }>>([]);
+  const [buscandoTelefone, setBuscandoTelefone] = useState(false);
   const [form, setForm] = useState({ clienteId: '', valor: '', responsavel: 'Comercial', descricao: '' });
   const { toast } = useToast();
 
@@ -26,6 +29,19 @@ export function PedidosPage() {
     setClientes(r.clientes);
     setModal(true);
   };
+
+  useEffect(() => {
+    const telefone = telefoneBusca.replace(/\D/g, '');
+    if (telefone.length < 4) { setClientesTelefone([]); return; }
+    const timer = window.setTimeout(() => {
+      setBuscandoTelefone(true);
+      clientesApi.buscarTelefone(telefone)
+        .then(setClientesTelefone)
+        .catch(() => setClientesTelefone([]))
+        .finally(() => setBuscandoTelefone(false));
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [telefoneBusca]);
 
   const criar = async () => {
     await pedidosApi.criar({ ...form, valor: parseFloat(form.valor) });
@@ -91,6 +107,9 @@ export function PedidosPage() {
       )}
 
       <Modal open={modal} onClose={() => setModal(false)} title="Novo Pedido">
+        <Input label="Buscar cliente por telefone" type="tel" placeholder="Digite ao menos 4 números" value={telefoneBusca} onChange={(e) => setTelefoneBusca(e.target.value)} />
+        {buscandoTelefone && <p className="mb-3 text-xs text-slate-500">Buscando...</p>}
+        {!!clientesTelefone.length && <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50 p-3"><p className="mb-2 text-xs font-medium text-primary-700">Clientes encontrados</p>{clientesTelefone.map((c) => <button key={c.id} type="button" onClick={() => { setForm({ ...form, clienteId: c.id }); setTelefoneBusca(c.telefone); setClientesTelefone([]); }} className="flex w-full justify-between rounded px-2 py-2 text-left text-sm hover:bg-white"><span><b>{c.nome}</b><small className="block text-slate-500">{c.telefone}</small></span><span className="text-primary-600">Selecionar</span></button>)}</div>}
         <Select label="Cliente" value={form.clienteId} onChange={(e) => setForm({ ...form, clienteId: e.target.value })}>
           <option value="">Selecione...</option>
           {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}

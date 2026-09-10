@@ -86,6 +86,8 @@ model Cliente {
   whatsapp          String?
   endereco          Json        @default("{}")
   status            String      @default("ativo")
+  /** Origem comercial: whatsapp, site, meta_ads, instagram, google, indicacao, recorrente, outros */
+  origem            String?     @default("outros")
   consentimentoLgpd Boolean     @default(false) @map("consentimento_lgpd")
   dataAceite        DateTime?   @map("data_aceite")
   createdAt         DateTime    @default(now()) @map("created_at")
@@ -102,9 +104,12 @@ model Cliente {
   ocorrenciasAusencia Int @default(0) @map("ocorrencias_ausencia")
   campanhas           CampanhaCrm[]
   leads               Lead[]
+  lancamentosFinanceiros FinLancamento[]
   parceiroId          String?     @map("parceiro_id")
   parceiro            Parceiro?   @relation(fields: [parceiroId], references: [id])
 
+  @@index([telefone])
+  @@index([origem])
   @@map("clientes")
 }
 
@@ -118,21 +123,28 @@ model Lead {
   interesse      String
   responsavel    String
   etapa          String    @default("novo_lead")
+  /** em_andamento | aguardando_cliente | fechado_ganho | perdido */
+  statusComercial String   @default("em_andamento") @map("status_comercial")
   valorEstimado  Decimal?  @map("valor_estimado") @db.Decimal(12, 2)
   probabilidade  Int       @default(10)
   prioridade     String    @default("media")
   motivoPerda    String?   @map("motivo_perda")
   dataPrevista   DateTime? @map("data_prevista")
   proximoContato DateTime? @map("proximo_contato")
+  dataUltimaInteracao DateTime? @map("data_ultima_interacao")
+  proximaAcao    String?   @map("proxima_acao")
   tags           Json      @default("[]")
   observacoes    String?
   clienteId      String?   @map("cliente_id")
+  pedidoId       String?   @unique @map("pedido_id")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   interacoes     Interacao[]
   cliente        Cliente?  @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  pedido         Pedido?   @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
 
   @@index([etapa])
+  @@index([statusComercial])
   @@index([responsavel])
   @@index([proximoContato])
   @@map("leads")
@@ -171,6 +183,8 @@ model Pedido {
   solicitacao  SolicitacaoServico?
   agendamentos Agendamento[]
   nfse         Nfse?
+  lead         Lead?
+  lancamentosFinanceiros FinLancamento[]
 
   @@map("pedidos")
 }
@@ -190,6 +204,7 @@ model OrdemServico {
   pedido            Pedido      @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   tecnico           Tecnico?    @relation(fields: [tecnicoId], references: [id])
   avaliacao         Avaliacao?
+  lancamentosFinanceiros FinLancamento[]
 
   @@map("ordens_servico")
 }
@@ -210,6 +225,7 @@ model Pagamento {
   cliente     Cliente   @relation(fields: [clienteId], references: [id])
   pedido      Pedido?   @relation(fields: [pedidoId], references: [id])
   nfse        Nfse?
+  lancamentoFinanceiro FinLancamento?
 
   @@map("pagamentos")
 }
@@ -570,4 +586,144 @@ model FluxoServicoConfig {
   createdAt         DateTime @default(now()) @map("created_at")
 
   @@map("fluxo_servico_config")
+}
+
+// ─── Módulo Financeiro ───────────────────────────────────────────────────────
+
+/** receita | custo_direto | despesa_operacional | despesa_financeira | investimento | transferencia */
+model FinCategoria {
+  id             String             @id @default(uuid())
+  tipo           String
+  nome           String
+  ativo          Boolean            @default(true)
+  ordem          Int                @default(0)
+  /** Agrupamento DRE: receita_bruta | deducoes | custo_direto | despesa_comercial | despesa_administrativa | despesa_financeira | investimento | transferencia */
+  grupoDre       String?            @map("grupo_dre")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  subcategorias  FinSubcategoria[]
+  lancamentos    FinLancamento[]
+  recorrencias   FinRecorrencia[]
+
+  @@unique([tipo, nome])
+  @@index([tipo])
+  @@map("fin_categorias")
+}
+
+model FinSubcategoria {
+  id          String          @id @default(uuid())
+  categoriaId String          @map("categoria_id")
+  nome        String
+  ativo       Boolean         @default(true)
+  ordem       Int             @default(0)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  categoria   FinCategoria    @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  lancamentos FinLancamento[]
+  recorrencias FinRecorrencia[]
+
+  @@unique([categoriaId, nome])
+  @@map("fin_subcategorias")
+}
+
+/** bancaria | digital | caixa | cartao */
+model FinConta {
+  id           String          @id @default(uuid())
+  nome         String
+  tipo         String
+  saldoInicial Decimal         @default(0) @map("saldo_inicial") @db.Decimal(14, 2)
+  ativo        Boolean         @default(true)
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  lancamentos  FinLancamento[] @relation("ContaOrigem")
+  transferenciasRecebidas FinLancamento[] @relation("ContaDestino")
+  recorrencias FinRecorrencia[]
+
+  @@map("fin_contas")
+}
+
+model FinCentroCusto {
+  id           String           @id @default(uuid())
+  nome         String           @unique
+  ativo        Boolean          @default(true)
+  createdAt    DateTime         @default(now()) @map("created_at")
+  lancamentos  FinLancamento[]
+  recorrencias FinRecorrencia[]
+
+  @@map("fin_centros_custo")
+}
+
+/**
+ * natureza: receita | despesa | transferencia
+ * status receita: prevista | a_receber | recebida | vencida | cancelada | estornada
+ * status despesa: prevista | a_pagar | paga | vencida | cancelada
+ */
+model FinLancamento {
+  id              String           @id @default(uuid())
+  natureza        String
+  descricao       String
+  categoriaId     String?          @map("categoria_id")
+  subcategoriaId  String?          @map("subcategoria_id")
+  centroCustoId   String?          @map("centro_custo_id")
+  clienteId       String?          @map("cliente_id")
+  fornecedorNome  String?          @map("fornecedor_nome")
+  pedidoId        String?          @map("pedido_id")
+  ordemServicoId  String?          @map("ordem_servico_id")
+  pagamentoId     String?          @unique @map("pagamento_id")
+  valor           Decimal          @db.Decimal(14, 2)
+  dataCompetencia DateTime         @map("data_competencia")
+  dataVencimento  DateTime?        @map("data_vencimento")
+  dataMovimento   DateTime?        @map("data_movimento")
+  formaPagamento  String?          @map("forma_pagamento")
+  contaId         String?          @map("conta_id")
+  contaDestinoId  String?          @map("conta_destino_id")
+  status          String
+  recorrenciaId   String?          @map("recorrencia_id")
+  anexoUrl        String?          @map("anexo_url")
+  observacoes     String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  categoria       FinCategoria?    @relation(fields: [categoriaId], references: [id])
+  subcategoria    FinSubcategoria? @relation(fields: [subcategoriaId], references: [id])
+  centroCusto     FinCentroCusto?  @relation(fields: [centroCustoId], references: [id])
+  cliente         Cliente?         @relation(fields: [clienteId], references: [id])
+  pedido          Pedido?          @relation(fields: [pedidoId], references: [id])
+  ordemServico    OrdemServico?    @relation(fields: [ordemServicoId], references: [id])
+  pagamento       Pagamento?       @relation(fields: [pagamentoId], references: [id])
+  conta           FinConta?        @relation("ContaOrigem", fields: [contaId], references: [id])
+  contaDestino    FinConta?        @relation("ContaDestino", fields: [contaDestinoId], references: [id])
+  recorrencia     FinRecorrencia?  @relation(fields: [recorrenciaId], references: [id])
+
+  @@index([natureza, status])
+  @@index([dataCompetencia])
+  @@index([dataMovimento])
+  @@index([dataVencimento])
+  @@index([clienteId])
+  @@index([pedidoId])
+  @@map("fin_lancamentos")
+}
+
+model FinRecorrencia {
+  id             String           @id @default(uuid())
+  descricao      String
+  natureza       String           @default("despesa")
+  categoriaId    String?          @map("categoria_id")
+  subcategoriaId String?          @map("subcategoria_id")
+  centroCustoId  String?          @map("centro_custo_id")
+  fornecedorNome String?          @map("fornecedor_nome")
+  valor          Decimal          @db.Decimal(14, 2)
+  diaDoMes       Int              @map("dia_do_mes")
+  contaId        String?          @map("conta_id")
+  formaPagamento String?          @map("forma_pagamento")
+  ativo          Boolean          @default(true)
+  proximaGeracao DateTime         @map("proxima_geracao")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  categoria      FinCategoria?    @relation(fields: [categoriaId], references: [id])
+  subcategoria   FinSubcategoria? @relation(fields: [subcategoriaId], references: [id])
+  centroCusto    FinCentroCusto?  @relation(fields: [centroCustoId], references: [id])
+  conta          FinConta?        @relation(fields: [contaId], references: [id])
+  lancamentos    FinLancamento[]
+
+  @@map("fin_recorrencias")
 }

@@ -35,13 +35,34 @@ export interface Cliente {
   whatsapp?: string;
   endereco: Record<string, string>;
   status: string;
+  origem?: string;
   consentimentoLgpd: boolean;
   createdAt: string;
   pedidos?: Pedido[];
   interacoes?: Interacao[];
   pagamentos?: Pagamento[];
+  agendamentos?: Array<{
+    id: string;
+    data: string;
+    status: string;
+    tecnico?: { nome: string };
+    pedido?: { numero: string };
+  }>;
+  leads?: Lead[];
   user?: { id: string; email: string };
   solicitacoes?: SolicitacaoFotos[];
+  ultimaCompra?: string | null;
+  numeroServicos?: number;
+  totalGasto?: number;
+  ticketMedio?: number;
+  kpis?: {
+    totalGasto: number;
+    quantidadeServicos: number;
+    ticketMedio: number;
+    ultimaCompra?: string | null;
+    pedidos: number;
+    os: number;
+  };
 }
 
 export interface SolicitacaoFotos {
@@ -63,6 +84,13 @@ export interface Lead {
   interesse: string;
   responsavel: string;
   etapa: string;
+  statusComercial?: string;
+  motivoPerda?: string | null;
+  proximoContato?: string | null;
+  dataUltimaInteracao?: string | null;
+  proximaAcao?: string | null;
+  clienteId?: string | null;
+  pedidoId?: string | null;
   createdAt: string;
   interacoes?: Interacao[];
 }
@@ -207,6 +235,129 @@ export interface DashboardKPIs {
   };
   leadsPorEtapa: { etapa: string; _count: number }[];
 }
+
+export interface FinLancamento {
+  id: string;
+  natureza: string;
+  descricao: string;
+  valor: number;
+  status: string;
+  statusEfetivo?: string;
+  dataCompetencia: string;
+  dataVencimento?: string | null;
+  dataMovimento?: string | null;
+  fornecedorNome?: string | null;
+  formaPagamento?: string | null;
+  categoria?: { id: string; nome: string; tipo: string } | null;
+  subcategoria?: { id: string; nome: string } | null;
+  conta?: { id: string; nome: string } | null;
+  cliente?: { id: string; nome: string } | null;
+  pedido?: { id: string; numero: string } | null;
+  centroCusto?: { id: string; nome: string } | null;
+}
+
+export interface DashboardGerencial {
+  periodo: { inicioYmd: string; fimYmd: string; label: string };
+  cards: {
+    faturamento: { valor: number; anterior: number; variacaoPct: number | null };
+    receitaRecebida: { valor: number; anterior: number; variacaoPct: number | null };
+    margemContribuicao: {
+      valor: number | null;
+      pct: number | null;
+      anterior: number | null;
+      variacaoPct: number | null;
+      fonte: string;
+    };
+    resultadoOperacional: {
+      valor: number | null;
+      anterior: number | null;
+      variacaoPct: number | null;
+      fonte: string;
+    };
+    numeroVendas: { valor: number; anterior: number; variacaoPct: number | null };
+    ticketMedio: { valor: number; anterior: number; variacaoPct: number | null };
+  };
+  comercial: {
+    funil: {
+      leads: number;
+      orcamentos: number;
+      vendas: number;
+      taxaLeadOrcamento: number;
+      taxaOrcamentoVenda: number;
+      taxaLeadVenda: number;
+    };
+    vendasPorOrigem: Array<{ origem: string; vendas: number; receita: number }>;
+    marketing: {
+      investimento: number;
+      leads: number;
+      cpl: number | null;
+      vendas: number;
+      cac: number | null;
+      receita: number;
+      margem: number | null;
+    };
+  };
+  operacao: {
+    osHoje: number;
+    aguardandoPrestador: number;
+    agendadas: number;
+    emExecucao: number;
+    concluidas: number;
+    atrasadas: number;
+    comOcorrencia: number;
+  };
+  financeiro: {
+    saldoDisponivel: number;
+    aReceber: number;
+    aPagar: number;
+    vencidos: number;
+    receitasXDespesas: Array<{ dia: string; receitas: number; despesas: number }>;
+    despesasPorCategoria: Array<{ categoria: string; valor: number }>;
+    temDadosReais: boolean;
+  };
+  servicos: Array<{
+    servico: string;
+    quantidade: number;
+    receita: number;
+    ticketMedio: number;
+    custoDireto: number;
+    margemContribuicao: number;
+    margemPct: number;
+    custoReal: boolean;
+  }>;
+  clientes: {
+    novos: number;
+    recorrentes: number;
+    taxaRecompra: number;
+    topClientes: Array<{ clienteId: string; nome: string; faturamento: number; compras: number }>;
+  };
+  alertas: Array<{
+    tipo: string;
+    titulo: string;
+    descricao: string;
+    link: string;
+    severidade: string;
+  }>;
+}
+
+export const MOTIVOS_PERDA = [
+  'Preço alto',
+  'Demora no atendimento',
+  'Cliente desistiu',
+  'Contratou concorrente',
+  'Sem disponibilidade de agenda',
+  'Serviço fora do escopo',
+  'Não respondeu',
+  'Forma de pagamento',
+  'Outro',
+] as const;
+
+export const STATUS_COMERCIAL = [
+  { key: 'em_andamento', label: 'Em andamento' },
+  { key: 'aguardando_cliente', label: 'Aguardando cliente' },
+  { key: 'fechado_ganho', label: 'Fechado ganho' },
+  { key: 'perdido', label: 'Perdido' },
+] as const;
 
 export const ETAPAS_LEAD = [
   { key: 'novo_lead', label: 'Novo Lead' },

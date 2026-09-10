@@ -1,6 +1,8 @@
 import bcrypt from 'bcrypt';
 import { prisma } from '../utils/prisma.js';
 import { validarCpf, validarCnpj, formatarDocumento } from '../utils/validators.js';
+import { toNumber } from '../utils/helpers.js';
+import { normalizarOrigem } from '../utils/periodo.js';
 
 interface ClienteFilters {
   status?: string;
@@ -22,9 +24,15 @@ interface CreateClienteData {
   telefone: string;
   whatsapp?: string;
   endereco?: object;
+  origem?: string;
   consentimentoLgpd?: boolean;
   criarAcesso?: boolean;
   senha?: string;
+  forcarDuplicado?: boolean;
+}
+
+function soDigitos(v: string) {
+  return v.replace(/\D/g, '');
 }
 
 export class ClientesService {
@@ -35,12 +43,18 @@ export class ClientesService {
     if (status) where.status = status;
     if (tipo) where.tipo = tipo;
     if (busca) {
+      const digits = soDigitos(busca);
       where.OR = [
         { nome: { contains: busca, mode: 'insensitive' } },
         { email: { contains: busca, mode: 'insensitive' } },
-        { telefone: { contains: busca.replace(/\D/g, '') } },
-        { cpf: { contains: busca.replace(/\D/g, '') } },
-        { cnpj: { contains: busca.replace(/\D/g, '') } },
+        ...(digits
+          ? [
+              { telefone: { contains: digits } },
+              { whatsapp: { contains: digits } },
+              { cpf: { contains: digits } },
+              { cnpj: { contains: digits } },
+            ]
+          : []),
       ];
     }
 
@@ -50,30 +64,126 @@ export class ClientesService {
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          pedidos: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { createdAt: true, valor: true },
+          },
+          pagamentos: {
+            where: { status: 'RECEIVED' },
+            select: { valor: true },
+          },
+          _count: {
+            select: {
+              pedidos: true,
+              solicitacoes: true,
+              agendamentos: true,
+            },
+          },
+        },
       }),
       prisma.cliente.count({ where }),
     ]);
 
-    return { clientes, total, page, limit, totalPages: Math.ceil(total / limit) };
+    const enriquecidos = clientes.map((c) => {
+      const totalGasto = c.pagamentos.reduce((s, p) => s + toNumber(p.valor), 0);
+      const nServicos = c._count.solicitacoes || c._count.pedidos;
+      return {
+        id: c.id,
+        tipo: c.tipo,
+        nome: c.nome,
+        cpf: c.cpf,
+        cnpj: c.cnpj,
+        email: c.email,
+        telefone: c.telefone,
+        status: c.status,
+        origem: normalizarOrigem(c.origem),
+        createdAt: c.createdAt,
+        ultimaCompra: c.pedidos[0]?.createdAt || null,
+        numeroServicos: nServicos,
+        totalGasto: Math.round(totalGasto * 100) / 100,
+        ticketMedio: nServicos > 0 ? Math.round((totalGasto / nServicos) * 100) / 100 : 0,
+      };
+    });
+
+    return { clientes: enriquecidos, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  async buscarPorTelefone(telefone: string) {
+    const digits = soDigitos(telefone);
+    if (digits.length < 8) return [];
+    const sufixo = digits.slice(-8);
+    return prisma.cliente.findMany({
+      where: {
+        OR: [{ telefone: { contains: sufixo } }, { whatsapp: { contains: sufixo } }],
+      },
+      take: 10,
+      select: {
+        id: true,
+        nome: true,
+        telefone: true,
+        email: true,
+        cpf: true,
+        cnpj: true,
+        status: true,
+        tipo: true,
+      },
+    });
+  }
+
+  async buscarDuplicados(data: { telefone?: string; email?: string; cpf?: string; cnpj?: string }) {
+    const or: Record<string, unknown>[] = [];
+    if (data.telefone) {
+      const digits = soDigitos(data.telefone);
+      if (digits.length >= 8) {
+        const sufixo = digits.slice(-8);
+        or.push({ telefone: { contains: sufixo } }, { whatsapp: { contains: sufixo } });
+      }
+    }
+    if (data.email) or.push({ email: { equals: data.email, mode: 'insensitive' } });
+    if (data.cpf) or.push({ cpf: soDigitos(data.cpf) });
+    if (data.cnpj) or.push({ cnpj: soDigitos(data.cnpj) });
+    if (!or.length) return [];
+    return prisma.cliente.findMany({
+      where: { OR: or },
+      take: 10,
+      select: { id: true, nome: true, telefone: true, email: true, cpf: true, cnpj: true, status: true },
+    });
   }
 
   async buscarPorId(id: string) {
     const cliente = await prisma.cliente.findUnique({
       where: { id },
       include: {
-        pedidos: { orderBy: { createdAt: 'desc' }, take: 10 },
-        interacoes: { orderBy: { data: 'desc' }, take: 20, include: { usuario: { select: { nome: true } } } },
-        pagamentos: { orderBy: { createdAt: 'desc' }, take: 10 },
-        garantias: { orderBy: { dataInicio: 'desc' }, take: 10 },
+        pedidos: {
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+          include: {
+            ordemServico: { include: { tecnico: { select: { id: true, nome: true } } } },
+            pagamentos: true,
+            solicitacao: { include: { servico: { select: { nome: true, slug: true } } } },
+          },
+        },
+        interacoes: { orderBy: { data: 'desc' }, take: 50, include: { usuario: { select: { nome: true } } } },
+        pagamentos: { orderBy: { createdAt: 'desc' }, take: 50, include: { pedido: { select: { numero: true } } } },
+        garantias: { orderBy: { dataInicio: 'desc' }, take: 20 },
         produtosInstalados: { orderBy: { data: 'desc' }, take: 20 },
+        agendamentos: {
+          orderBy: { data: 'desc' },
+          take: 30,
+          include: { tecnico: { select: { nome: true } }, pedido: { select: { numero: true } } },
+        },
+        leads: { orderBy: { updatedAt: 'desc' }, take: 20 },
         solicitacoes: {
           orderBy: { createdAt: 'desc' },
-          take: 20,
+          take: 30,
           select: {
             id: true,
             status: true,
             fotos: true,
             opcoes: true,
+            precoFinal: true,
             createdAt: true,
             servico: { select: { nome: true, slug: true } },
           },
@@ -82,7 +192,24 @@ export class ClientesService {
       },
     });
     if (!cliente) throw new Error('Cliente não encontrado');
-    return cliente;
+
+    const pagos = cliente.pagamentos.filter((p) => p.status === 'RECEIVED');
+    const totalGasto = pagos.reduce((s, p) => s + toNumber(p.valor), 0);
+    const nServicos = cliente.solicitacoes.length || cliente.pedidos.length;
+    const ultimaCompra = cliente.pedidos[0]?.createdAt || null;
+
+    return {
+      ...cliente,
+      origem: normalizarOrigem(cliente.origem),
+      kpis: {
+        totalGasto: Math.round(totalGasto * 100) / 100,
+        quantidadeServicos: nServicos,
+        ticketMedio: nServicos > 0 ? Math.round((totalGasto / nServicos) * 100) / 100 : 0,
+        ultimaCompra,
+        pedidos: cliente.pedidos.length,
+        os: cliente.pedidos.filter((p) => p.ordemServico).length,
+      },
+    };
   }
 
   async criar(data: CreateClienteData) {
@@ -98,6 +225,18 @@ export class ClientesService {
       data.cnpj = cnpjLimpo;
     }
 
+    const dups = await this.buscarDuplicados({
+      telefone: data.telefone,
+      email: data.email,
+      cpf: data.cpf,
+      cnpj: data.cnpj,
+    });
+    if (dups.length && !data.forcarDuplicado) {
+      const err = new Error('Cliente já cadastrado com telefone/CPF/CNPJ/e-mail semelhante');
+      (err as Error & { duplicados?: unknown }).duplicados = dups;
+      throw err;
+    }
+
     const cliente = await prisma.cliente.create({
       data: {
         tipo: data.tipo,
@@ -108,9 +247,10 @@ export class ClientesService {
         cnpj: data.cnpj,
         responsavel: data.responsavel,
         email: data.email,
-        telefone: data.telefone,
-        whatsapp: data.whatsapp,
+        telefone: soDigitos(data.telefone),
+        whatsapp: data.whatsapp ? soDigitos(data.whatsapp) : null,
         endereco: data.endereco || {},
+        origem: normalizarOrigem(data.origem),
         consentimentoLgpd: data.consentimentoLgpd ?? false,
         dataAceite: data.consentimentoLgpd ? new Date() : null,
       },
@@ -146,7 +286,12 @@ export class ClientesService {
       data.cnpj = cnpjLimpo;
     }
 
-    const { criarAcesso, senha, ...updateData } = data;
+    const { criarAcesso: _a, senha: _s, forcarDuplicado: _f, ...rest } = data;
+    const updateData: Record<string, unknown> = { ...rest };
+    if (rest.telefone) updateData.telefone = soDigitos(rest.telefone);
+    if (rest.whatsapp) updateData.whatsapp = soDigitos(rest.whatsapp);
+    if (rest.origem) updateData.origem = normalizarOrigem(rest.origem);
+
     return prisma.cliente.update({ where: { id }, data: updateData });
   }
 
@@ -232,6 +377,10 @@ export class ClientesService {
       email: c.email,
       telefone: c.telefone,
       status: c.status,
+      origem: c.origem,
+      ultimaCompra: c.ultimaCompra,
+      numeroServicos: c.numeroServicos,
+      totalGasto: c.totalGasto,
     }));
   }
 }

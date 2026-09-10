@@ -68,8 +68,18 @@ export class LeadsController {
       const data = await leadsService.atualizarEtapa(
         paramId(req.params.id),
         req.body.etapa,
-        req.body.motivoPerda
+        req.body.motivoPerda,
+        req.body.proximoContato
       );
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async atualizarStatusComercial(req: Request, res: Response) {
+    try {
+      const data = await leadsService.atualizarStatusComercial(paramId(req.params.id), req.body);
       return success(res, data);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);

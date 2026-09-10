@@ -4,7 +4,7 @@ import type {
   ApiResponse, Cliente, Lead, Pedido, Pagamento, Servico, OrdemServico, DashboardKPIs,
   PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
   EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, EstoqueDashboard, MovimentacaoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin, IaConhecimento,
-  ParceiroAdmin, ParceiroDetalhe,
+  ParceiroAdmin, ParceiroDetalhe, DashboardGerencial, FinLancamento,
 } from '../types';
 
 async function get<T>(url: string) {
@@ -61,6 +61,10 @@ export const clientesApi = {
   listar: (params?: Record<string, string>) =>
     get<{ clientes: Cliente[]; total: number }>(`/clientes?${new URLSearchParams(params)}`),
   buscar: (id: string) => get<Cliente>(`/clientes/${id}`),
+  buscarTelefone: (telefone: string) =>
+    get<Array<{ id: string; nome: string; telefone: string; email: string; status: string }>>(
+      `/clientes/buscar-telefone?${new URLSearchParams({ telefone })}`
+    ),
   criar: (body: unknown) => post<Cliente>('/clientes', body),
   atualizar: (id: string, body: unknown) => put<Cliente>(`/clientes/${id}`, body),
   atualizarAcessoPortal: (id: string, body: { email?: string; senha?: string; nome?: string }) =>
@@ -83,7 +87,10 @@ export const leadsApi = {
   listar: (params?: Record<string, string>) => get<Lead[]>(`/leads?${new URLSearchParams(params)}`),
   buscar: (id: string) => get<Lead>(`/leads/${id}`),
   criar: (body: unknown) => post<Lead>('/leads', body),
-  etapa: (id: string, etapa: string) => patch<Lead>(`/leads/${id}/etapa`, { etapa }),
+  atualizar: (id: string, body: unknown) => patch<Lead>(`/leads/${id}`, body),
+  etapa: (id: string, etapa: string, extra?: { motivoPerda?: string; proximoContato?: string }) =>
+    patch<Lead>(`/leads/${id}/etapa`, { etapa, ...extra }),
+  statusComercial: (id: string, body: unknown) => patch<Lead>(`/leads/${id}/status-comercial`, body),
   interacao: (id: string, body: unknown) => post(`/leads/${id}/interacoes`, body),
 };
 
@@ -129,8 +136,34 @@ export const movimentacaoApi = {
 
 export const dashboardApi = {
   kpis: () => get<DashboardKPIs>('/dashboard/kpis'),
+  gerencial: (params?: Record<string, string>) =>
+    get<DashboardGerencial>(`/dashboard/gerencial?${new URLSearchParams(params)}`),
   receita: () => get<{ mes: string; valor: number }[]>('/dashboard/receita-mensal'),
   faturamentoDiario: () => get<{ dia: string; valor: number }[]>('/dashboard/faturamento-diario'),
+};
+
+export const financeiroApi = {
+  seed: () => post('/financeiro/seed', {}),
+  categorias: (all?: boolean) => get<unknown[]>(`/financeiro/categorias${all ? '?all=1' : ''}`),
+  salvarCategoria: (body: unknown) => post('/financeiro/categorias', body),
+  salvarSubcategoria: (body: unknown) => post('/financeiro/subcategorias', body),
+  contas: (all?: boolean) => get<unknown[]>(`/financeiro/contas${all ? '?all=1' : ''}`),
+  salvarConta: (body: unknown) => post('/financeiro/contas', body),
+  centros: () => get<unknown[]>('/financeiro/centros-custo'),
+  salvarCentro: (body: unknown) => post('/financeiro/centros-custo', body),
+  lancamentos: (params?: Record<string, string>) =>
+    get<{ items: FinLancamento[]; total: number }>(`/financeiro/lancamentos?${new URLSearchParams(params)}`),
+  criarLancamento: (body: unknown) => post('/financeiro/lancamentos', body),
+  atualizarLancamento: (id: string, body: unknown) => put(`/financeiro/lancamentos/${id}`, body),
+  baixarLancamento: (id: string, body?: unknown) => post(`/financeiro/lancamentos/${id}/baixar`, body || {}),
+  recorrencias: () => get<unknown[]>('/financeiro/recorrencias'),
+  salvarRecorrencia: (body: unknown) => post('/financeiro/recorrencias', body),
+  processarRecorrencias: () => post('/financeiro/recorrencias/processar', {}),
+  fluxo: (params?: Record<string, string>) => get<Record<string, unknown>>(`/financeiro/fluxo-caixa?${new URLSearchParams(params)}`),
+  dre: (params?: Record<string, string>) => get<Record<string, unknown>>(`/financeiro/dre?${new URLSearchParams(params)}`),
+  resumo: (params?: Record<string, string>) => get<Record<string, unknown>>(`/financeiro/resumo?${new URLSearchParams(params)}`),
+  exportar: (params?: Record<string, string>) =>
+    api.get(`/financeiro/export?${new URLSearchParams(params)}`, { responseType: 'blob' }),
 };
 
 export const adminApi = {

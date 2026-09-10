@@ -10,6 +10,7 @@ router.use(authMiddleware);
 router.use(checkRole('admin', 'comercial', 'operacional'));
 
 router.get('/', (req, res) => clientesController.listar(req, res));
+router.get('/buscar-telefone', (req, res) => clientesController.buscarTelefone(req, res));
 router.post('/', auditLog('criar', 'cliente'), (req, res) => clientesController.criar(req, res));
 router.get('/:id', (req, res) => clientesController.buscar(req, res));
 router.put('/:id', auditLog('atualizar', 'cliente'), (req, res) => clientesController.atualizar(req, res));

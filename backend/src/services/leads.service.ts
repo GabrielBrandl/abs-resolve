@@ -207,9 +207,36 @@ export class LeadsService {
 
   async atualizar(
     id: string,
-    data: Partial<LeadCreateInput> & { motivoPerda?: string | null }
+    data: Partial<LeadCreateInput> & {
+      motivoPerda?: string | null;
+      statusComercial?: string;
+      proximaAcao?: string | null;
+      pedidoId?: string | null;
+      clienteId?: string | null;
+      etapa?: string;
+    }
   ) {
     await this.buscarPorId(id);
+    if (data.statusComercial === 'perdido' || data.etapa === 'perdido') {
+      if (!data.motivoPerda) {
+        const atual = await this.buscarPorId(id);
+        if (!atual.motivoPerda) throw new Error('Informe o motivo da perda');
+      }
+    }
+    if (data.statusComercial === 'aguardando_cliente' && !data.proximoContato) {
+      const atual = await this.buscarPorId(id);
+      if (!atual.proximoContato) {
+        throw new Error('Defina a data de follow-up para Aguardando cliente');
+      }
+    }
+
+    let etapa = data.etapa as string | undefined;
+    let statusComercial = data.statusComercial;
+    if (statusComercial === 'fechado_ganho') etapa = etapa || 'fechado';
+    if (statusComercial === 'perdido') etapa = etapa || 'perdido';
+    if (etapa === 'fechado') statusComercial = statusComercial || 'fechado_ganho';
+    if (etapa === 'perdido') statusComercial = statusComercial || 'perdido';
+
     return prisma.lead.update({
       where: { id },
       data: {
@@ -232,30 +259,121 @@ export class LeadsService {
           : {}),
         ...(data.tags !== undefined ? { tags: data.tags } : {}),
         ...(data.observacoes !== undefined ? { observacoes: data.observacoes } : {}),
+        ...(statusComercial != null ? { statusComercial } : {}),
+        ...(etapa != null
+          ? { etapa, probabilidade: PROB_POR_ETAPA[etapa] ?? undefined }
+          : {}),
+        ...(data.proximaAcao !== undefined ? { proximaAcao: data.proximaAcao } : {}),
+        ...(data.pedidoId !== undefined ? { pedidoId: data.pedidoId } : {}),
+        ...(data.clienteId !== undefined ? { clienteId: data.clienteId } : {}),
       },
     });
   }
 
-  async atualizarEtapa(id: string, etapa: string, motivoPerda?: string) {
+  async atualizarEtapa(id: string, etapa: string, motivoPerda?: string, proximoContato?: string) {
     if (!ETAPAS.includes(etapa as (typeof ETAPAS)[number])) throw new Error('Etapa inválida');
     const lead = await this.buscarPorId(id);
     if (etapa === 'perdido' && !motivoPerda && !lead.motivoPerda) {
       throw new Error('Informe o motivo da perda');
     }
+
+    let statusComercial = lead.statusComercial;
+    if (etapa === 'perdido') statusComercial = 'perdido';
+    if (etapa === 'fechado') statusComercial = 'fechado_ganho';
+    if (etapa === 'negociacao' || etapa === 'proposta_enviada') {
+      if (proximoContato) statusComercial = 'aguardando_cliente';
+    }
+
     return prisma.lead.update({
       where: { id },
       data: {
         etapa,
+        statusComercial,
         probabilidade: PROB_POR_ETAPA[etapa] ?? lead.probabilidade,
         ...(etapa === 'perdido' && motivoPerda ? { motivoPerda } : {}),
-        ...(etapa === 'fechado' ? { probabilidade: 100 } : {}),
+        ...(proximoContato ? { proximoContato: new Date(proximoContato) } : {}),
       },
     });
   }
 
+  async atualizarStatusComercial(
+    id: string,
+    data: {
+      statusComercial: string;
+      motivoPerda?: string;
+      proximoContato?: string;
+      proximaAcao?: string;
+      responsavel?: string;
+    }
+  ) {
+    const lead = await this.buscarPorId(id);
+    const status = data.statusComercial;
+    if (status === 'perdido' && !data.motivoPerda && !lead.motivoPerda) {
+      throw new Error('Informe o motivo da perda');
+    }
+    if (status === 'aguardando_cliente' && !data.proximoContato && !lead.proximoContato) {
+      throw new Error('Defina a data de follow-up');
+    }
+
+    const patch: Record<string, unknown> = {
+      statusComercial: status,
+      ...(data.motivoPerda ? { motivoPerda: data.motivoPerda } : {}),
+      ...(data.proximoContato ? { proximoContato: new Date(data.proximoContato) } : {}),
+      ...(data.proximaAcao !== undefined ? { proximaAcao: data.proximaAcao } : {}),
+      ...(data.responsavel ? { responsavel: data.responsavel } : {}),
+    };
+    if (status === 'fechado_ganho') {
+      patch.etapa = 'fechado';
+      patch.probabilidade = 100;
+    }
+    if (status === 'perdido') {
+      patch.etapa = 'perdido';
+      patch.probabilidade = 0;
+    }
+
+    return prisma.lead.update({ where: { id }, data: patch });
+  }
+
+  async marcarFechadoGanhoPorPedido(pedidoId: string, clienteId: string) {
+    const porPedido = await prisma.lead.findFirst({ where: { pedidoId } });
+    if (porPedido) {
+      return prisma.lead.update({
+        where: { id: porPedido.id },
+        data: {
+          statusComercial: 'fechado_ganho',
+          etapa: 'fechado',
+          probabilidade: 100,
+          clienteId,
+          dataUltimaInteracao: new Date(),
+        },
+      });
+    }
+
+    const aberto = await prisma.lead.findFirst({
+      where: {
+        clienteId,
+        statusComercial: { notIn: ['fechado_ganho', 'perdido'] },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    if (aberto) {
+      return prisma.lead.update({
+        where: { id: aberto.id },
+        data: {
+          statusComercial: 'fechado_ganho',
+          etapa: 'fechado',
+          probabilidade: 100,
+          pedidoId,
+          dataUltimaInteracao: new Date(),
+        },
+      });
+    }
+    return null;
+  }
+
   async registrarInteracao(
     leadId: string,
-    data: { tipo: string; descricao: string; usuarioId: string; proximoContato?: string }
+    data: { tipo: string; descricao: string; usuarioId: string; proximoContato?: string; proximaAcao?: string }
   ) {
     await this.buscarPorId(leadId);
     const interacao = await prisma.interacao.create({
@@ -268,12 +386,14 @@ export class LeadsService {
       include: { usuario: { select: { nome: true } } },
     });
 
-    if (data.proximoContato) {
-      await prisma.lead.update({
-        where: { id: leadId },
-        data: { proximoContato: new Date(data.proximoContato) },
-      });
-    }
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        dataUltimaInteracao: new Date(),
+        ...(data.proximoContato ? { proximoContato: new Date(data.proximoContato) } : {}),
+        ...(data.proximaAcao !== undefined ? { proximaAcao: data.proximaAcao } : {}),
+      },
+    });
 
     return interacao;
   }

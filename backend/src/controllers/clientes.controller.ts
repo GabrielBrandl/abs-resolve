@@ -19,6 +19,15 @@ export class ClientesController {
     }
   }
 
+  async buscarTelefone(req: Request, res: Response) {
+    try {
+      const telefone = String(req.query.telefone || '');
+      return success(res, await clientesService.buscarPorTelefone(telefone));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async buscar(req: Request, res: Response) {
     try {
       const data = await clientesService.buscarPorId(paramId(req.params.id));
@@ -33,7 +42,12 @@ export class ClientesController {
       const data = await clientesService.criar(req.body);
       return success(res, data, 201);
     } catch (err) {
-      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+      const msg = err instanceof Error ? err.message : 'Erro';
+      const duplicados = (err as Error & { duplicados?: unknown }).duplicados;
+      if (duplicados) {
+        return res.status(409).json({ success: false, error: msg, duplicados });
+      }
+      return error(res, msg, 400);
     }
   }
 

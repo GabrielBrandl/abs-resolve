@@ -28,6 +28,7 @@ router.post('/', (req, res) => leadsController.criar(req, res));
 router.get('/:id', (req, res) => leadsController.buscar(req, res));
 router.patch('/:id', (req, res) => leadsController.atualizar(req, res));
 router.patch('/:id/etapa', (req, res) => leadsController.atualizarEtapa(req, res));
+router.patch('/:id/status-comercial', (req, res) => leadsController.atualizarStatusComercial(req, res));
 router.post('/:id/interacoes', (req, res) => leadsController.registrarInteracao(req, res));
 router.post('/:id/converter-cliente', (req, res) => leadsController.converterCliente(req, res));
 router.get('/:id/historico', (req, res) => leadsController.historico(req, res));

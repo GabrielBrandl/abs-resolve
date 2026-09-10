@@ -4,6 +4,7 @@ import { clientesApi } from '../../services/modules.service';
 import { exportarCsv } from '../../utils/export';
 import { useToast } from '../../components/Toast';
 import type { Cliente } from '../../types';
+import { formatCurrency, formatDate } from '../../types';
 import { PageHeader, Loading, Badge, Button, TableWrapper } from '../../components/ui';
 
 export function ClientesPage() {
@@ -66,20 +67,24 @@ export function ClientesPage() {
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
                 <th className="px-4 py-3">Nome</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Telefone</th>
+                <th className="px-4 py-3">Última compra</th>
+                <th className="px-4 py-3">Nº serviços</th>
+                <th className="px-4 py-3">Total gasto</th>
+                <th className="px-4 py-3">Origem</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-4 py-3">Ver</th>
               </tr>
             </thead>
             <tbody>
               {clientes.map((c) => (
                 <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium">{c.nome}</td>
-                  <td className="px-4 py-3">{c.tipo}</td>
-                  <td className="px-4 py-3">{c.email}</td>
                   <td className="px-4 py-3">{c.telefone}</td>
+                  <td className="px-4 py-3">{c.ultimaCompra ? formatDate(c.ultimaCompra) : '—'}</td>
+                  <td className="px-4 py-3">{c.numeroServicos ?? 0}</td>
+                  <td className="px-4 py-3">{formatCurrency(c.totalGasto ?? 0)}</td>
+                  <td className="px-4 py-3 capitalize">{c.origem || '—'}</td>
                   <td className="px-4 py-3"><Badge color={statusColor[c.status]}>{c.status}</Badge></td>
                   <td className="px-4 py-3">
                     <Link to={`/clientes/${c.id}`} className="text-primary-600 hover:underline">Ver</Link>

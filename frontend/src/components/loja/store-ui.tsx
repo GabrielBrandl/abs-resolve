@@ -32,7 +32,7 @@ export function YellowButton({
   return (
     <button
       {...props}
-      className={`rounded-lg bg-accent-500 px-5 py-3 text-sm font-extrabold uppercase tracking-wide text-primary-950 shadow-sm transition hover:bg-accent-400 disabled:opacity-50 ${className}`}
+      className={`rounded-lg bg-accent-500 px-5 py-3 text-sm font-extrabold uppercase tracking-wide text-[#001a3d] shadow-sm transition hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-70 ${className}`}
     >
       {children}
     </button>

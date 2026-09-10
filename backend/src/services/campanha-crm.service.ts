@@ -77,6 +77,8 @@ export class CampanhaCrmService {
           interesse: c.titulo,
           responsavel: 'Automático',
           etapa: 'novo_lead',
+          statusComercial: 'em_andamento',
+          clienteId: c.clienteId,
         },
       });
 

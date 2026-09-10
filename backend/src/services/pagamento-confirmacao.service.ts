@@ -57,6 +57,12 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
   if (!pagamento || pagamento.status !== 'RECEIVED') return null;
 
   if (!pagamento.pedidoId) {
+    try {
+      const { financeiroService } = await import('./financeiro.service.js');
+      await financeiroService.gerarReceitaDePagamento(pagamentoId);
+    } catch (err) {
+      console.warn('[financeiro] receita automática falhou:', err instanceof Error ? err.message : err);
+    }
     if (pagamento.cliente) {
       await notificacaoService
         .notificarPagamentoComNfse({
@@ -133,6 +139,20 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
     valor: toNumber(pagamento.valor),
     descricao: `${pedido.numero} — ${descricaoServico}`,
   }).catch((err) => console.warn('[comissao] falha ao gerar:', err instanceof Error ? err.message : err));
+
+  // Receita financeira + CRM fechado ganho (não duplica: idempotente por pagamentoId / lead)
+  try {
+    const { financeiroService } = await import('./financeiro.service.js');
+    await financeiroService.gerarReceitaDePagamento(pagamentoId);
+  } catch (err) {
+    console.warn('[financeiro] receita automática falhou:', err instanceof Error ? err.message : err);
+  }
+  try {
+    const { leadsService } = await import('./leads.service.js');
+    await leadsService.marcarFechadoGanhoPorPedido(pedido.id, pedido.clienteId);
+  } catch (err) {
+    console.warn('[crm] fechado ganho falhou:', err instanceof Error ? err.message : err);
+  }
 
   if (pagamento.cliente) {
     const servicos = descricaoServico;

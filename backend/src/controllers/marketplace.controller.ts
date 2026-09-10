@@ -57,9 +57,24 @@ export class MarketplaceController {
 }
 
 export class DashboardController {
-  async kpis(_req: Request, res: Response) {
+  async kpis(req: Request, res: Response) {
     try {
+      const q = req.query as Record<string, string>;
+      if (q.periodo || q.de || q.gerencial === '1') {
+        const data = await dashboardService.getGerencial(q);
+        return success(res, data);
+      }
       const data = await dashboardService.getKPIs();
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
+
+  async gerencial(req: Request, res: Response) {
+    try {
+      const q = req.query as Record<string, string>;
+      const data = await dashboardService.getGerencial(q);
       return success(res, data);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 500);

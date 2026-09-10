@@ -83,6 +83,7 @@ export function ClienteDetailPage() {
     { key: 'dados', label: 'Dados' },
     ...(canEditPortal ? [{ key: 'portal', label: 'Acesso portal' }] : []),
     { key: 'pedidos', label: 'Pedidos' },
+    ...(cliente.agendamentos?.length ? [{ key: 'agenda', label: 'OS/Agenda' }] : []),
     { key: 'fotos', label: 'Fotos enviadas' },
     { key: 'crm', label: 'Histórico CRM' },
     { key: 'financeiro', label: 'Financeiro' },
@@ -104,6 +105,17 @@ export function ClienteDetailPage() {
         }
       />
 
+      {cliente.kpis && (
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'Total gasto', value: formatCurrency(cliente.kpis.totalGasto) },
+            { label: 'Nº serviços', value: cliente.kpis.quantidadeServicos },
+            { label: 'Ticket médio', value: formatCurrency(cliente.kpis.ticketMedio) },
+            { label: 'Última compra', value: cliente.kpis.ultimaCompra ? formatDate(cliente.kpis.ultimaCompra) : '—' },
+          ].map((k) => <Card key={k.label} className="border-t-4 border-t-primary-600"><p className="text-sm text-slate-500">{k.label}</p><p className="mt-1 text-xl font-bold text-primary-700">{k.value}</p></Card>)}
+        </div>
+      )}
+
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === 'dados' && (
@@ -111,6 +123,7 @@ export function ClienteDetailPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div><span className="text-slate-500">Documento:</span> {cliente.cpf || cliente.cnpj}</div>
             <div><span className="text-slate-500">Telefone:</span> {cliente.telefone}</div>
+            <div><span className="text-slate-500">Origem:</span> <span className="capitalize">{cliente.origem || '—'}</span></div>
             <div className="sm:col-span-2">
               <span className="text-slate-500">Endereço:</span> {formatEndereco(end)}
               {mapUrl && (
@@ -148,10 +161,21 @@ export function ClienteDetailPage() {
         <Card>
           {cliente.pedidos?.length ? cliente.pedidos.map((p) => (
             <div key={p.id} className="flex justify-between border-b py-3 last:border-0">
-              <div><p className="font-medium">{p.numero}</p><p className="text-sm text-slate-500">{formatDate(p.createdAt)}</p></div>
-              <div className="text-right"><Badge>{p.status}</Badge><p className="mt-1 font-medium">{formatCurrency(p.valor)}</p></div>
+              <div><Link to={`/pedidos/${p.id}`} className="font-medium text-primary-700 hover:underline">{p.numero}</Link><p className="text-sm text-slate-500">{formatDate(p.createdAt)}</p></div>
+              <div className="text-right"><Badge>{p.status}</Badge>{p.ordemServico && <Badge color="ml-1 bg-blue-100 text-blue-700">OS: {p.ordemServico.etapa}</Badge>}<p className="mt-1 font-medium">{formatCurrency(p.valor)}</p></div>
             </div>
           )) : <p className="text-slate-400">Nenhum pedido</p>}
+        </Card>
+      )}
+
+      {tab === 'agenda' && (
+        <Card>
+          {cliente.agendamentos?.map((a) => (
+            <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 border-b py-3 last:border-0">
+              <div><p className="font-medium">{formatDate(a.data)}</p><p className="text-sm text-slate-500">{a.pedido?.numero || 'Sem pedido'} · {a.tecnico?.nome || 'Técnico não definido'}</p></div>
+              <Badge>{a.status}</Badge>
+            </div>
+          ))}
         </Card>
       )}
 
@@ -190,6 +214,7 @@ export function ClienteDetailPage() {
             <Input label="" value={interacao.descricao} onChange={(e) => setInteracao({ ...interacao, descricao: e.target.value })} placeholder="Descrição..." />
             <Button onClick={registrarInteracao} className="self-end">Registrar</Button>
           </div>
+          {!!cliente.leads?.length && <div className="mb-4 rounded-lg bg-slate-50 p-3"><h4 className="mb-2 text-sm font-semibold">Leads vinculados</h4>{cliente.leads.map((lead) => <Link key={lead.id} to={`/crm?lead=${lead.id}`} className="flex justify-between border-t py-2 text-sm first:border-0"><span>{lead.interesse || lead.nome}</span><span><Badge>{lead.etapa}</Badge>{lead.statusComercial && <Badge color="ml-1 bg-blue-100 text-blue-700">{lead.statusComercial.replace(/_/g, ' ')}</Badge>}</span></Link>)}</div>}
           {cliente.interacoes?.map((i) => (
             <div key={i.id} className="border-b py-2 text-sm last:border-0">
               <Badge>{i.tipo}</Badge>

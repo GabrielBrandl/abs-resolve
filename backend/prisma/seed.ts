@@ -228,6 +228,14 @@ async function main() {
   console.log(`  Comercial: comercial@absresolve.com.br / comercial123`);
   console.log(`  Cliente portal: CPF 529.982.247-25 / cliente123`);
   console.log(`  Técnico: tecnico@absresolve.com.br / tecnico123`);
+
+  try {
+    const { garantirPlanoFinanceiroPadrao } = await import(`../${codeDir}/services/financeiro.service.js`);
+    await garantirPlanoFinanceiroPadrao();
+    console.log('  Financeiro: plano de contas/categorias/centros seed OK');
+  } catch (e) {
+    console.warn('  Financeiro seed:', e instanceof Error ? e.message : e);
+  }
 }
 
 main()

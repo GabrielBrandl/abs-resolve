@@ -13,12 +13,28 @@ function CartToasts() {
   return null;
 }
 
+/** Vitrine sempre em tema claro — dark mode do admin quebrava preços/botões no mobile. */
+function ForceStoreLightTheme() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const hadDark = root.classList.contains('dark');
+    root.classList.remove('dark');
+    root.style.colorScheme = 'light';
+    return () => {
+      if (hadDark) root.classList.add('dark');
+      root.style.colorScheme = '';
+    };
+  }, []);
+  return null;
+}
+
 export function StoreLayout({ showCategories = true }: { showCategories?: boolean }) {
   const { pathname } = useLocation();
   const withSidebar = pathname.startsWith('/c/') || pathname.startsWith('/busca');
 
   return (
-    <div className="min-h-screen bg-[#f3f5f8]">
+    <div className="min-h-screen bg-[#f3f5f8] text-[#0f172a]" style={{ colorScheme: 'light' }}>
+      <ForceStoreLightTheme />
       <CartToasts />
       <StoreHeader showCategories={showCategories} />
       {withSidebar ? (
