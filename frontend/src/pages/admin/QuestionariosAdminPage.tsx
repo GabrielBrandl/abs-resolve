@@ -33,6 +33,68 @@ function parecePerguntaQuantidade(p: FluxoPerguntaConfig): boolean {
   return p.id === 'quantidade' || /quantidad/i.test(p.titulo);
 }
 
+/** Perguntas elegíveis para vínculo de capacidade/fornecimento (não quantidade). */
+function perguntasComOpcoesParaComposto(perguntas: FluxoPerguntaConfig[]) {
+  return perguntas.filter(
+    (p) => (p.papel || 'normal') === 'normal' && (p.opcoes?.length || 0) > 0 && !parecePerguntaQuantidade(p)
+  );
+}
+
+function perguntasMetrosParaComposto(perguntas: FluxoPerguntaConfig[]) {
+  return perguntas.filter(
+    (p) =>
+      !parecePerguntaQuantidade(p) &&
+      (p.papel === 'numero' || ((p.papel || 'normal') === 'normal' && (p.opcoes?.length || 0) > 0))
+  );
+}
+
+/** Corrige no admin se capacidade estiver ligada à quantidade de aparelhos. */
+function corrigirCompostoNoCliente(
+  config: FluxoConfigAdmin,
+  composto: PrecoCompostoConfig
+): PrecoCompostoConfig {
+  if (!composto.ativo) return composto;
+  let next = { ...composto };
+  const cap = config.perguntas.find((p) => p.id === next.perguntaCapacidadeId);
+  if (!cap || parecePerguntaQuantidade(cap) || !(cap.opcoes?.length)) {
+    const prefer =
+      config.perguntas.find((p) => p.id === 'capacidadeBtu') ||
+      perguntasComOpcoesParaComposto(config.perguntas).find((p) =>
+        /capacidade|btu/i.test(`${p.id} ${p.titulo}`)
+      ) ||
+      perguntasComOpcoesParaComposto(config.perguntas)[0];
+    if (prefer) next = sincronizarFaixas(config, { ...next, perguntaCapacidadeId: prefer.id });
+  }
+  const metros = config.perguntas.find((p) => p.id === next.perguntaMetrosId);
+  if (!metros || parecePerguntaQuantidade(metros)) {
+    const prefer =
+      config.perguntas.find((p) => p.id === 'distanciaEvapCond') ||
+      perguntasMetrosParaComposto(config.perguntas).find((p) =>
+        /metro|distanc|metragem/i.test(`${p.id} ${p.titulo}`)
+      ) ||
+      perguntasMetrosParaComposto(config.perguntas)[0];
+    if (prefer) {
+      next = {
+        ...next,
+        perguntaMetrosId: prefer.id,
+        metrosNumericos: prefer.papel === 'numero' ? true : next.metrosNumericos,
+      };
+    }
+  }
+  const forn = next.perguntaFornecimentoId
+    ? config.perguntas.find((p) => p.id === next.perguntaFornecimentoId)
+    : undefined;
+  if (!forn || parecePerguntaQuantidade(forn) || !(forn.opcoes?.length)) {
+    const prefer =
+      config.perguntas.find((p) => p.id === 'materiaisInstalacaoAr') ||
+      perguntasComOpcoesParaComposto(config.perguntas).find((p) =>
+        /material|fornece|possu/i.test(`${p.id} ${p.titulo}`)
+      );
+    if (prefer) next = { ...next, perguntaFornecimentoId: prefer.id };
+  }
+  return next;
+}
+
 function precoCompostoVazio(): PrecoCompostoConfig {
   return {
     ativo: false,
@@ -92,17 +154,34 @@ export function QuestionariosAdminPage() {
 
   useEffect(() => {
     if (!slugAtivo) return;
-    fluxoAdminApi.obter(slugAtivo).then(setConfig).catch((e) => toast(e instanceof Error ? e.message : 'Erro', 'error'));
+    fluxoAdminApi
+      .obter(slugAtivo)
+      .then((cfg) => {
+        if (cfg.precoComposto?.ativo) {
+          const corrigido = corrigirCompostoNoCliente(cfg, cfg.precoComposto);
+          setConfig({ ...cfg, precoComposto: corrigido });
+        } else {
+          setConfig(cfg);
+        }
+      })
+      .catch((e) => toast(e instanceof Error ? e.message : 'Erro', 'error'));
   }, [slugAtivo, toast]);
 
   const salvar = async () => {
     if (!config) return;
     setSalvando(true);
     try {
-      const precoComposto =
-        config.precoComposto?.ativo
-          ? sincronizarFaixas(config, config.precoComposto)
-          : config.precoComposto;
+      let precoComposto = config.precoComposto;
+      if (precoComposto?.ativo) {
+        precoComposto = corrigirCompostoNoCliente(config, precoComposto);
+        precoComposto = sincronizarFaixas(config, precoComposto);
+        const cap = config.perguntas.find((p) => p.id === precoComposto!.perguntaCapacidadeId);
+        if (!cap || parecePerguntaQuantidade(cap) || !(cap.opcoes?.length)) {
+          throw new Error(
+            'Preço composto: em “Pergunta da capacidade” escolha a pergunta de BTUs (não a quantidade de aparelhos).'
+          );
+        }
+      }
       const atualizado = await fluxoAdminApi.atualizar(config.slug, {
         perguntas: config.perguntas,
         fotosObrigatorias: config.fotosObrigatorias,
@@ -376,13 +455,26 @@ export function QuestionariosAdminPage() {
 
                 {config.precoComposto?.ativo && (
                   <div className="mt-4 space-y-5">
+                    {parecePerguntaQuantidade(
+                      config.perguntas.find((p) => p.id === config.precoComposto?.perguntaCapacidadeId) || {
+                        id: '',
+                        titulo: '',
+                        opcoes: [],
+                      }
+                    ) && (
+                      <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        <strong>Atenção:</strong> “Pergunta da capacidade” está ligada à quantidade de
+                        aparelhos. Escolha a pergunta de BTUs (ex.: Capacidade) e salve — senão a loja
+                        não aplica kit/metros.
+                      </div>
+                    )}
                     <div className="rounded-lg border border-[#dbe7f5] bg-white p-3">
                       <p className="mb-3 text-xs font-black uppercase tracking-wide text-[#002d62]">
                         1. Perguntas do cálculo
                       </p>
                       <div className="grid gap-3 sm:grid-cols-3">
                       <label className="block text-sm">
-                        <span className="mb-1 block font-medium text-slate-700">Pergunta da capacidade</span>
+                        <span className="mb-1 block font-medium text-slate-700">Pergunta da capacidade (BTUs)</span>
                         <select
                           className="w-full rounded-lg border border-abs-gray px-3 py-2 bg-white"
                           value={config.precoComposto.perguntaCapacidadeId}
@@ -394,12 +486,15 @@ export function QuestionariosAdminPage() {
                             setConfig({ ...config, precoComposto: next });
                           }}
                         >
-                          {config.perguntas.map((p) => (
+                          {perguntasComOpcoesParaComposto(config.perguntas).map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.titulo}
                             </option>
                           ))}
                         </select>
+                        <span className="mt-1 block text-xs text-slate-500">
+                          Não use a pergunta de quantidade de aparelhos.
+                        </span>
                       </label>
                       <label className="block text-sm">
                         <span className="mb-1 block font-medium text-slate-700">Pergunta da metragem</span>
@@ -413,7 +508,7 @@ export function QuestionariosAdminPage() {
                             })
                           }
                         >
-                          {config.perguntas.map((p) => (
+                          {perguntasMetrosParaComposto(config.perguntas).map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.titulo}
                             </option>
@@ -438,7 +533,7 @@ export function QuestionariosAdminPage() {
                           }
                         >
                           <option value="">Selecione…</option>
-                          {config.perguntas.map((p) => (
+                          {perguntasComOpcoesParaComposto(config.perguntas).map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.titulo}
                             </option>

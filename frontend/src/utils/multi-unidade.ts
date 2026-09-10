@@ -121,13 +121,23 @@ export function expandirPerguntasPorUnidade<
   return out;
 }
 
-/** Ao subir de 1 → N, copia respostas sem sufixo para __u1. */
 export function migrarRespostasParaMultiUnidade(
   respostas: Record<string, string>,
   perguntas: Array<{ id: string; replicarPorUnidade?: boolean; papel?: string }>,
   quantidade: number
 ): Record<string, string> {
-  if (quantidade <= 1) return respostas;
+  if (quantidade <= 1) {
+    // Volta de N→1: copia __u1 para a chave plain
+    const next = { ...respostas };
+    for (const p of perguntas) {
+      if (!p.replicarPorUnidade || p.papel === 'quantidade') continue;
+      const u1 = chaveRespostaUnidade(p.id, 1);
+      if ((next[p.id] == null || next[p.id] === '') && next[u1] != null && next[u1] !== '') {
+        next[p.id] = next[u1];
+      }
+    }
+    return next;
+  }
   const next = { ...respostas };
   for (const p of perguntas) {
     if (!p.replicarPorUnidade || p.papel === 'quantidade') continue;

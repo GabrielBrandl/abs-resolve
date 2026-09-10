@@ -63,7 +63,16 @@ function selecao(respostas: RespostasFluxo, chave: string): string[] {
 }
 
 function resposta(respostas: RespostasFluxo, chave: string): string | undefined {
-  return selecao(respostas, chave)[0];
+  const direta = selecao(respostas, chave)[0];
+  if (direta != null && direta !== '') return direta;
+  // Multi-unidade: capacidadeBtu__u1, etc.
+  const prefix = `${chave}__u`;
+  for (const [k, v] of Object.entries(respostas)) {
+    if (!k.startsWith(prefix) || v == null || v === '') continue;
+    if (Array.isArray(v)) return String(v[0]);
+    return String(v);
+  }
+  return undefined;
 }
 
 function tem(respostas: RespostasFluxo, chave: string, opcoes: string[]): boolean {
@@ -72,19 +81,27 @@ function tem(respostas: RespostasFluxo, chave: string, opcoes: string[]): boolea
 }
 
 function numero(respostas: RespostasFluxo, chave: string): number | undefined {
-  const valor = respostas[chave];
-  if (typeof valor === 'number' && Number.isFinite(valor)) return valor;
-  if (typeof valor === 'string') {
-    const t = valor.trim();
-    // Metros / quantidade simples: "3", "3.5", "3,5"
-    if (/^\d+([.,]\d+)?$/.test(t)) {
-      const parsed = Number(t.replace(',', '.'));
+  const parse = (valor: unknown): number | undefined => {
+    if (typeof valor === 'number' && Number.isFinite(valor)) return valor;
+    if (typeof valor === 'string') {
+      const t = valor.trim();
+      if (/^\d+([.,]\d+)?$/.test(t)) {
+        const parsed = Number(t.replace(',', '.'));
+        return Number.isFinite(parsed) ? parsed : undefined;
+      }
+      const normalizado = t.replace(/\./g, '').replace(',', '.');
+      const parsed = Number(normalizado);
       return Number.isFinite(parsed) ? parsed : undefined;
     }
-    // Valores no formato 1.234,56
-    const normalizado = t.replace(/\./g, '').replace(',', '.');
-    const parsed = Number(normalizado);
-    return Number.isFinite(parsed) ? parsed : undefined;
+    return undefined;
+  };
+  const direto = parse(respostas[chave]);
+  if (direto != null) return direto;
+  const prefix = `${chave}__u`;
+  for (const [k, v] of Object.entries(respostas)) {
+    if (!k.startsWith(prefix)) continue;
+    const n = parse(v);
+    if (n != null) return n;
   }
   return undefined;
 }
@@ -209,7 +226,13 @@ function calcularPrecoPersonalizado(
     return calcularPrecoMultiUnidade(slug, fluxo, precoConfig, respostas, qtd, qtdPerguntaId);
   }
 
-  return calcularPrecoPersonalizadoSimples(slug, fluxo, precoConfig, respostas, quantidade);
+  // 1 aparelho: aceita respostas plain ou capacidadeBtu__u1 (legado / voltou de qtd>1)
+  const respostasNorm =
+    temReplicacaoPorUnidade(fluxo.perguntas)
+      ? (respostasDaUnidade(respostas, fluxo.perguntas, 1, qtdPerguntaId) as RespostasFluxo)
+      : respostas;
+
+  return calcularPrecoPersonalizadoSimples(slug, fluxo, precoConfig, respostasNorm, quantidade);
 }
 
 function calcularPrecoMultiUnidade(

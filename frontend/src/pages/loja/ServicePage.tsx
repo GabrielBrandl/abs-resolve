@@ -734,9 +734,9 @@ export function ServicePage() {
   const labelUnidade = /ar-split|ar.condicionado/i.test(slug) ? 'Aparelho' : 'Unidade';
   const usaMultiUnidade = temReplicacaoPorUnidade(perguntasBasicas);
 
-  // Ao aumentar quantidade, copia respostas da unidade 1 (sem sufixo) para __u1
+  // Mantém respostas compatíveis ao mudar quantidade (plain ↔ __u1)
   useEffect(() => {
-    if (!usaMultiUnidade || qty <= 1) return;
+    if (!usaMultiUnidade) return;
     setRespostas((r) => {
       const next = migrarRespostasParaMultiUnidade(r, perguntasBasicas, qty);
       return next === r || JSON.stringify(next) === JSON.stringify(r) ? r : next;
@@ -850,12 +850,21 @@ export function ServicePage() {
     if (!fluxo) return null;
     const multi = calcularMultiUnidadeLocal(fluxo, respostas, qty, labelUnidade);
     if (multi) return multi;
-    // Composto (ar-split) tem prioridade; senão tabela progressiva por quantidade
+    // Composto: normaliza __u1 → plain quando há replicação e qty=1
+    const respostasNorm =
+      usaMultiUnidade && qty <= 1
+        ? respostasDaUnidade(
+            respostas,
+            fluxo.perguntas || [],
+            1,
+            fluxo.perguntaQuantidadeId || qtyPerguntaId
+          )
+        : respostas;
     return (
-      calcularCompostoLocal(fluxo, respostas) ||
-      calcularProgressivoLocal(fluxo, respostas, qty)
+      calcularCompostoLocal(fluxo, respostasNorm) ||
+      calcularProgressivoLocal(fluxo, respostasNorm, qty)
     );
-  }, [fluxo, respostas, qty, labelUnidade]);
+  }, [fluxo, respostas, qty, labelUnidade, usaMultiUnidade, qtyPerguntaId]);
 
   // Imagem principal dinâmica (opções com usarComoImagemPrincipal) — não afeta preço
   const imagemPrincipalOpcao = useMemo(() => {

@@ -8,8 +8,8 @@ import {
 } from '../config/fluxo-servicos.js';
 import {
   defaultPrecoCompostoArSplit,
-  enriquecerPrecoComposto,
   normalizarPrecoComposto,
+  precoCompostoEfetivo,
   PRECO_COMPOSTO_VAZIO,
   type PrecoCompostoConfig,
 } from '../config/preco-composto.js';
@@ -105,6 +105,11 @@ function rowToFluxo(slug: string, row: {
   };
 }
 
+function compostoDoRow(slug: string, row: { precoComposto?: unknown; perguntas: unknown }): PrecoCompostoConfig {
+  const perguntas = fromJson<FluxoPerguntaConfig[]>(row.perguntas) || [];
+  return precoCompostoEfetivo(slug, row.precoComposto, perguntas);
+}
+
 function validarPerguntas(perguntas: FluxoPerguntaConfig[]) {
   if (!Array.isArray(perguntas) || perguntas.length === 0) {
     throw new Error('Informe ao menos uma pergunta');
@@ -167,7 +172,7 @@ export class FluxoConfigService {
       modoPreco: row.modoPreco,
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
       itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
-      precoComposto: enriquecerPrecoComposto(row.slug, row.precoComposto),
+      precoComposto: compostoDoRow(row.slug, row),
       perguntaQuantidadeId: row.perguntaQuantidadeId,
       multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     });
@@ -233,7 +238,7 @@ export class FluxoConfigService {
         modoPreco: row.modoPreco,
         precoBase: row.precoBase != null ? Number(row.precoBase) : null,
         itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
-        precoComposto: enriquecerPrecoComposto(row.slug, row.precoComposto),
+        precoComposto: compostoDoRow(row.slug, row),
         perguntaQuantidadeId: row.perguntaQuantidadeId,
         multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
       });
@@ -299,7 +304,7 @@ export class FluxoConfigService {
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
       itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco),
-      precoComposto: enriquecerPrecoComposto(row.slug, row.precoComposto),
+      precoComposto: compostoDoRow(row.slug, row),
       perguntaQuantidadeId: row.perguntaQuantidadeId,
       multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     };
@@ -330,8 +335,22 @@ export class FluxoConfigService {
     if (!existe) throw new Error('Serviço não encontrado no catálogo');
     validarPerguntas(data.perguntas);
 
-    const composto =
+    const compostoRaw =
       data.precoComposto !== undefined ? normalizarPrecoComposto(data.precoComposto) : undefined;
+    const composto =
+      compostoRaw !== undefined
+        ? precoCompostoEfetivo(slug, compostoRaw, data.perguntas)
+        : undefined;
+
+    // Auto-persiste vínculos corrigidos (capacidade ≠ quantidade) para a loja nunca divergir do admin
+    if (composto?.ativo) {
+      const cap = data.perguntas.find((p) => p.id === composto.perguntaCapacidadeId);
+      if (!cap || cap.papel === 'quantidade' || !(cap.opcoes?.length)) {
+        throw new Error(
+          'Preço composto: selecione a pergunta de CAPACIDADE (BTUs), não a de quantidade de aparelhos.'
+        );
+      }
+    }
 
     const row = await prisma.fluxoServicoConfig.upsert({
       where: { slug },
@@ -476,7 +495,7 @@ export class FluxoConfigService {
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
       precoBase: row.precoBase != null ? Number(row.precoBase) : null,
       itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
-      precoComposto: enriquecerPrecoComposto(row.slug, row.precoComposto),
+      precoComposto: compostoDoRow(row.slug, row),
       perguntaQuantidadeId: row.perguntaQuantidadeId,
       multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     };

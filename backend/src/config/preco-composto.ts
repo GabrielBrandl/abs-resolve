@@ -296,6 +296,136 @@ export function enriquecerPrecoComposto(slug: string, raw: unknown): PrecoCompos
   };
 }
 
+type PerguntaVinculo = {
+  id: string;
+  titulo?: string;
+  papel?: string;
+  opcoes?: Array<{ id: string; label?: string }>;
+};
+
+function parecePerguntaQuantidadeVinculo(p: PerguntaVinculo): boolean {
+  if (p.papel === 'quantidade') return true;
+  if (p.papel === 'numero') return false;
+  return p.id === 'quantidade' || /quantidad/i.test(p.titulo || '');
+}
+
+/**
+ * Corrige vínculos inválidos (ex.: capacidade apontando para "Quantos aparelhos").
+ * Sem isso o admin parece preenchido, mas a loja nunca encontra a faixa de BTUs.
+ */
+export function corrigirVinculosPrecoComposto(
+  composto: PrecoCompostoConfig,
+  perguntas: PerguntaVinculo[]
+): PrecoCompostoConfig {
+  if (!composto.ativo || !perguntas?.length) return composto;
+
+  const out: PrecoCompostoConfig = { ...composto, faixas: [...(composto.faixas || [])] };
+  const porId = new Map(perguntas.map((p) => [p.id, p]));
+
+  const comOpcoes = perguntas.filter(
+    (p) => (p.papel || 'normal') === 'normal' && (p.opcoes?.length || 0) > 0 && !parecePerguntaQuantidadeVinculo(p)
+  );
+  const numericas = perguntas.filter((p) => p.papel === 'numero');
+
+  const capAtual = porId.get(out.perguntaCapacidadeId);
+  const capInvalida =
+    !capAtual ||
+    parecePerguntaQuantidadeVinculo(capAtual) ||
+    capAtual.papel === 'numero' ||
+    !(capAtual.opcoes?.length);
+
+  if (capInvalida) {
+    const prefer =
+      porId.get('capacidadeBtu') ||
+      comOpcoes.find((p) => /capacidade|btu/i.test(`${p.id} ${p.titulo || ''}`)) ||
+      comOpcoes.find((p) =>
+        (p.opcoes || []).some((o) => /btu|12000|18000|24000/i.test(`${o.id} ${o.label || ''}`))
+      ) ||
+      comOpcoes[0];
+    if (prefer) out.perguntaCapacidadeId = prefer.id;
+  }
+
+  const metrosAtual = porId.get(out.perguntaMetrosId);
+  const metrosInvalido =
+    !metrosAtual ||
+    parecePerguntaQuantidadeVinculo(metrosAtual) ||
+    ((metrosAtual.papel || 'normal') === 'normal' && !(metrosAtual.opcoes?.length) && metrosAtual.papel !== 'numero');
+
+  if (metrosInvalido) {
+    const prefer =
+      porId.get('distanciaEvapCond') ||
+      numericas.find((p) => /metro|distanc|metragem/i.test(`${p.id} ${p.titulo || ''}`)) ||
+      numericas[0] ||
+      comOpcoes.find((p) => /metro|distanc|metragem/i.test(`${p.id} ${p.titulo || ''}`));
+    if (prefer) {
+      out.perguntaMetrosId = prefer.id;
+      if (prefer.papel === 'numero') out.metrosNumericos = true;
+    }
+  }
+
+  const fornId = out.perguntaFornecimentoId || '';
+  const fornAtual = fornId ? porId.get(fornId) : undefined;
+  const fornInvalido =
+    !fornAtual ||
+    parecePerguntaQuantidadeVinculo(fornAtual) ||
+    fornAtual.papel === 'numero' ||
+    !(fornAtual.opcoes?.length);
+
+  if (fornInvalido) {
+    const prefer =
+      porId.get('materiaisInstalacaoAr') ||
+      comOpcoes.find((p) => /material|fornece|possu/i.test(`${p.id} ${p.titulo || ''}`));
+    if (prefer) out.perguntaFornecimentoId = prefer.id;
+  }
+
+  // Realinha faixas às opções da pergunta de capacidade (preserva valores por opcaoId)
+  const cap = porId.get(out.perguntaCapacidadeId);
+  if (cap?.opcoes?.length) {
+    const prev = new Map(out.faixas.map((f) => [f.opcaoId, f]));
+    const padraoMetros = out.metrosInclusosPadrao ?? 2;
+    out.faixas = cap.opcoes.map((op) => {
+      const old = prev.get(op.id);
+      return {
+        opcaoId: op.id,
+        label: op.label || old?.label,
+        ajusteCapacidade: old?.ajusteCapacidade ?? 0,
+        valorKitInicial: old?.valorKitInicial ?? 0,
+        metrosInclusos: old?.metrosInclusos && old.metrosInclusos > 0 ? old.metrosInclusos : padraoMetros,
+        precoPorMetroExtra: old?.precoPorMetroExtra ?? 0,
+      };
+    });
+    // Se as faixas antigas tinham valores mas ids diferentes, tenta casar por label
+    if (out.faixas.every((f) => !f.valorKitInicial && !f.ajusteCapacidade && !f.precoPorMetroExtra)) {
+      for (const f of out.faixas) {
+        const porLabel = [...prev.values()].find(
+          (old) =>
+            old.label &&
+            f.label &&
+            old.label.toLowerCase().includes(f.label.toLowerCase().slice(0, 10))
+        );
+        if (porLabel) {
+          f.ajusteCapacidade = porLabel.ajusteCapacidade ?? 0;
+          f.valorKitInicial = porLabel.valorKitInicial ?? 0;
+          f.metrosInclusos = porLabel.metrosInclusos || padraoMetros;
+          f.precoPorMetroExtra = porLabel.precoPorMetroExtra ?? 0;
+        }
+      }
+    }
+  }
+
+  return out;
+}
+
+/** Enrich + correção de vínculos com as perguntas do fluxo. */
+export function precoCompostoEfetivo(
+  slug: string,
+  raw: unknown,
+  perguntas: PerguntaVinculo[]
+): PrecoCompostoConfig {
+  const enrich = enriquecerPrecoComposto(slug, raw);
+  return corrigirVinculosPrecoComposto(enrich, perguntas);
+}
+
 export function normalizarPrecoComposto(raw: unknown): PrecoCompostoConfig {
   if (!raw || typeof raw !== 'object') return { ...PRECO_COMPOSTO_VAZIO };
   const o = raw as Record<string, unknown>;
