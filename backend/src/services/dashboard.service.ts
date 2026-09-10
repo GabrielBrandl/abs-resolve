@@ -163,11 +163,29 @@ export class DashboardService {
       ate: ant.fimYmd,
     });
 
-    // Funil comercial
-    const vendas = nVendas;
-    const taxaLeadOrc = leadsPeriodo > 0 ? round2((orcamentosPeriodo / leadsPeriodo) * 100) : 0;
-    const taxaOrcVenda = orcamentosPeriodo > 0 ? round2((vendas / orcamentosPeriodo) * 100) : 0;
-    const taxaLeadVenda = leadsPeriodo > 0 ? round2((vendas / leadsPeriodo) * 100) : 0;
+    // Funil comercial (CRM) — taxas só no caminho de leads, sem >100%
+    const [vendasCrm, leadsAbertos] = await Promise.all([
+      prisma.lead.count({
+        where: {
+          statusComercial: 'fechado_ganho',
+          updatedAt: { gte: atual.inicio, lte: atual.fim },
+        },
+      }),
+      prisma.lead.count({
+        where: {
+          createdAt: { gte: atual.inicio, lte: atual.fim },
+          statusComercial: { notIn: ['perdido'] },
+        },
+      }),
+    ]);
+    const vendasPedidos = nVendas;
+    const baseLeads = Math.max(leadsPeriodo, leadsAbertos);
+    const taxaLeadOrc =
+      baseLeads > 0 ? Math.min(100, round2((orcamentosPeriodo / baseLeads) * 100)) : 0;
+    const taxaOrcVenda =
+      orcamentosPeriodo > 0 ? Math.min(100, round2((vendasCrm / orcamentosPeriodo) * 100)) : 0;
+    const taxaLeadVenda =
+      baseLeads > 0 ? Math.min(100, round2((vendasCrm / baseLeads) * 100)) : 0;
 
     // Vendas por origem
     const origemMap = new Map<string, { vendas: number; receita: number }>();
@@ -201,8 +219,8 @@ export class DashboardService {
       investimento: round2(investimentoMarketing),
       leads: leadsPeriodo,
       cpl: leadsPeriodo > 0 ? round2(investimentoMarketing / leadsPeriodo) : null,
-      vendas,
-      cac: vendas > 0 ? round2(investimentoMarketing / vendas) : null,
+      vendas: vendasPedidos,
+      cac: vendasPedidos > 0 ? round2(investimentoMarketing / vendasPedidos) : null,
       receita: round2(faturamento),
       margem: margem,
     };
@@ -250,29 +268,27 @@ export class DashboardService {
       const ocorrencia =
         (os.pedido.cliente?.ocorrenciasAusencia || 0) > 0 || ag?.status === 'ausente';
 
-      if (agHoje) {
-        op.osHoje += 1;
-        op.ids.osHoje.push(os.id);
-      }
-      if (semPrestador) {
-        op.aguardandoPrestador += 1;
-        op.ids.aguardandoPrestador.push(os.id);
-      }
-      if (agendada) {
-        op.agendadas += 1;
-        op.ids.agendadas.push(os.id);
-      }
-      if (emExec) {
-        op.emExecucao += 1;
-        op.ids.emExecucao.push(os.id);
-      }
+      // Contagens mutuamente exclusivas (prioridade operacional)
       if (concluida && os.updatedAt >= atual.inicio && os.updatedAt <= atual.fim) {
         op.concluidas += 1;
         op.ids.concluidas.push(os.id);
-      }
-      if (atrasada) {
+      } else if (atrasada) {
         op.atrasadas += 1;
         op.ids.atrasadas.push(os.id);
+      } else if (emExec) {
+        op.emExecucao += 1;
+        op.ids.emExecucao.push(os.id);
+      } else if (agendada) {
+        op.agendadas += 1;
+        op.ids.agendadas.push(os.id);
+      } else if (semPrestador) {
+        op.aguardandoPrestador += 1;
+        op.ids.aguardandoPrestador.push(os.id);
+      }
+
+      if (agHoje) {
+        op.osHoje += 1;
+        op.ids.osHoje.push(os.id);
       }
       if (ocorrencia && !concluida) {
         op.comOcorrencia += 1;
@@ -370,9 +386,10 @@ export class DashboardService {
       },
       comercial: {
         funil: {
-          leads: leadsPeriodo,
+          leads: baseLeads,
           orcamentos: orcamentosPeriodo,
-          vendas,
+          vendas: vendasPedidos,
+          vendasCrm,
           taxaLeadOrcamento: taxaLeadOrc,
           taxaOrcamentoVenda: taxaOrcVenda,
           taxaLeadVenda: taxaLeadVenda,

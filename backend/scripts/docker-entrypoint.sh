@@ -54,6 +54,10 @@ npx prisma migrate deploy
 echo "==> Garantindo plano financeiro padrão..."
 node --input-type=module -e "import('./dist/services/financeiro.service.js').then((m)=>m.garantirPlanoFinanceiroPadrao()).then(()=>{console.log('Plano financeiro OK');process.exit(0)}).catch((e)=>{console.warn('Plano financeiro:', e?.message||e);process.exit(0)})" || true
 
+# Importa receitas de pagamentos RECEIVED antigos (idempotente)
+echo "==> Backfill receitas de pagamentos..."
+node --input-type=module -e "import('./dist/services/financeiro.service.js').then((m)=>m.financeiroService.backfillReceitasDePagamentos(1000)).then((r)=>{console.log('Backfill receitas:', JSON.stringify(r));process.exit(0)}).catch((e)=>{console.warn('Backfill receitas:', e?.message||e);process.exit(0)})" || true
+
 if [ "$RUN_SEED" = "true" ]; then
   echo "==> Seed (RUN_SEED=true)..."
   npx tsx prisma/seed.ts || true

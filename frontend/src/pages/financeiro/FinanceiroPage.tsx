@@ -58,7 +58,10 @@ export function FinanceiroPage() {
   }, [periodo]);
 
   useEffect(() => {
-    financeiroApi.seed().then(carregarBase).catch((e) => toast(e instanceof Error ? e.message : 'Erro ao preparar Financeiro', 'error'));
+    financeiroApi.seed()
+      .then(() => financeiroApi.backfillReceitas().catch(() => null))
+      .then(carregarBase)
+      .catch((e) => toast(e instanceof Error ? e.message : 'Erro ao preparar Financeiro', 'error'));
   }, []);
 
   useEffect(() => {

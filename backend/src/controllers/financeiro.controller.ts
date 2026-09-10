@@ -11,6 +11,14 @@ export class FinanceiroController {
     }
   }
 
+  async backfillReceitas(_req: Request, res: Response) {
+    try {
+      return success(res, await financeiroService.backfillReceitasDePagamentos());
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
+
   async categorias(req: Request, res: Response) {
     try {
       const all = req.query.all === '1';

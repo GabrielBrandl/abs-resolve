@@ -473,6 +473,32 @@ export class FinanceiroService {
     });
   }
 
+  /** Importa pagamentos RECEIVED antigos que ainda não têm lançamento financeiro. */
+  async backfillReceitasDePagamentos(limite = 500) {
+    await garantirPlanoFinanceiroPadrao();
+    const pagos = await prisma.pagamento.findMany({
+      where: {
+        status: 'RECEIVED',
+        lancamentoFinanceiro: null,
+      },
+      orderBy: { createdAt: 'asc' },
+      take: limite,
+      select: { id: true },
+    });
+
+    let gerados = 0;
+    const erros: string[] = [];
+    for (const p of pagos) {
+      try {
+        const created = await this.gerarReceitaDePagamento(p.id);
+        if (created) gerados += 1;
+      } catch (err) {
+        erros.push(`${p.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    return { analisados: pagos.length, gerados, erros: erros.slice(0, 20) };
+  }
+
   // ── Recorrências ──────────────────────────────────────────────────────────
   async listarRecorrencias() {
     return prisma.finRecorrencia.findMany({

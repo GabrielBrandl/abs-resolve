@@ -9,6 +9,7 @@ router.use(authMiddleware);
 router.use(checkRole('admin', 'comercial'));
 
 router.post('/seed', (req, res) => financeiroController.seed(req, res));
+router.post('/backfill-receitas', (req, res) => financeiroController.backfillReceitas(req, res));
 
 router.get('/categorias', (req, res) => financeiroController.categorias(req, res));
 router.post('/categorias', (req, res) => financeiroController.salvarCategoria(req, res));

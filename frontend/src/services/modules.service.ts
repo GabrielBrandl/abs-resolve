@@ -144,6 +144,7 @@ export const dashboardApi = {
 
 export const financeiroApi = {
   seed: () => post('/financeiro/seed', {}),
+  backfillReceitas: () => post<{ analisados: number; gerados: number }>('/financeiro/backfill-receitas', {}),
   categorias: (all?: boolean) => get<unknown[]>(`/financeiro/categorias${all ? '?all=1' : ''}`),
   salvarCategoria: (body: unknown) => post('/financeiro/categorias', body),
   salvarSubcategoria: (body: unknown) => post('/financeiro/subcategorias', body),
