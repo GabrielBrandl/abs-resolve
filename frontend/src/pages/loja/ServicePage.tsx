@@ -320,7 +320,8 @@ function calcularMultiUnidadeLocal(
     const extra = Number(op?.precoAdicional) || 0;
     if (!op || !extra) continue;
     if (!condicaoWhenLocal(op.when, respostas)) continue;
-    const modo = op.modoCobranca || 'por_unidade';
+    // Compartilhados: padrão 1× por atendimento
+    const modo = op.modoCobranca === 'por_unidade' ? 'por_unidade' : 'fixo';
     const valor = aplicarModoLocal(extra, modo, quantidade);
     breakdown.push({
       label: modo === 'fixo' ? `${op.label} (1× por atendimento)` : op.label,

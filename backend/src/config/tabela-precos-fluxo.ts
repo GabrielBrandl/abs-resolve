@@ -319,8 +319,8 @@ function calcularPrecoMultiUnidade(
     const extra = Number(op?.precoAdicional) || 0;
     if (!op || !extra) continue;
     if (!condicaoWhenSatisfeita(op.when, respostas)) continue;
-    const modo: ModoCobranca = op.modoCobranca === 'fixo' ? 'fixo' : 'por_unidade';
-    // fixo = uma vez por atendimento; por_unidade ainda multiplica (legado)
+    // Compartilhados (ex.: andaime): padrão = 1× por atendimento, só multiplica se marcado por_unidade
+    const modo: ModoCobranca = op.modoCobranca === 'por_unidade' ? 'por_unidade' : 'fixo';
     const valor = aplicarModoCobranca(extra, modo, qtd);
     const label =
       modo === 'fixo'

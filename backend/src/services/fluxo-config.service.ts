@@ -112,6 +112,50 @@ function compostoDoRow(slug: string, row: { precoComposto?: unknown; perguntas: 
   return precoCompostoEfetivo(slug, row.precoComposto, perguntas);
 }
 
+function sanearItensPreco(
+  itens: ItemPrecoConfig[] | null | undefined,
+  perguntas: FluxoPerguntaConfig[]
+): ItemPrecoConfig[] {
+  const ids = new Set(perguntas.map((p) => p.id));
+  return (itens || []).filter((item) => {
+    if (!item.when || !Object.keys(item.when).length) return true;
+    return Object.keys(item.when).every((k) => ids.has(k));
+  });
+}
+
+function resolverQtdId(
+  perguntas: FluxoPerguntaConfig[],
+  configurada?: string | null
+): string | null {
+  if (configurada && perguntas.some((p) => p.id === configurada)) return configurada;
+  const porPapel = perguntas.find((p) => p.papel === 'quantidade');
+  if (porPapel) return porPapel.id;
+  const porId = perguntas.find((p) => p.id === 'quantidade');
+  return porId?.id ?? null;
+}
+
+function precoCacheDoRow(row: {
+  slug: string;
+  modoPreco: string;
+  precoBase: { toString(): string } | number | null;
+  itensPreco: unknown;
+  precoComposto?: unknown;
+  perguntas: unknown;
+  perguntaQuantidadeId: string | null;
+  multiplicarBasePorQuantidade: boolean;
+}): PrecoConfigCache {
+  const perguntas = fromJson<FluxoPerguntaConfig[]>(row.perguntas) || [];
+  const itens = sanearItensPreco(fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [], perguntas);
+  return {
+    modoPreco: row.modoPreco,
+    precoBase: row.precoBase != null ? Number(row.precoBase) : null,
+    itensPreco: itens,
+    precoComposto: compostoDoRow(row.slug, row),
+    perguntaQuantidadeId: resolverQtdId(perguntas, row.perguntaQuantidadeId),
+    multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
+  };
+}
+
 function validarPerguntas(perguntas: FluxoPerguntaConfig[]) {
   if (!Array.isArray(perguntas) || perguntas.length === 0) {
     throw new Error('Informe ao menos uma pergunta');
@@ -169,14 +213,7 @@ export class FluxoConfigService {
       return;
     }
     fluxoCache.set(row.slug, rowToFluxo(row.slug, row));
-    precoCache.set(row.slug, {
-      modoPreco: row.modoPreco,
-      precoBase: row.precoBase != null ? Number(row.precoBase) : null,
-      itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
-      precoComposto: compostoDoRow(row.slug, row),
-      perguntaQuantidadeId: row.perguntaQuantidadeId,
-      multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
-    });
+    precoCache.set(row.slug, precoCacheDoRow(row));
   }
 
   async initCache() {
@@ -235,14 +272,7 @@ export class FluxoConfigService {
     const rows = await prisma.fluxoServicoConfig.findMany();
     for (const row of rows) {
       fluxoCache.set(row.slug, rowToFluxo(row.slug, row));
-      precoCache.set(row.slug, {
-        modoPreco: row.modoPreco,
-        precoBase: row.precoBase != null ? Number(row.precoBase) : null,
-        itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
-        precoComposto: compostoDoRow(row.slug, row),
-        perguntaQuantidadeId: row.perguntaQuantidadeId,
-        multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
-      });
+      precoCache.set(row.slug, precoCacheDoRow(row));
     }
   }
 
@@ -294,21 +324,7 @@ export class FluxoConfigService {
     await this.ensureSeeded();
     const row = await prisma.fluxoServicoConfig.findUnique({ where: { slug } });
     if (!row) throw new Error('Questionário não encontrado');
-    const padrao = getFluxo(slug);
-    const catalogo = await prisma.catalogoServico.findUnique({ where: { slug }, select: { nome: true } });
-    return {
-      slug: row.slug,
-      nome: padrao?.nome ?? catalogo?.nome ?? row.slug,
-      perguntas: fromJson<FluxoPerguntaConfig[]>(row.perguntas),
-      fotosObrigatorias: fromJson<string[]>(row.fotosObrigatorias),
-      regrasValidacao: fromJson<RegraValidacaoFluxo[]>(row.regrasValidacao),
-      modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
-      precoBase: row.precoBase != null ? Number(row.precoBase) : null,
-      itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco),
-      precoComposto: compostoDoRow(row.slug, row),
-      perguntaQuantidadeId: row.perguntaQuantidadeId,
-      multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
-    };
+    return this.obterFromRow(row);
   }
 
   private async ensureSeeded() {
@@ -336,11 +352,30 @@ export class FluxoConfigService {
     if (!existe) throw new Error('Serviço não encontrado no catálogo');
     validarPerguntas(data.perguntas);
 
+    const itensSaneados =
+      data.itensPreco !== undefined ? sanearItensPreco(data.itensPreco, data.perguntas) : undefined;
+    const qtdId =
+      data.perguntaQuantidadeId !== undefined
+        ? resolverQtdId(data.perguntas, data.perguntaQuantidadeId)
+        : resolverQtdId(data.perguntas, null);
+
+    // Em perguntas compartilhadas com adicional, default = 1× atendimento (não por unidade)
+    const perguntasNorm = data.perguntas.map((p) => {
+      if (p.replicarPorUnidade || p.papel === 'quantidade') return p;
+      return {
+        ...p,
+        opcoes: (p.opcoes || []).map((op) => {
+          if (!(Number(op.precoAdicional) > 0) || op.modoCobranca) return op;
+          return { ...op, modoCobranca: 'fixo' as const };
+        }),
+      };
+    });
+
     const compostoRaw =
       data.precoComposto !== undefined ? normalizarPrecoComposto(data.precoComposto) : undefined;
     const composto =
       compostoRaw !== undefined
-        ? precoCompostoEfetivo(slug, compostoRaw, data.perguntas)
+        ? precoCompostoEfetivo(slug, compostoRaw, perguntasNorm)
         : undefined;
 
     // Auto-persiste vínculos corrigidos (capacidade ≠ quantidade) para a loja nunca divergir do admin
@@ -356,28 +391,28 @@ export class FluxoConfigService {
     const row = await prisma.fluxoServicoConfig.upsert({
       where: { slug },
       update: {
-        perguntas: toJson(data.perguntas),
+        perguntas: toJson(perguntasNorm),
         fotosObrigatorias: data.fotosObrigatorias,
         regrasValidacao: toJson(data.regrasValidacao),
         ...(data.modoPreco !== undefined && { modoPreco: data.modoPreco }),
         ...(data.precoBase !== undefined && { precoBase: data.precoBase }),
-        ...(data.itensPreco !== undefined && { itensPreco: toJson(data.itensPreco) }),
+        ...(itensSaneados !== undefined && { itensPreco: toJson(itensSaneados) }),
         ...(composto !== undefined && { precoComposto: toJson(composto) }),
-        ...(data.perguntaQuantidadeId !== undefined && { perguntaQuantidadeId: data.perguntaQuantidadeId }),
+        perguntaQuantidadeId: qtdId,
         ...(data.multiplicarBasePorQuantidade !== undefined && {
           multiplicarBasePorQuantidade: data.multiplicarBasePorQuantidade,
         }),
       },
       create: {
         slug,
-        perguntas: toJson(data.perguntas),
+        perguntas: toJson(perguntasNorm),
         fotosObrigatorias: data.fotosObrigatorias,
         regrasValidacao: toJson(data.regrasValidacao),
         modoPreco: data.modoPreco ?? 'padrao',
         precoBase: data.precoBase ?? null,
-        itensPreco: toJson(data.itensPreco ?? []),
+        itensPreco: toJson(itensSaneados ?? []),
         precoComposto: toJson(composto ?? PRECO_COMPOSTO_VAZIO),
-        perguntaQuantidadeId: data.perguntaQuantidadeId ?? 'quantidade',
+        perguntaQuantidadeId: qtdId,
         multiplicarBasePorQuantidade: data.multiplicarBasePorQuantidade ?? true,
       },
     });
@@ -385,7 +420,7 @@ export class FluxoConfigService {
     await this.reloadCache();
     await this.sincronizarPrecoVitrineCatalogo(
       slug,
-      data.perguntas,
+      perguntasNorm,
       data.precoBase !== undefined
         ? data.precoBase
         : row.precoBase != null
@@ -487,17 +522,19 @@ export class FluxoConfigService {
     multiplicarBasePorQuantidade: boolean;
   }): FluxoConfigAdmin {
     const padrao = getFluxo(row.slug);
+    const perguntas = fromJson<FluxoPerguntaConfig[]>(row.perguntas);
+    const preco = precoCacheDoRow(row);
     return {
       slug: row.slug,
       nome: padrao?.nome ?? row.slug,
-      perguntas: fromJson<FluxoPerguntaConfig[]>(row.perguntas),
+      perguntas,
       fotosObrigatorias: fromJson<string[]>(row.fotosObrigatorias),
       regrasValidacao: fromJson<RegraValidacaoFluxo[]>(row.regrasValidacao),
       modoPreco: row.modoPreco === 'personalizado' ? 'personalizado' : 'padrao',
-      precoBase: row.precoBase != null ? Number(row.precoBase) : null,
-      itensPreco: fromJson<ItemPrecoConfig[]>(row.itensPreco) ?? [],
-      precoComposto: compostoDoRow(row.slug, row),
-      perguntaQuantidadeId: row.perguntaQuantidadeId,
+      precoBase: preco.precoBase,
+      itensPreco: preco.itensPreco,
+      precoComposto: preco.precoComposto,
+      perguntaQuantidadeId: preco.perguntaQuantidadeId,
       multiplicarBasePorQuantidade: row.multiplicarBasePorQuantidade,
     };
   }

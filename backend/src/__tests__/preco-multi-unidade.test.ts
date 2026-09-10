@@ -151,4 +151,50 @@ describe('múltiplas unidades com perguntas por aparelho', () => {
     // 2× 499 mão de obra; material cliente = 0; suporte 1×80
     expect(r.preco).toBe(499 + 499 + 80);
   });
+
+  it('andaime sem modoCobranca explícito ainda cobra 1× (padrão compartilhado)', () => {
+    const fluxo = (
+      fluxoConfigService as unknown as { getFluxoEfetivo: () => FluxoServico }
+    ).getFluxoEfetivo();
+    (fluxoConfigService as unknown as { getFluxoEfetivo: () => FluxoServico }).getFluxoEfetivo = () => ({
+      ...fluxo,
+      perguntas: fluxo.perguntas.map((p) =>
+        p.id !== 'andaime'
+          ? p
+          : {
+              ...p,
+              opcoes: p.opcoes.map((o) => {
+                const { modoCobranca: _m, ...rest } = o as {
+                  id: string;
+                  label: string;
+                  precoAdicional?: number;
+                  modoCobranca?: string;
+                };
+                return rest;
+              }),
+            }
+      ),
+    });
+
+    const r = calcularPrecoFluxo(
+      'instalacao-ar-split',
+      {
+        quantidade: '2',
+        andaime: 'sim',
+        capacidadeBtu__u1: 'ate-12000',
+        distanciaEvapCond__u1: '2',
+        materiaisInstalacaoAr__u1: 'sim',
+        localCondensadora__u1: 'chao',
+        capacidadeBtu__u2: 'ate-12000',
+        distanciaEvapCond__u2: '2',
+        materiaisInstalacaoAr__u2: 'sim',
+        localCondensadora__u2: 'chao',
+      },
+      2
+    );
+    expect(r.preco).toBe(499 + 499 + 200);
+    expect(r.breakdown.some((b) => b.valor === 200 && /andaime|atendimento/i.test(b.label))).toBe(
+      true
+    );
+  });
 });
