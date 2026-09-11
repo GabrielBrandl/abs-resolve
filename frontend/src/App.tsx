@@ -18,6 +18,7 @@ const ClienteFormPage = lazy(() => import('./pages/clientes/ClienteFormPage').th
 const ClienteDetailPage = lazy(() => import('./pages/clientes/ClienteDetailPage').then((m) => ({ default: m.ClienteDetailPage })));
 const CRMPage = lazy(() => import('./pages/crm/CRMPage').then((m) => ({ default: m.CRMPage })));
 const PedidosPage = lazy(() => import('./pages/pedidos/PedidosPage').then((m) => ({ default: m.PedidosPage })));
+const NovaVendaPage = lazy(() => import('./pages/pedidos/NovaVendaPage').then((m) => ({ default: m.NovaVendaPage })));
 const PedidoDetailPage = lazy(() => import('./pages/pedidos/PedidoDetailPage').then((m) => ({ default: m.PedidoDetailPage })));
 const OrdemServicoPage = lazy(() => import('./pages/pedidos/OrdemServicoPage').then((m) => ({ default: m.OrdemServicoPage })));
 const FinanceiroPage = lazy(() => import('./pages/financeiro/FinanceiroPage').then((m) => ({ default: m.FinanceiroPage })));
@@ -96,6 +97,7 @@ function AppRoutes() {
               <Route path="/clientes/:id" element={<ClienteDetailPage />} />
               <Route path="/crm" element={<CRMPage />} />
               <Route path="/pedidos" element={<PedidosPage />} />
+              <Route path="/pedidos/nova-venda" element={<NovaVendaPage />} />
               <Route path="/pedidos/:id" element={<PedidoDetailPage />} />
               <Route path="/ordens-servico" element={<OrdemServicoPage />} />
               <Route path="/financeiro" element={<FinanceiroPage />} />

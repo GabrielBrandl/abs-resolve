@@ -163,29 +163,20 @@ export class DashboardService {
       ate: ant.fimYmd,
     });
 
-    // Funil comercial (CRM) — taxas só no caminho de leads, sem >100%
-    const [vendasCrm, leadsAbertos] = await Promise.all([
-      prisma.lead.count({
-        where: {
-          statusComercial: 'fechado_ganho',
-          updatedAt: { gte: atual.inicio, lte: atual.fim },
-        },
-      }),
-      prisma.lead.count({
-        where: {
-          createdAt: { gte: atual.inicio, lte: atual.fim },
-          statusComercial: { notIn: ['perdido'] },
-        },
-      }),
-    ]);
-    const vendasPedidos = nVendas;
-    const baseLeads = Math.max(leadsPeriodo, leadsAbertos);
+    // Funil comercial (CRM) — mesmos indicadores do módulo CRM (sem duplicar cálculo)
+    const { leadsService } = await import('./leads.service.js');
+    const crmInd = await leadsService.indicadores({
+      de: atual.inicioYmd,
+      ate: atual.fimYmd,
+    });
+    const vendasCrm = crmInd.vendas;
+    const baseLeads = Math.max(crmInd.leads, leadsPeriodo);
     const taxaLeadOrc =
-      baseLeads > 0 ? Math.min(100, round2((orcamentosPeriodo / baseLeads) * 100)) : 0;
+      baseLeads > 0 ? Math.min(100, round2((crmInd.orcamentos / baseLeads) * 100)) : 0;
     const taxaOrcVenda =
-      orcamentosPeriodo > 0 ? Math.min(100, round2((vendasCrm / orcamentosPeriodo) * 100)) : 0;
-    const taxaLeadVenda =
-      baseLeads > 0 ? Math.min(100, round2((vendasCrm / baseLeads) * 100)) : 0;
+      crmInd.orcamentos > 0 ? Math.min(100, round2((vendasCrm / crmInd.orcamentos) * 100)) : 0;
+    const taxaLeadVenda = crmInd.taxaConversao;
+    const vendasPedidos = nVendas;
 
     // Vendas por origem
     const origemMap = new Map<string, { vendas: number; receita: number }>();
@@ -386,10 +377,16 @@ export class DashboardService {
       },
       comercial: {
         funil: {
-          leads: baseLeads,
-          orcamentos: orcamentosPeriodo,
-          vendas: vendasPedidos,
+          leads: crmInd.leads,
+          leadsQualificados: crmInd.leadsQualificados,
+          orcamentos: crmInd.orcamentos,
+          vendas: crmInd.vendas,
+          vendasPedidos,
           vendasCrm,
+          valorPipeline: crmInd.valorPipeline,
+          taxaConversao: crmInd.taxaConversao,
+          ticketMedioCrm: crmInd.ticketMedio,
+          tempoMedioFechamento: crmInd.tempoMedioFechamento,
           taxaLeadOrcamento: taxaLeadOrc,
           taxaOrcamentoVenda: taxaOrcVenda,
           taxaLeadVenda: taxaLeadVenda,

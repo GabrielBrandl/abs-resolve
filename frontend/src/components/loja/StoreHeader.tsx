@@ -47,9 +47,13 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
   const items = useCartStore((s) => s.items);
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
-  const { categorias } = useCatalog();
+  const { categorias, pecasAvulsasAtivas } = useCatalog();
   const boxRef = useRef<HTMLFormElement>(null);
   const suggestions = useMemo(() => (q.trim().length >= 2 ? searchSuggestions(categorias, q, 8) : []), [categorias, q]);
+  const categoryNav = useMemo(
+    () => CATEGORY_NAV.filter((c) => pecasAvulsasAtivas || c.slug !== 'pecas'),
+    [pecasAvulsasAtivas]
+  );
   const count = items.reduce((n, i) => n + i.quantidade, 0);
   const total = items.reduce((n, i) => n + (Number(i.precoMinimo) || 0) * i.quantidade, 0);
   const firstName = user?.nome?.split(' ')[0] || '';
@@ -219,7 +223,7 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
       {showCategories && (
         <nav className="border-b border-[#e6e8ee] bg-white">
           <div className="mx-auto flex h-14 max-w-[1180px] items-center gap-1 overflow-x-auto px-4">
-            {CATEGORY_NAV.map((c) => {
+            {categoryNav.map((c) => {
               const Icon = CAT_ICONS[c.icon];
               return (
                 <NavLink

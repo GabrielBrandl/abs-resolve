@@ -13,9 +13,41 @@ export class LeadsController {
     }
   }
 
-  async dashboard(_req: Request, res: Response) {
+  async dashboard(req: Request, res: Response) {
     try {
-      return success(res, await leadsService.dashboard());
+      return success(
+        res,
+        await leadsService.dashboard({
+          de: req.query.de as string,
+          ate: req.query.ate as string,
+          responsavel: req.query.responsavel as string,
+          origem: req.query.origem as string,
+          campanha: req.query.campanha as string,
+          categoria: req.query.categoria as string,
+          servicoId: req.query.servicoId as string,
+          etapa: req.query.etapa as string,
+        })
+      );
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
+  }
+
+  async indicadores(req: Request, res: Response) {
+    try {
+      return success(
+        res,
+        await leadsService.indicadores({
+          de: req.query.de as string,
+          ate: req.query.ate as string,
+          responsavel: req.query.responsavel as string,
+          origem: req.query.origem as string,
+          campanha: req.query.campanha as string,
+          categoria: req.query.categoria as string,
+          servicoId: req.query.servicoId as string,
+          etapa: req.query.etapa as string,
+        })
+      );
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 500);
     }
@@ -27,8 +59,13 @@ export class LeadsController {
         etapa: req.query.etapa as string,
         responsavel: req.query.responsavel as string,
         origem: req.query.origem as string,
+        campanha: req.query.campanha as string,
+        categoria: req.query.categoria as string,
+        servicoId: req.query.servicoId as string,
         prioridade: req.query.prioridade as string,
         busca: req.query.busca as string,
+        de: req.query.de as string,
+        ate: req.query.ate as string,
       });
       return success(res, data);
     } catch (err) {
@@ -40,6 +77,14 @@ export class LeadsController {
     try {
       const data = await leadsService.buscarPorId(paramId(req.params.id));
       return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 404);
+    }
+  }
+
+  async timeline(req: Request, res: Response) {
+    try {
+      return success(res, await leadsService.timeline(paramId(req.params.id)));
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 404);
     }
@@ -116,8 +161,70 @@ export class LeadsController {
     }
   }
 
+  async criarOrcamento(req: Request, res: Response) {
+    try {
+      const data = await leadsService.criarOrcamento(paramId(req.params.id), {
+        ...req.body,
+        usuarioId: req.user!.userId,
+      });
+      return success(res, data, 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async criarPedido(req: Request, res: Response) {
+    try {
+      const data = await leadsService.criarPedido(paramId(req.params.id), {
+        ...req.body,
+        usuarioId: req.user!.userId,
+      });
+      return success(res, data, 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async agendarFollowUp(req: Request, res: Response) {
+    try {
+      const data = await leadsService.agendarFollowUp(paramId(req.params.id), {
+        ...req.body,
+        usuarioId: req.user!.userId,
+      });
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async vincularOrcamento(req: Request, res: Response) {
+    try {
+      const data = await leadsService.vincularOrcamento(
+        paramId(req.params.id),
+        req.body.solicitacaoId,
+        req.user!.userId
+      );
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async excluir(req: Request, res: Response) {
+    try {
+      const data = await leadsService.excluir(paramId(req.params.id));
+      return success(res, data);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async etapas(_req: Request, res: Response) {
     return success(res, leadsService.getEtapas());
+  }
+
+  async motivosPerda(_req: Request, res: Response) {
+    return success(res, leadsService.getMotivosPerda());
   }
 }
 

@@ -204,6 +204,19 @@ export class SolicitacaoService {
         servicos: all.filter((s) => s.categoria === cat.slug),
       })).filter((c) => c.servicos.length > 0);
 
+      const cfg = await prisma.configSistema.findUnique({ where: { id: 'default' } });
+      const pecasAvulsasAtivas = cfg?.pecasAvulsasAtivas === true;
+
+      if (!pecasAvulsasAtivas) {
+        return {
+          categorias,
+          total: all.length,
+          servicos: all,
+          pecas: [],
+          pecasAvulsasAtivas: false,
+        };
+      }
+
       const estoquePecas = await prisma.produtoEstoque.findMany({
         where: { sku: { in: PECAS_CATALOGO.map((p) => p.slug) } },
       });
@@ -237,6 +250,7 @@ export class SolicitacaoService {
         total: all.length + pecasCategoria.servicos.length,
         servicos: [...all, ...pecasCategoria.servicos],
         pecas: PECAS_CATALOGO,
+        pecasAvulsasAtivas: true,
       };
     } catch (err) {
       console.warn('[catalogo] banco indisponível, usando catálogo estático', err instanceof Error ? err.message : err);
@@ -244,26 +258,13 @@ export class SolicitacaoService {
         ...cat,
         servicos: SERVICOS_CATALOGO.filter((s) => s.categoria === cat.slug),
       })).filter((c) => c.servicos.length > 0);
+      // Fallback: peças desligadas por padrão
       return {
-        categorias: [
-          ...categorias,
-          {
-            slug: 'pecas',
-            nome: 'Peças avulsas',
-            icone: '🔩',
-            cor: '#002d62',
-            servicos: PECAS_CATALOGO.map((p) => ({
-              ...p,
-              categoria: 'pecas',
-              tipoPreco: 'fixo' as const,
-              garantiaDias: 90,
-              tipo: 'peca' as const,
-            })),
-          },
-        ],
-        total: SERVICOS_CATALOGO.length + PECAS_CATALOGO.length,
-        servicos: [...SERVICOS_CATALOGO, ...PECAS_CATALOGO],
-        pecas: PECAS_CATALOGO,
+        categorias,
+        total: SERVICOS_CATALOGO.length,
+        servicos: [...SERVICOS_CATALOGO],
+        pecas: [],
+        pecasAvulsasAtivas: false,
       };
     }
   }
@@ -315,6 +316,15 @@ export class SolicitacaoService {
     aceiteIaDiagnostico = false
   ) {
     if (!itens.length) throw new Error('Adicione pelo menos um serviço ou peça ao carrinho');
+
+    const cfgPecas = await prisma.configSistema.findUnique({ where: { id: 'default' } });
+    if (cfgPecas?.pecasAvulsasAtivas !== true) {
+      if (itens.some((i) => isPecaSlug(i.slug))) {
+        throw new Error(
+          'Venda de peças avulsas está temporariamente desativada. Contrate o serviço com instalação.'
+        );
+      }
+    }
 
     const detalhes: Array<{
       slug: string;

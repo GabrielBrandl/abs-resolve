@@ -118,9 +118,14 @@ model Lead {
   nome           String
   cpfCnpj        String?   @map("cpf_cnpj")
   telefone       String
-  email          String
+  email          String    @default("")
   origem         String
-  interesse      String
+  interesse      String    @default("")
+  /** Nome/código da campanha de aquisição (texto livre). */
+  campanha       String?
+  /** Slug da categoria do catálogo (ex.: ar-condicionado). */
+  categoriaInteresse String? @map("categoria_interesse")
+  catalogoServicoId  String? @map("catalogo_servico_id")
   responsavel    String
   etapa          String    @default("novo_lead")
   /** em_andamento | aguardando_cliente | fechado_ganho | perdido */
@@ -136,17 +141,27 @@ model Lead {
   tags           Json      @default("[]")
   observacoes    String?
   clienteId      String?   @map("cliente_id")
+  /** Orçamento (SolicitacaoServico) vinculado ao lead. */
+  solicitacaoId  String?   @unique @map("solicitacao_id")
   pedidoId       String?   @unique @map("pedido_id")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   interacoes     Interacao[]
   cliente        Cliente?  @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  catalogoServico CatalogoServico? @relation(fields: [catalogoServicoId], references: [id], onDelete: SetNull)
+  solicitacao    SolicitacaoServico? @relation("LeadOrcamento", fields: [solicitacaoId], references: [id], onDelete: SetNull)
+  solicitacoes   SolicitacaoServico[] @relation("LeadSolicitacoes")
   pedido         Pedido?   @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
 
   @@index([etapa])
   @@index([statusComercial])
   @@index([responsavel])
   @@index([proximoContato])
+  @@index([origem])
+  @@index([campanha])
+  @@index([categoriaInteresse])
+  @@index([catalogoServicoId])
+  @@index([createdAt])
   @@map("leads")
 }
 
@@ -394,6 +409,7 @@ model CatalogoServico {
   createdAt    DateTime            @default(now()) @map("created_at")
   precosFixos  PrecoFixo[]
   solicitacoes SolicitacaoServico[]
+  leads        Lead[]
 
   @@map("catalogo_servicos")
 }
@@ -423,6 +439,8 @@ model ConfigSistema {
   bonusIndicacao        Decimal @default(20) @map("bonus_indicacao") @db.Decimal(12, 2)
   garantiaPadraoDias         Int     @default(90) @map("garantia_padrao_dias")
   descontoNovoClientePercent  Decimal  @default(0.10) @map("desconto_novo_cliente_percent") @db.Decimal(5, 4)
+  /** Vitrine: venda de peças avulsas (sem instalação). Desligado por padrão. */
+  pecasAvulsasAtivas Boolean @default(false) @map("pecas_avulsas_ativas")
 
   @@map("config_sistema")
 }
@@ -494,6 +512,8 @@ model SolicitacaoServico {
   id                  String          @id @default(uuid())
   clienteId           String          @map("cliente_id")
   servicoId           String          @map("servico_id")
+  /** Lead comercial que originou este orçamento (se houver). */
+  leadId              String?         @map("lead_id")
   tipo                String
   opcoes              Json            @default("{}")
   fotos               Json            @default("[]")
@@ -510,9 +530,12 @@ model SolicitacaoServico {
   updatedAt           DateTime        @updatedAt @map("updated_at")
   cliente             Cliente         @relation(fields: [clienteId], references: [id])
   servico             CatalogoServico @relation(fields: [servicoId], references: [id])
+  lead                Lead?           @relation("LeadSolicitacoes", fields: [leadId], references: [id], onDelete: SetNull)
+  leadOrcamentoAtual  Lead?           @relation("LeadOrcamento")
   pedido              Pedido?         @relation(fields: [pedidoId], references: [id])
   agendamento         Agendamento?
 
+  @@index([leadId])
   @@map("solicitacoes_servico")
 }
 

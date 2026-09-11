@@ -89,11 +89,16 @@ export function DashboardPage() {
             <h3 className="mb-4 font-semibold">Funil de vendas</h3>
             <div className="space-y-3 text-center">
               <div className="rounded-lg bg-[#0033B5] p-3 text-white"><b>{dados.comercial.funil.leads}</b> Leads</div>
-              <p className="text-xs text-slate-500">{dados.comercial.funil.taxaLeadOrcamento.toFixed(1)}% convertem</p>
+              <p className="text-xs text-slate-500">{dados.comercial.funil.leadsQualificados ?? 0} qualificados · {dados.comercial.funil.taxaLeadOrcamento.toFixed(1)}% → orçamento</p>
               <div className="mx-auto w-4/5 rounded-lg bg-blue-500 p-3 text-white"><b>{dados.comercial.funil.orcamentos}</b> Orçamentos</div>
               <p className="text-xs text-slate-500">{dados.comercial.funil.taxaOrcamentoVenda.toFixed(1)}% convertem</p>
               <div className="mx-auto w-3/5 rounded-lg bg-[#F7C400] p-3 font-medium text-primary-900"><b>{dados.comercial.funil.vendas}</b> Vendas</div>
-              <p className="text-xs text-slate-500">Conversão total: {dados.comercial.funil.taxaLeadVenda.toFixed(1)}%</p>
+              <p className="text-xs text-slate-500">Conversão: {(dados.comercial.funil.taxaConversao ?? dados.comercial.funil.taxaLeadVenda).toFixed(1)}%</p>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-left text-xs">
+                <div className="rounded bg-slate-50 p-2"><span className="text-slate-500">Pipeline</span><br /><b>{formatCurrency(dados.comercial.funil.valorPipeline || 0)}</b></div>
+                <div className="rounded bg-slate-50 p-2"><span className="text-slate-500">Ticket CRM</span><br /><b>{formatCurrency(dados.comercial.funil.ticketMedioCrm || 0)}</b></div>
+                <div className="rounded bg-slate-50 p-2 col-span-2"><span className="text-slate-500">Tempo médio até fechamento</span><br /><b>{dados.comercial.funil.tempoMedioFechamento != null ? `${dados.comercial.funil.tempoMedioFechamento} dias` : '—'}</b></div>
+              </div>
             </div>
           </Card>
           <Card>

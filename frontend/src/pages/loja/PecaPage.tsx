@@ -12,17 +12,33 @@ import { ProductImageGallery } from '../../components/loja/ProductImageGallery';
 export function PecaPage() {
   const { slug = '' } = useParams();
   const navigate = useNavigate();
-  const { categorias, loading } = useCatalog();
-  const peca = findService(categorias, slug) || findPeca(slug);
+  const { categorias, loading, pecasAvulsasAtivas } = useCatalog();
+  const peca = findService(categorias, slug) || (pecasAvulsasAtivas ? findPeca(slug) : null);
   const [qty, setQty] = useState(1);
 
   const relatedService = peca?.servicoRelacionado ? findService(categorias, peca.servicoRelacionado) : null;
   const otherParts = useMemo(
-    () => pecasDoServico(peca?.servicoRelacionado || '').filter((p) => p.slug !== slug).slice(0, 4),
-    [peca?.servicoRelacionado, slug]
+    () =>
+      pecasAvulsasAtivas
+        ? pecasDoServico(peca?.servicoRelacionado || '').filter((p) => p.slug !== slug).slice(0, 4)
+        : [],
+    [peca?.servicoRelacionado, slug, pecasAvulsasAtivas]
   );
 
   if (loading) return <Loading />;
+  if (!pecasAvulsasAtivas) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
+        <h1 className="text-xl font-bold">Peças avulsas indisponíveis</h1>
+        <p className="mt-2 text-sm">
+          A venda de peças avulsas está temporariamente desativada. Contrate o serviço com instalação.
+        </p>
+        <Link to="/" className="mt-4 inline-block text-sm font-semibold text-primary-700 underline">
+          Voltar ao início
+        </Link>
+      </div>
+    );
+  }
   if (!peca) {
     return (
       <div>

@@ -67,6 +67,8 @@ export class PedidosService {
     responsavel: string;
     descricao?: string;
     servicoId?: string;
+    leadId?: string;
+    solicitacaoId?: string;
   }) {
     const numero = await gerarNumeroPedido();
     const cliente = await prisma.cliente.findUnique({ where: { id: data.clienteId } });
@@ -83,6 +85,38 @@ export class PedidosService {
       },
       include: { cliente: true },
     });
+
+    if (data.solicitacaoId) {
+      await prisma.solicitacaoServico
+        .update({
+          where: { id: data.solicitacaoId },
+          data: {
+            pedidoId: pedido.id,
+            ...(data.leadId ? { leadId: data.leadId } : {}),
+          },
+        })
+        .catch(() => {});
+    }
+
+    if (data.leadId) {
+      try {
+        await prisma.lead.update({
+          where: { id: data.leadId },
+          data: {
+            pedidoId: pedido.id,
+            clienteId: data.clienteId,
+            ...(data.solicitacaoId ? { solicitacaoId: data.solicitacaoId } : {}),
+            etapa: 'negociacao',
+            statusComercial: 'em_andamento',
+            probabilidade: 75,
+            valorEstimado: data.valor,
+            dataUltimaInteracao: new Date(),
+          },
+        });
+      } catch (err) {
+        console.warn('[crm] vínculo lead↔pedido falhou:', err instanceof Error ? err.message : err);
+      }
+    }
 
     notificacaoService
       .notificarNovoPedido(cliente.nome, numero, cliente.email, cliente.telefone)

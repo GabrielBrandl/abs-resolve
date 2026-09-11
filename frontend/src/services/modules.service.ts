@@ -4,7 +4,7 @@ import type {
   ApiResponse, Cliente, Lead, Pedido, Pagamento, Servico, OrdemServico, DashboardKPIs,
   PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
   EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, EstoqueDashboard, MovimentacaoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin, IaConhecimento,
-  ParceiroAdmin, ParceiroDetalhe, DashboardGerencial, FinLancamento,
+  ParceiroAdmin, ParceiroDetalhe, DashboardGerencial, FinLancamento, CrmIndicadores, LeadTimelineItem,
 } from '../types';
 
 async function get<T>(url: string) {
@@ -92,12 +92,39 @@ export const leadsApi = {
     patch<Lead>(`/leads/${id}/etapa`, { etapa, ...extra }),
   statusComercial: (id: string, body: unknown) => patch<Lead>(`/leads/${id}/status-comercial`, body),
   interacao: (id: string, body: unknown) => post(`/leads/${id}/interacoes`, body),
+  indicadores: (params?: Record<string, string>) =>
+    get<CrmIndicadores>(`/leads/indicadores?${new URLSearchParams(params)}`),
+  dashboard: (params?: Record<string, string>) =>
+    get<CrmIndicadores & { pipeline?: number; atrasados?: number }>(
+      `/leads/dashboard?${new URLSearchParams(params)}`
+    ),
+  timeline: (id: string) => get<LeadTimelineItem[]>(`/leads/${id}/timeline`),
+  criarOrcamento: (id: string, body?: unknown) => post<Lead>(`/leads/${id}/orcamento`, body || {}),
+  criarPedido: (id: string, body?: unknown) => post<Lead>(`/leads/${id}/pedido`, body || {}),
+  followUp: (id: string, body: { proximoContato: string; proximaAcao?: string }) =>
+    post<Lead>(`/leads/${id}/follow-up`, body),
+  vincularOrcamento: (id: string, solicitacaoId: string) =>
+    post<Lead>(`/leads/${id}/vincular-orcamento`, { solicitacaoId }),
+  excluir: (id: string) => del<{ id: string; excluido: boolean }>(`/leads/${id}`),
 };
 
 export const pedidosApi = {
   listar: (params?: Record<string, string>) => get<Pedido[]>(`/pedidos?${new URLSearchParams(params)}`),
   buscar: (id: string) => get<Pedido>(`/pedidos/${id}`),
   criar: (body: unknown) => post<Pedido>('/pedidos', body),
+  novaVenda: (body: unknown) =>
+    post<{
+      tipo: 'orcamento' | 'pedido';
+      solicitacao: { id: string; status: string; precoFinal?: number | string | null };
+      pedido: Pedido | null;
+      precoFinal: number;
+      subtotal: number;
+      desconto: number;
+    }>('/pedidos/nova-venda', body),
+  converterOrcamento: (id: string) =>
+    post<{ pedido: Pedido; solicitacao: { id: string }; jaExistia?: boolean }>(
+      `/pedidos/orcamentos/${id}/converter`
+    ),
   status: (id: string, status: string) => patch<Pedido>(`/pedidos/${id}/status`, { status }),
   criarOS: (pedidoId: string, body?: unknown) => post(`/pedidos/${pedidoId}/ordem-servico`, body),
   exportar: () => api.get('/export/pedidos', { responseType: 'blob' }),
@@ -254,6 +281,7 @@ export const solicitacaoApi = {
         }>;
       }>;
       total: number;
+      pecasAvulsasAtivas?: boolean;
     }>('/solicitacao/catalogo'),
   criarCarrinho: (body: {
     itens: Array<{ slug: string; quantidade: number; respostas?: Record<string, string>; fotos?: string[] }>;
@@ -465,8 +493,8 @@ export const catalogoAdminApi = {
     del<CatalogoServicoAdmin>(`/admin/catalogo/servicos/${id}/imagem?url=${encodeURIComponent(url)}`),
   definirCapa: (id: string, url: string) =>
     patch<CatalogoServicoAdmin>(`/admin/catalogo/servicos/${id}/capa`, { url }),
-  config: () => get<Record<string, number>>('/admin/catalogo/config'),
-  atualizarConfig: (body: Record<string, number>) => put('/admin/catalogo/config', body),
+  config: () => get<Record<string, number | boolean>>('/admin/catalogo/config'),
+  atualizarConfig: (body: Record<string, number | boolean>) => put('/admin/catalogo/config', body),
   estoque: () => get<ProdutoEstoque[]>('/admin/catalogo/estoque'),
   atualizarEstoque: (id: string, body: { quantidade: number; minimo?: number }) =>
     put(`/admin/catalogo/estoque/${id}`, body),

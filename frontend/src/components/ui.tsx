@@ -58,12 +58,14 @@ export function Modal({
   title,
   children,
   zIndex = 50,
+  wide = false,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   zIndex?: number;
+  wide?: boolean;
 }) {
   if (!open) return null;
 
@@ -74,7 +76,9 @@ export function Modal({
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900 dark:text-slate-100"
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900 dark:text-slate-100 ${
+          wide ? 'max-w-3xl' : 'max-w-lg'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

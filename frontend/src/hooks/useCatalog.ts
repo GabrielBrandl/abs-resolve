@@ -4,14 +4,17 @@ import type { CategoriaLoja } from '../storefront/catalog';
 import { mergeCatalog } from '../storefront/catalog';
 
 export function useCatalog() {
-  const [categorias, setCategorias] = useState<CategoriaLoja[]>(() => mergeCatalog([]));
+  const [categorias, setCategorias] = useState<CategoriaLoja[]>(() =>
+    mergeCatalog([], { pecasAvulsasAtivas: false })
+  );
+  const [pecasAvulsasAtivas, setPecasAvulsasAtivas] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
       if (cancelled) return;
-      setCategorias((current) => (current.length ? current : mergeCatalog([])));
+      setCategorias((current) => (current.length ? current : mergeCatalog([], { pecasAvulsasAtivas: false })));
       setLoading(false);
     }, 8000);
 
@@ -19,10 +22,15 @@ export function useCatalog() {
       .catalogo()
       .then((d) => {
         if (cancelled) return;
-        setCategorias(mergeCatalog((d.categorias || []) as CategoriaLoja[]));
+        const ativas = d.pecasAvulsasAtivas === true;
+        setPecasAvulsasAtivas(ativas);
+        setCategorias(mergeCatalog((d.categorias || []) as CategoriaLoja[], { pecasAvulsasAtivas: ativas }));
       })
       .catch(() => {
-        if (!cancelled) setCategorias(mergeCatalog([]));
+        if (!cancelled) {
+          setPecasAvulsasAtivas(false);
+          setCategorias(mergeCatalog([], { pecasAvulsasAtivas: false }));
+        }
       })
       .finally(() => {
         window.clearTimeout(timer);
@@ -35,5 +43,5 @@ export function useCatalog() {
     };
   }, []);
 
-  return { categorias, loading };
+  return { categorias, loading, pecasAvulsasAtivas };
 }

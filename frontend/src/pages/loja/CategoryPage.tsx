@@ -10,13 +10,30 @@ import { CATEGORY_NAV } from '../../storefront/constants';
 
 export function CategoryPage() {
   const { slug = '' } = useParams();
-  const { categorias, loading } = useCatalog();
+  const { categorias, loading, pecasAvulsasAtivas } = useCatalog();
   const categoria = categorias.find((c) => c.slug === slug);
   const servicos = categoria ? categoria.servicos : flattenServices(categorias).filter((s) => s.categoria === slug);
   const outras = categorias.filter((c) => c.slug !== slug);
   const cover = CATEGORY_NAV.find((c) => c.slug === slug)?.image || servicos[0]?.imagemUrl;
+  const navCats = CATEGORY_NAV.filter(
+    (c, i, arr) => arr.findIndex((x) => x.slug === c.slug) === i
+  ).filter((c) => pecasAvulsasAtivas || c.slug !== 'pecas');
 
   if (loading) return <Loading />;
+
+  if (slug === 'pecas' && !pecasAvulsasAtivas) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
+        <h1 className="text-xl font-bold">Peças avulsas indisponíveis</h1>
+        <p className="mt-2 text-sm">
+          A venda de peças avulsas está temporariamente desativada. Contrate o serviço com instalação.
+        </p>
+        <Link to="/" className="mt-4 inline-block text-sm font-semibold text-primary-700 underline">
+          Voltar ao início
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -33,7 +50,7 @@ export function CategoryPage() {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2 lg:hidden">
-        {CATEGORY_NAV.filter((c, i, arr) => arr.findIndex((x) => x.slug === c.slug) === i).map((c) => (
+        {navCats.map((c) => (
           <CategoryPhotoChip key={c.slug} slug={c.slug} label={c.label} image={c.image} active={c.slug === slug} />
         ))}
       </div>

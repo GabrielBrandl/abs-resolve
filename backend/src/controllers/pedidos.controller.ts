@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { paramId } from '../utils/params.js';
 import { pedidosService } from '../services/pedidos.service.js';
 import { ordemServicoService } from '../services/ordemServico.service.js';
+import { vendaAssistidaService } from '../services/venda-assistida.service.js';
 import { success, error } from '../utils/response.js';
 
 export class PedidosController {
@@ -30,6 +31,33 @@ export class PedidosController {
   async criar(req: Request, res: Response) {
     try {
       const data = await pedidosService.criar(req.body);
+      return success(res, data, 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async novaVenda(req: Request, res: Response) {
+    try {
+      const data = await vendaAssistidaService.finalizar({
+        ...req.body,
+        usuarioId: req.user!.userId,
+        isAdmin: req.user!.role === 'admin',
+        ip: req.ip || req.socket.remoteAddress,
+      });
+      return success(res, data, 201);
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async converterOrcamento(req: Request, res: Response) {
+    try {
+      const data = await vendaAssistidaService.converterOrcamentoEmPedido(
+        paramId(req.params.id),
+        req.user!.userId,
+        req.ip || req.socket.remoteAddress
+      );
       return success(res, data, 201);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);

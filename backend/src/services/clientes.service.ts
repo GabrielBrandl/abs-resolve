@@ -29,6 +29,8 @@ interface CreateClienteData {
   criarAcesso?: boolean;
   senha?: string;
   forcarDuplicado?: boolean;
+  /** Venda assistida / WhatsApp: permite PF sem CPF na hora. */
+  cadastroSimplificado?: boolean;
 }
 
 function soDigitos(v: string) {
@@ -214,15 +216,23 @@ export class ClientesService {
 
   async criar(data: CreateClienteData) {
     if (data.tipo === 'PF') {
-      if (!data.cpf) throw new Error('CPF é obrigatório para PF');
-      const cpfLimpo = formatarDocumento(data.cpf);
-      if (!validarCpf(cpfLimpo)) throw new Error('CPF inválido');
-      data.cpf = cpfLimpo;
+      if (data.cpf) {
+        const cpfLimpo = formatarDocumento(data.cpf);
+        if (!validarCpf(cpfLimpo)) throw new Error('CPF inválido');
+        data.cpf = cpfLimpo;
+      } else if (!data.cadastroSimplificado) {
+        throw new Error('CPF é obrigatório para PF');
+      }
     } else {
       if (!data.cnpj) throw new Error('CNPJ é obrigatório para PJ');
       const cnpjLimpo = formatarDocumento(data.cnpj);
       if (!validarCnpj(cnpjLimpo)) throw new Error('CNPJ inválido');
       data.cnpj = cnpjLimpo;
+    }
+
+    if (!data.email?.trim()) {
+      const tel = soDigitos(data.telefone || data.whatsapp || '');
+      data.email = tel ? `${tel}@venda.absresolve.local` : `cliente-${Date.now()}@venda.absresolve.local`;
     }
 
     const dups = await this.buscarDuplicados({
@@ -237,27 +247,29 @@ export class ClientesService {
       throw err;
     }
 
+    const { cadastroSimplificado: _cs, criarAcesso, senha, forcarDuplicado: _f, ...rest } = data;
+
     const cliente = await prisma.cliente.create({
       data: {
-        tipo: data.tipo,
-        nome: data.nome,
-        cpf: data.cpf,
-        razaoSocial: data.razaoSocial,
-        nomeFantasia: data.nomeFantasia,
-        cnpj: data.cnpj,
-        responsavel: data.responsavel,
-        email: data.email,
-        telefone: soDigitos(data.telefone),
-        whatsapp: data.whatsapp ? soDigitos(data.whatsapp) : null,
-        endereco: data.endereco || {},
-        origem: normalizarOrigem(data.origem),
-        consentimentoLgpd: data.consentimentoLgpd ?? false,
-        dataAceite: data.consentimentoLgpd ? new Date() : null,
+        tipo: rest.tipo,
+        nome: rest.nome,
+        cpf: rest.cpf,
+        razaoSocial: rest.razaoSocial,
+        nomeFantasia: rest.nomeFantasia,
+        cnpj: rest.cnpj,
+        responsavel: rest.responsavel,
+        email: rest.email,
+        telefone: soDigitos(rest.telefone),
+        whatsapp: rest.whatsapp ? soDigitos(rest.whatsapp) : soDigitos(rest.telefone),
+        endereco: rest.endereco || {},
+        origem: normalizarOrigem(rest.origem),
+        consentimentoLgpd: rest.consentimentoLgpd ?? false,
+        dataAceite: rest.consentimentoLgpd ? new Date() : null,
       },
     });
 
-    if (data.criarAcesso && data.senha) {
-      const senhaHash = await bcrypt.hash(data.senha, 12);
+    if (criarAcesso && senha) {
+      const senhaHash = await bcrypt.hash(senha, 12);
       await prisma.user.create({
         data: {
           nome: data.nome,

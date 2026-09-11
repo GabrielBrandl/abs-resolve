@@ -337,8 +337,13 @@ export class CatalogoAdminService {
     });
   }
 
-  async updateConfig(data: Record<string, number>) {
-    const num = (key: string) => (data[key] !== undefined && Number.isFinite(Number(data[key])) ? Number(data[key]) : undefined);
+  async updateConfig(data: Record<string, number | boolean>) {
+    const num = (key: string) =>
+      data[key] !== undefined && typeof data[key] !== 'boolean' && Number.isFinite(Number(data[key]))
+        ? Number(data[key])
+        : undefined;
+    const bool = (key: string) => (typeof data[key] === 'boolean' ? data[key] : undefined);
+    await this.getConfig();
     return prisma.configSistema.update({
       where: { id: 'default' },
       data: {
@@ -352,7 +357,10 @@ export class CatalogoAdminService {
         ...(num('cashbackPercent') !== undefined && { cashbackPercent: num('cashbackPercent') }),
         ...(num('bonusIndicacao') !== undefined && { bonusIndicacao: num('bonusIndicacao') }),
         ...(num('garantiaPadraoDias') !== undefined && { garantiaPadraoDias: Math.round(num('garantiaPadraoDias')!) }),
-        ...(num('descontoNovoClientePercent') !== undefined && { descontoNovoClientePercent: num('descontoNovoClientePercent') }),
+        ...(num('descontoNovoClientePercent') !== undefined && {
+          descontoNovoClientePercent: num('descontoNovoClientePercent'),
+        }),
+        ...(bool('pecasAvulsasAtivas') !== undefined && { pecasAvulsasAtivas: bool('pecasAvulsasAtivas') }),
       },
     });
   }
@@ -705,7 +713,10 @@ export class CatalogoAdminService {
   async orcamentosPendentes() {
     return prisma.solicitacaoServico.findMany({
       where: { status: 'orcamento_pendente' },
-      include: { servico: true, cliente: { select: { id: true, nome: true, email: true, telefone: true, endereco: true } } },
+      include: {
+        servico: true,
+        cliente: { select: { id: true, nome: true, email: true, telefone: true, endereco: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -715,7 +726,7 @@ export class CatalogoAdminService {
     if (!sol || sol.status !== 'orcamento_pendente') throw new Error('Orçamento não encontrado');
 
     const opcoes = sol.opcoes as Record<string, unknown>;
-    return prisma.solicitacaoServico.update({
+    const updated = await prisma.solicitacaoServico.update({
       where: { id },
       data: {
         precoBase: precoFinal,
@@ -725,6 +736,21 @@ export class CatalogoAdminService {
       },
       include: { servico: true, cliente: true },
     });
+
+    if (sol.leadId) {
+      try {
+        const { leadsService } = await import('./leads.service.js');
+        await leadsService.vincularOrcamento(sol.leadId, id);
+        await prisma.lead.update({
+          where: { id: sol.leadId },
+          data: { valorEstimado: precoFinal },
+        });
+      } catch (err) {
+        console.warn('[crm] vínculo orçamento falhou:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    return updated;
   }
 
   async horariosCapacidade(pontos = 2) {

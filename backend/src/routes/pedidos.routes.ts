@@ -10,6 +10,12 @@ router.use(authMiddleware);
 router.get('/status', (req, res) => pedidosController.statusList(req, res));
 router.get('/', checkRole('admin', 'comercial', 'operacional'), (req, res) => pedidosController.listar(req, res));
 router.post('/', checkRole('admin', 'comercial', 'operacional'), (req, res) => pedidosController.criar(req, res));
+router.post('/nova-venda', checkRole('admin', 'comercial'), (req, res) => pedidosController.novaVenda(req, res));
+router.post(
+  '/orcamentos/:id/converter',
+  checkRole('admin', 'comercial'),
+  (req, res) => pedidosController.converterOrcamento(req, res)
+);
 router.get('/:id', checkRole('admin', 'comercial', 'operacional'), (req, res) => pedidosController.buscar(req, res));
 router.patch('/:id/status', checkRole('admin', 'comercial', 'operacional'), (req, res) => pedidosController.atualizarStatus(req, res));
 router.post('/:pedidoId/ordem-servico', checkRole('admin', 'comercial', 'operacional'), (req, res) => ordemServicoController.criar(req, res));

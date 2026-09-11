@@ -82,17 +82,53 @@ export interface Lead {
   email: string;
   origem: string;
   interesse: string;
+  campanha?: string | null;
+  categoriaInteresse?: string | null;
+  catalogoServicoId?: string | null;
   responsavel: string;
   etapa: string;
   statusComercial?: string;
+  valorEstimado?: number | string | null;
   motivoPerda?: string | null;
   proximoContato?: string | null;
   dataUltimaInteracao?: string | null;
   proximaAcao?: string | null;
+  observacoes?: string | null;
   clienteId?: string | null;
+  solicitacaoId?: string | null;
   pedidoId?: string | null;
   createdAt: string;
   interacoes?: Interacao[];
+  catalogoServico?: { id: string; nome: string; slug: string; categoria: string } | null;
+  solicitacao?: {
+    id: string;
+    status: string;
+    precoFinal?: number | string | null;
+    pedidoId?: string | null;
+  } | null;
+  pedido?: { id: string; numero: string; status: string; valor: number | string } | null;
+  cliente?: { id: string; nome: string; email?: string; telefone?: string } | null;
+}
+
+export interface CrmIndicadores {
+  leads: number;
+  leadsQualificados: number;
+  orcamentos: number;
+  vendas: number;
+  valorPipeline: number;
+  taxaConversao: number;
+  ticketMedio: number;
+  tempoMedioFechamento: number | null;
+  porEtapa?: Array<{ etapa: string; quantidade: number }>;
+  atrasados?: number;
+}
+
+export interface LeadTimelineItem {
+  tipo: string;
+  titulo: string;
+  descricao: string;
+  data: string;
+  meta?: Record<string, unknown>;
 }
 
 export interface Interacao {
@@ -280,8 +316,15 @@ export interface DashboardGerencial {
   comercial: {
     funil: {
       leads: number;
+      leadsQualificados?: number;
       orcamentos: number;
       vendas: number;
+      vendasPedidos?: number;
+      vendasCrm?: number;
+      valorPipeline?: number;
+      taxaConversao?: number;
+      ticketMedioCrm?: number;
+      tempoMedioFechamento?: number | null;
       taxaLeadOrcamento: number;
       taxaOrcamentoVenda: number;
       taxaLeadVenda: number;
@@ -341,15 +384,25 @@ export interface DashboardGerencial {
 }
 
 export const MOTIVOS_PERDA = [
-  'Preço alto',
-  'Demora no atendimento',
-  'Cliente desistiu',
+  'Preço',
+  'Parou de responder',
   'Contratou concorrente',
-  'Sem disponibilidade de agenda',
-  'Serviço fora do escopo',
-  'Não respondeu',
-  'Forma de pagamento',
+  'Prazo/agendamento',
+  'Serviço não atendido',
+  'Desistiu',
   'Outro',
+] as const;
+
+export const ORIGENS_LEAD = [
+  { key: 'site', label: 'Site' },
+  { key: 'whatsapp', label: 'WhatsApp' },
+  { key: 'indicacao', label: 'Indicação' },
+  { key: 'meta_ads', label: 'Meta Ads' },
+  { key: 'instagram', label: 'Instagram' },
+  { key: 'google', label: 'Google' },
+  { key: 'consultor_site', label: 'Consultor do site' },
+  { key: 'manual', label: 'Manual' },
+  { key: 'outros', label: 'Outros' },
 ] as const;
 
 export const STATUS_COMERCIAL = [

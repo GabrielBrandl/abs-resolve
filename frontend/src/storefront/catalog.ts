@@ -117,14 +117,19 @@ export function findService(cats: CategoriaLoja[], slug: string) {
     const found = c.servicos.find((s) => s.slug === slug);
     if (found) return { ...found, categoriaNome: c.nome, icone: c.icone };
   }
-  const peca = PECAS_CATALOGO.find((p) => p.slug === slug);
-  if (peca) return { ...peca, categoriaNome: 'Peças avulsas', icone: '🔩' };
   return null;
 }
 
-export function mergeCatalog(api: CategoriaLoja[] = []): CategoriaLoja[] {
+export function mergeCatalog(
+  api: CategoriaLoja[] = [],
+  opts?: { pecasAvulsasAtivas?: boolean }
+): CategoriaLoja[] {
+  const pecasAtivas = opts?.pecasAvulsasAtivas === true;
   const bySlug = new Map<string, ServicoLoja>();
   for (const s of [...flattenServices(CATALOGO_FALLBACK), ...flattenServices(api)]) {
+    if (!pecasAtivas && (s.tipo === 'peca' || s.slug.startsWith('peca-') || s.categoria === 'pecas')) {
+      continue;
+    }
     const prev = bySlug.get(s.slug);
     bySlug.set(s.slug, {
       ...prev,
@@ -153,9 +158,13 @@ export function mergeCatalog(api: CategoriaLoja[] = []): CategoriaLoja[] {
   const cats = [...meta.values()]
     .map((c) => ({
       ...c,
-      servicos: [...bySlug.values()].filter((s) => s.categoria === c.slug && s.tipo !== 'peca' && !s.slug.startsWith('peca-')),
+      servicos: [...bySlug.values()].filter(
+        (s) => s.categoria === c.slug && s.tipo !== 'peca' && !s.slug.startsWith('peca-')
+      ),
     }))
     .filter((c) => c.servicos.length);
+
+  if (!pecasAtivas) return cats;
 
   const pecasApi = api.find((c) => c.slug === 'pecas')?.servicos || [];
   const pecasBySlug = new Map<string, ServicoLoja>();
@@ -174,7 +183,6 @@ export function mergeCatalog(api: CategoriaLoja[] = []): CategoriaLoja[] {
       servicoRelacionado: p.servicoRelacionado || prev?.servicoRelacionado,
     });
   }
-  const pecas = [...pecasBySlug.values()];
 
   return [
     ...cats,
@@ -183,13 +191,13 @@ export function mergeCatalog(api: CategoriaLoja[] = []): CategoriaLoja[] {
       nome: 'Peças avulsas',
       icone: '🔩',
       cor: '#002d62',
-      servicos: pecas,
+      servicos: [...pecasBySlug.values()],
     },
   ];
 }
 
 export function catalogItems(cats: CategoriaLoja[]) {
-  return flattenServices(mergeCatalog(cats));
+  return flattenServices(cats);
 }
 
 export const FREQUENTLY_TOGETHER: Record<string, string[]> = {
@@ -278,8 +286,10 @@ export function searchServices(cats: CategoriaLoja[], q: string) {
   const seen = new Set(scored.map((r) => r.item.slug));
   const extra: typeof items = [];
   // Só anexa peças/serviço relacionado em matches fortes — evita lixo na busca
+  const pecasAtivas = items.some((i) => i.tipo === 'peca' || i.slug.startsWith('peca-'));
   for (const r of scored.filter((x) => x.score >= 80).slice(0, 3)) {
     const item = r.item;
+    if (!pecasAtivas) continue;
     const pecasLigadas = PECAS_CATALOGO.filter((p) => p.servicoRelacionado === item.slug);
     for (const p of pecasLigadas.slice(0, 2)) {
       if (seen.has(p.slug)) continue;

@@ -1,13 +1,17 @@
 import { NavLink } from 'react-router-dom';
 import { CATEGORY_NAV, UNIQUE_CATEGORIES } from '../../storefront/constants';
+import { useCatalog } from '../../hooks/useCatalog';
 
 export function ShopSidebar() {
+  const { pecasAvulsasAtivas } = useCatalog();
+  const cats = UNIQUE_CATEGORIES.filter((c) => pecasAvulsasAtivas || c.slug !== 'pecas');
+
   return (
     <aside className="hidden h-fit lg:block">
       <div className="rounded-2xl bg-white p-3 shadow-sm">
         <p className="px-1 pb-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Comprar por categoria</p>
         <nav className="space-y-0.5">
-          {UNIQUE_CATEGORIES.map((c) => (
+          {cats.map((c) => (
             <NavLink
               key={c.slug}
               to={`/c/${c.slug}`}
@@ -56,9 +60,13 @@ export function CategoryPhotoChip({
 }
 
 export function CategoryPhotoGrid() {
+  const { pecasAvulsasAtivas } = useCatalog();
+  const cats = CATEGORY_NAV.filter((c, i, arr) => arr.findIndex((x) => x.label === c.label) === i).filter(
+    (c) => pecasAvulsasAtivas || c.slug !== 'pecas'
+  );
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-      {CATEGORY_NAV.filter((c, i, arr) => arr.findIndex((x) => x.label === c.label) === i).map((c) => (
+      {cats.map((c) => (
         <NavLink
           key={c.label}
           to={`/c/${c.slug}`}

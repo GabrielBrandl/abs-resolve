@@ -44,8 +44,10 @@ export function CatalogoAdminPage() {
     taxaCartao: 4,
     lucro: 25,
     overhead: 15,
+    pecasAvulsasAtivas: false,
   });
   const [salvandoRegras, setSalvandoRegras] = useState(false);
+  const [salvandoPecas, setSalvandoPecas] = useState(false);
 
   const carregar = () => {
     setLoading(true);
@@ -69,6 +71,7 @@ export function CatalogoAdminPage() {
           taxaCartao: Math.round(Number(c.taxaCartao ?? 0.04) * 1000) / 10,
           lucro: Math.round(Number(c.lucro ?? 0.25) * 1000) / 10,
           overhead: Math.round(Number(c.overhead ?? 0.15) * 1000) / 10,
+          pecasAvulsasAtivas: c.pecasAvulsasAtivas === true,
         });
       })
       .catch(() => undefined);
@@ -88,12 +91,27 @@ export function CatalogoAdminPage() {
         taxaCartao: regras.taxaCartao / 100,
         lucro: regras.lucro / 100,
         overhead: regras.overhead / 100,
+        pecasAvulsasAtivas: regras.pecasAvulsasAtivas,
       });
       toast('Regras da loja atualizadas!', 'success');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao salvar regras', 'error');
     } finally {
       setSalvandoRegras(false);
+    }
+  };
+
+  const alternarPecasAvulsas = async () => {
+    const proximo = !regras.pecasAvulsasAtivas;
+    setSalvandoPecas(true);
+    try {
+      await catalogoAdminApi.atualizarConfig({ pecasAvulsasAtivas: proximo });
+      setRegras((r) => ({ ...r, pecasAvulsasAtivas: proximo }));
+      toast(proximo ? 'Peças avulsas ativadas na vitrine' : 'Peças avulsas desativadas na vitrine', 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao atualizar peças', 'error');
+    } finally {
+      setSalvandoPecas(false);
     }
   };
 
@@ -248,6 +266,27 @@ export function CatalogoAdminPage() {
       {isAdmin && (
         <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-1 text-base font-black text-primary-900">Regras e valores da loja</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Peças avulsas na vitrine</p>
+              <p className="text-xs text-slate-500">
+                {regras.pecasAvulsasAtivas
+                  ? 'Ativas — aparecem na loja, busca e categoria Peças.'
+                  : 'Desativadas — ocultas da loja (padrão atual).'}
+              </p>
+            </div>
+            <Button
+              variant={regras.pecasAvulsasAtivas ? 'danger' : 'cta'}
+              disabled={salvandoPecas || !isAdmin}
+              onClick={() => void alternarPecasAvulsas()}
+            >
+              {salvandoPecas
+                ? 'Salvando...'
+                : regras.pecasAvulsasAtivas
+                  ? 'Desativar peças avulsas'
+                  : 'Ativar peças avulsas'}
+            </Button>
+          </div>
           <p className="mb-4 text-xs text-slate-500">
             Indicação, garantia e taxas. A vitrine e o checkout usam estes números.
           </p>
