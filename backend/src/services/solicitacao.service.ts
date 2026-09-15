@@ -33,15 +33,14 @@ import { normalizarGaleria, capaDaGaleria } from '../utils/galeria-imagens.js';
 import { precoMinimoVitrineDeFluxo, textoPrecoAPartirDe } from '../utils/preco-vitrine.js';
 
 function descontoPixPercent(): number {
-  // Desconto automático no PIX desativado — permanece cashback / fidelidade 2ª compra.
+  // Desconto automático no PIX desativado.
   const raw = Number(process.env.DESCONTO_PIX_PERCENT ?? 0);
   return Number.isFinite(raw) && raw > 0 ? raw : 0;
 }
 
-/** Desconto a partir da 2ª compra paga do cliente (e nas seguintes). */
+/** Desconto fidelidade (2ª compra+) — desativado. */
 function descontoFidelidadePercent(): number {
-  const raw = Number(process.env.DESCONTO_FIDELIDADE_PERCENT || 30);
-  return Number.isFinite(raw) && raw > 0 ? raw : 30;
+  return 0;
 }
 
 function chaveOpcoesTomada(opcoes: { tipo?: string; amperagem?: string }) {
@@ -648,8 +647,8 @@ export class SolicitacaoService {
     const comprasAnteriores = await this.contarComprasConfirmadas(clienteId);
     const percentualFidelidade = descontoFidelidadePercent();
     const percentualPix = descontoPixPercent();
-    // A partir da 2ª compra (1+ pagamentos confirmados antes)
-    const fidelidade = comprasAnteriores >= 1;
+    // Fidelidade só se o percentual estiver ativo e já houver compra paga
+    const fidelidade = percentualFidelidade > 0 && comprasAnteriores >= 1;
     return {
       elegivel: fidelidade,
       fidelidade,
@@ -660,7 +659,7 @@ export class SolicitacaoService {
       comprasAnteriores,
       mensagem: fidelidade
         ? `${percentualFidelidade}% de desconto a partir da sua 2ª compra.`
-        : 'Receba cashback em todos os serviços. A partir da 2ª compra: 30% de desconto.',
+        : 'Receba cashback em todos os serviços.',
     };
   }
 
@@ -697,7 +696,7 @@ export class SolicitacaoService {
 
   /**
    * Aplica descontos no pagamento:
-   * - Fidelidade 30% a partir da 2ª compra (qualquer método)
+   * - Fidelidade (DESCONTO_FIDELIDADE_PERCENT, padrão 0 = desativado)
    * - PIX automático desativado por padrão (DESCONTO_PIX_PERCENT=0)
    */
   async aplicarDescontoPixNoPagamento(

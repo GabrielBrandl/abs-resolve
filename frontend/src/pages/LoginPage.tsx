@@ -149,7 +149,7 @@ export function LoginPage() {
                 </Link>
               </p>
               <p className="mt-2 text-center text-xs text-emerald-700">
-                Cashback em todos os serviços. Na 2ª compra: 30% de desconto.
+                Cashback em todos os serviços.
               </p>
             </>
           )}

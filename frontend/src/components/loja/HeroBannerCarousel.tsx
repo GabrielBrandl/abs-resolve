@@ -8,12 +8,6 @@ const HERO_SLIDES = [
     href: '/busca',
     label: 'Solicitar orçamento',
   },
-  {
-    src: '/hero-cashback.jpg',
-    alt: 'ABS Resolve — Cashback e desconto na segunda compra.',
-    href: '/busca',
-    label: 'Ver ofertas e cashback',
-  },
 ] as const;
 
 const INTERVAL_MS = 5500;

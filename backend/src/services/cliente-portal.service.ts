@@ -9,10 +9,7 @@ import {
   MINIMO_PECAS_ISENTO_ENTREGA,
 } from '../utils/carrinho-regras.js';
 
-const DESCONTO_FIDELIDADE_PERCENT = (() => {
-  const raw = Number(process.env.DESCONTO_FIDELIDADE_PERCENT || 30);
-  return Number.isFinite(raw) && raw > 0 ? raw : 30;
-})();
+const DESCONTO_FIDELIDADE_PERCENT = 0;
 
 export class ClientePortalService {
   async pedidosComTimeline(clienteId: string) {

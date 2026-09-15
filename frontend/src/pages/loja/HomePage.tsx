@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { ServiceCard } from '../../components/loja/ServiceCard';
 import { ProductCarousel, ProductCarouselItem } from '../../components/loja/ProductCarousel';
-import { CashbackPromoBanner } from '../../components/loja/store-ui';
 import { HeroBannerCarousel } from '../../components/loja/HeroBannerCarousel';
 import { useCatalog } from '../../hooks/useCatalog';
 import { flattenServices } from '../../storefront/catalog';
@@ -74,37 +73,18 @@ export function HomePage() {
         <h2 className="mb-3 text-[22px] font-black text-[#111827]">
           Mais contratados <span className="text-[18px]">🔥</span>
         </h2>
-        <div className="flex items-stretch gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 flex justify-end pr-2">
-              <Link to="/busca" className="text-sm font-bold text-[#1d4ed8] hover:underline">
-                Ver todos os serviços &gt;
-              </Link>
-            </div>
-            <ProductCarousel
-              layout="rail"
-              className="min-w-0"
-              showArrows
-              showFade={false}
-            >
-              {destaques.map((s) => (
-                <ProductCarouselItem key={s.slug} rail>
-                  <ServiceCard
-                    servico={s}
-                    showCashbackBadge
-                    cashbackLabel={cashbackPct}
-                  />
-                </ProductCarouselItem>
-              ))}
-            </ProductCarousel>
-          </div>
-          <div className="hidden w-[10.5rem] shrink-0 self-start lg:block">
-            <CashbackPromoBanner />
-          </div>
+        <div className="mb-2 flex justify-end pr-2">
+          <Link to="/busca" className="text-sm font-bold text-[#1d4ed8] hover:underline">
+            Ver todos os serviços &gt;
+          </Link>
         </div>
-        <div className="mt-3 w-[10.5rem] lg:hidden">
-          <CashbackPromoBanner />
-        </div>
+        <ProductCarousel layout="rail" className="min-w-0" showArrows showFade={false}>
+          {destaques.map((s) => (
+            <ProductCarouselItem key={s.slug} rail>
+              <ServiceCard servico={s} showCashbackBadge cashbackLabel={cashbackPct} />
+            </ProductCarouselItem>
+          ))}
+        </ProductCarousel>
       </section>
 
       <BrandMarquee />
