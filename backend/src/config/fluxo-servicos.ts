@@ -97,7 +97,8 @@ export interface FluxoServico {
 const slugsCatalogo = new Set(SERVICOS_CATALOGO.map((servico) => servico.slug));
 for (const slug of SLUGS_FLUXO_SERVICO) {
   if (!slugsCatalogo.has(slug)) {
-    throw new Error(`Slug de fluxo sem correspondencia no catalogo: ${slug}`);
+    // Não derruba o processo: fluxos legados podem existir sem item na vitrine.
+    console.warn(`Slug de fluxo sem correspondencia no catalogo: ${slug}`);
   }
 }
 

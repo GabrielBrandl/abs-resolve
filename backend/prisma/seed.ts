@@ -62,7 +62,7 @@ async function main() {
         garantiaDias: s.garantiaDias,
         imagemUrl: s.imagemUrl,
         ordem: s.ordem,
-        ativo: true,
+        // Não força ativo:true — serviços retirados da vitrine permanecem desativados.
       },
       create: {
         slug: s.slug,
@@ -82,6 +82,19 @@ async function main() {
       },
     });
   }
+
+  const slugsForaDaVitrine = [
+    'troca-torneira',
+    'troca-registro',
+    'reparo-vazamento',
+    'desentupimento-pia',
+    'desentupimento-vaso',
+    'limpeza-ar-split',
+  ];
+  await prisma.catalogoServico.updateMany({
+    where: { slug: { in: slugsForaDaVitrine } },
+    data: { ativo: false },
+  });
 
   await prisma.catalogoServico.updateMany({
     where: { slug: { notIn: SERVICOS_CATALOGO.map((s) => s.slug) } },
