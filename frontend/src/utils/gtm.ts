@@ -8,10 +8,13 @@ declare global {
 
 export const GOOGLE_ADS_ID = 'AW-18328348632';
 
-/** Snippet de conversão "Compra" — Google Ads */
+/**
+ * Ação principal de conversão Compra (1) no Google Ads.
+ * Não usar o label de exemplo/teste n-7c… — só qa-2… (Compra).
+ */
 export const GOOGLE_ADS_CONVERSION_SEND_TO =
   import.meta.env.VITE_GOOGLE_ADS_CONVERSION_SEND_TO ||
-  'AW-18328348632/n-7cCKKM8ewcENjP0aNE';
+  'AW-18328348632/qa-2CIKK6ewcENjP0aNE';
 
 export function gtmPush(event: string, params: Record<string, unknown> = {}) {
   if (typeof window === 'undefined') return;
@@ -41,7 +44,7 @@ export function gtmEtapaAgendar(step: string, extra?: Record<string, unknown>) {
   gtmPush(event, { etapa: step, ...extra });
 }
 
-/** Funil de abandono — nomes padronizados para GTM / Google Ads */
+/** Funil de abandono — nomes padronizados para GTM / Google Ads (não são conversão Compra) */
 export const funil = {
   visualizouServico(params: { slug: string; nome?: string; categoria?: string }) {
     gtmPush('funil_visualizou_servico', params);
@@ -72,23 +75,14 @@ export const funil = {
   }) {
     gtmPush('funil_iniciou_pagamento', params);
   },
-  pagamentoAprovado(params: {
-    transaction_id: string;
-    value: number;
-    solicitacao_id?: string;
-    pedido_id?: string;
-    metodo?: string;
-  }) {
-    gtmPush('funil_pagamento_aprovado', {
-      ...params,
-      currency: 'BRL',
-    });
-  },
 };
 
 const CONVERSAO_STORAGE_PREFIX = 'abs-ads-conversao-';
+/** Lock síncrono em memória — evita race do polling (2 hits no Tag Assistant). */
+const conversaoEmMemoria = new Set<string>();
 
 function conversaoJaDisparada(transactionId: string): boolean {
+  if (conversaoEmMemoria.has(transactionId)) return true;
   const key = `${CONVERSAO_STORAGE_PREFIX}${transactionId}`;
   try {
     if (localStorage.getItem(key) || sessionStorage.getItem(key)) return true;
@@ -99,6 +93,7 @@ function conversaoJaDisparada(transactionId: string): boolean {
 }
 
 function marcarConversaoDisparada(transactionId: string) {
+  conversaoEmMemoria.add(transactionId);
   const key = `${CONVERSAO_STORAGE_PREFIX}${transactionId}`;
   try {
     localStorage.setItem(key, String(Date.now()));
@@ -109,9 +104,10 @@ function marcarConversaoDisparada(transactionId: string) {
 }
 
 /**
- * Conversão Google Ads — somente após pagamento efetivamente confirmado.
- * Não chamar em: adicionar ao carrinho, "Comprar e Agendar", ou entrada no checkout.
- * Deduplica por transaction_id (localStorage) para não reenviar ao atualizar/reabrir a página.
+ * Única implementação de conversão Google Ads "Compra".
+ * Disparar somente após pagamento confirmado (RECEIVED / pago).
+ * Deduplica por transaction_id (memória + localStorage) — uma vez por pedido.
+ * Não empurra eventos dataLayer de "compra" para evitar segundo hit no Tag Assistant.
  */
 export function gtmConversaoCompra(params: {
   transaction_id: string;
@@ -126,31 +122,15 @@ export function gtmConversaoCompra(params: {
   if (!transactionId || !(value > 0)) return;
   if (conversaoJaDisparada(transactionId)) return;
 
+  // Marca ANTES do gtag — impede duplicata se o polling disparar em paralelo
   marcarConversaoDisparada(transactionId);
 
-  funil.pagamentoAprovado({
-    transaction_id: transactionId,
-    value,
-    solicitacao_id: params.solicitacao_id,
-    pedido_id: params.pedido_id,
-    metodo: params.metodo,
-  });
+  if (typeof window.gtag !== 'function') return;
 
-  gtmPush('agendar_pagamento_confirmado', {
-    transaction_id: transactionId,
+  window.gtag('event', 'conversion', {
+    send_to: GOOGLE_ADS_CONVERSION_SEND_TO,
     value,
     currency: 'BRL',
-    solicitacao_id: params.solicitacao_id,
-    pedido_id: params.pedido_id,
-    metodo: params.metodo,
+    transaction_id: transactionId,
   });
-
-  if (typeof window.gtag === 'function') {
-    window.gtag('event', 'conversion', {
-      send_to: GOOGLE_ADS_CONVERSION_SEND_TO,
-      value,
-      currency: 'BRL',
-      transaction_id: transactionId,
-    });
-  }
 }

@@ -5,6 +5,9 @@ import { toNumber } from '../utils/helpers.js';
 export const TIPOS_CALCULO = ['metragem', 'quantidade', 'fixo', 'bloco'] as const;
 export type TipoCalculo = (typeof TIPOS_CALCULO)[number];
 
+export const TIPOS_RECEITA = ['materiais', 'pendencia_tecnica'] as const;
+export type TipoReceita = (typeof TIPOS_RECEITA)[number];
+
 export const UNIDADES_MATERIAL = [
   'metro',
   'unidade',
@@ -14,9 +17,71 @@ export const UNIDADES_MATERIAL = [
   'pacote',
 ] as const;
 
+type OpcaoResolucao = { id: string; label: string };
+
 function asStringArray(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v.map((x) => String(x)).filter(Boolean);
+}
+
+function asOpcoesResolucao(v: unknown): OpcaoResolucao[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) => {
+      if (!x || typeof x !== 'object') return null;
+      const o = x as Record<string, unknown>;
+      const id = String(o.id || '').trim();
+      const label = String(o.label || o.id || '').trim();
+      if (!id) return null;
+      return { id, label: label || id };
+    })
+    .filter((x): x is OpcaoResolucao => Boolean(x));
+}
+
+function dadosTecnicosObj(raw: unknown): {
+  respostasConfirmadas: Record<string, string>;
+  historico: Array<Record<string, unknown>>;
+} {
+  const base = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const resp = (base.respostasConfirmadas && typeof base.respostasConfirmadas === 'object'
+    ? base.respostasConfirmadas
+    : {}) as Record<string, string>;
+  const historico = Array.isArray(base.historico) ? (base.historico as Array<Record<string, unknown>>) : [];
+  return { respostasConfirmadas: { ...resp }, historico };
+}
+
+/** Aplica confirmações técnicas da OS sobre as respostas do cliente (sem mutar o pedido). */
+function mesclarRespostasTecnicas(
+  respostasCliente: Record<string, string>,
+  dadosTecnicos: unknown
+): Record<string, string> {
+  const { respostasConfirmadas } = dadosTecnicosObj(dadosTecnicos);
+  const merged = { ...respostasCliente };
+  for (const [k, v] of Object.entries(respostasConfirmadas)) {
+    if (!v) continue;
+    merged[k] = v;
+    // também atualiza chaves por unidade (campo__u1) quando existirem no cliente
+    for (const ck of Object.keys(respostasCliente)) {
+      if (ck === k) continue;
+      if (ck.startsWith(`${k}__u`)) merged[ck] = v;
+    }
+  }
+  return merged;
+}
+
+function recorteRespostasPendencia(
+  respostas: Record<string, string>,
+  condicoes: Array<{ perguntaId: string }>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const c of condicoes) {
+    const id = c.perguntaId;
+    if (respostas[id] != null) out[id] = respostas[id];
+    for (const [k, v] of Object.entries(respostas)) {
+      if (k.startsWith(`${id}__u`)) out[k] = v;
+    }
+  }
+  return out;
 }
 
 function parseNumeroResposta(raw: string | undefined | null): number {
@@ -165,24 +230,41 @@ export class ReceitaTecnicaService {
   async criar(data: {
     catalogoServicoId: string;
     nome: string;
+    tipo?: string;
     ativo?: boolean;
     ordem?: number;
     perguntaFornecimentoId?: string | null;
     opcoesAbsFornece?: string[];
+    pendenciaTitulo?: string | null;
+    pendenciaMensagem?: string | null;
+    pendenciaBloquearMateriais?: boolean;
+    perguntaResolucaoId?: string | null;
+    opcoesResolucao?: OpcaoResolucao[];
     condicoes?: Array<{ perguntaId: string; opcaoIds: string[] }>;
   }) {
     const servico = await prisma.catalogoServico.findUnique({ where: { id: data.catalogoServicoId } });
     if (!servico) throw new Error('Serviço do catálogo não encontrado');
     if (!data.nome?.trim()) throw new Error('Informe o nome da receita');
+    const tipo = (data.tipo || 'materiais') as string;
+    if (!TIPOS_RECEITA.includes(tipo as TipoReceita)) throw new Error('Tipo de receita inválido');
+    if (tipo === 'pendencia_tecnica' && !data.pendenciaTitulo?.trim()) {
+      throw new Error('Informe o título da pendência técnica');
+    }
 
     return prisma.receitaTecnica.create({
       data: {
         catalogoServicoId: data.catalogoServicoId,
         nome: data.nome.trim(),
+        tipo,
         ativo: data.ativo !== false,
         ordem: data.ordem ?? 0,
         perguntaFornecimentoId: data.perguntaFornecimentoId || null,
         opcoesAbsFornece: (data.opcoesAbsFornece || []) as Prisma.InputJsonValue,
+        pendenciaTitulo: data.pendenciaTitulo?.trim() || null,
+        pendenciaMensagem: data.pendenciaMensagem?.trim() || null,
+        pendenciaBloquearMateriais: data.pendenciaBloquearMateriais !== false,
+        perguntaResolucaoId: data.perguntaResolucaoId || null,
+        opcoesResolucao: (data.opcoesResolucao || []) as Prisma.InputJsonValue,
         condicoes: data.condicoes?.length
           ? {
               create: data.condicoes.map((c) => ({
@@ -200,14 +282,23 @@ export class ReceitaTecnicaService {
     id: string,
     data: Partial<{
       nome: string;
+      tipo: string;
       ativo: boolean;
       ordem: number;
       perguntaFornecimentoId: string | null;
       opcoesAbsFornece: string[];
+      pendenciaTitulo: string | null;
+      pendenciaMensagem: string | null;
+      pendenciaBloquearMateriais: boolean;
+      perguntaResolucaoId: string | null;
+      opcoesResolucao: OpcaoResolucao[];
       condicoes: Array<{ perguntaId: string; opcaoIds: string[] }>;
     }>
   ) {
     await this.buscar(id);
+    if (data.tipo && !TIPOS_RECEITA.includes(data.tipo as TipoReceita)) {
+      throw new Error('Tipo de receita inválido');
+    }
     if (data.condicoes) {
       await prisma.receitaCondicao.deleteMany({ where: { receitaId: id } });
       if (data.condicoes.length) {
@@ -224,6 +315,7 @@ export class ReceitaTecnicaService {
       where: { id },
       data: {
         ...(data.nome != null ? { nome: data.nome.trim() } : {}),
+        ...(data.tipo != null ? { tipo: data.tipo } : {}),
         ...(data.ativo !== undefined ? { ativo: data.ativo } : {}),
         ...(data.ordem !== undefined ? { ordem: data.ordem } : {}),
         ...(data.perguntaFornecimentoId !== undefined
@@ -231,6 +323,21 @@ export class ReceitaTecnicaService {
           : {}),
         ...(data.opcoesAbsFornece !== undefined
           ? { opcoesAbsFornece: data.opcoesAbsFornece as Prisma.InputJsonValue }
+          : {}),
+        ...(data.pendenciaTitulo !== undefined
+          ? { pendenciaTitulo: data.pendenciaTitulo?.trim() || null }
+          : {}),
+        ...(data.pendenciaMensagem !== undefined
+          ? { pendenciaMensagem: data.pendenciaMensagem?.trim() || null }
+          : {}),
+        ...(data.pendenciaBloquearMateriais !== undefined
+          ? { pendenciaBloquearMateriais: data.pendenciaBloquearMateriais }
+          : {}),
+        ...(data.perguntaResolucaoId !== undefined
+          ? { perguntaResolucaoId: data.perguntaResolucaoId }
+          : {}),
+        ...(data.opcoesResolucao !== undefined
+          ? { opcoesResolucao: data.opcoesResolucao as Prisma.InputJsonValue }
           : {}),
       },
       include: { condicoes: true, materiais: { orderBy: { ordem: 'asc' } } },
@@ -243,10 +350,16 @@ export class ReceitaTecnicaService {
       data: {
         catalogoServicoId: orig.catalogoServicoId,
         nome: `${orig.nome} (cópia)`,
+        tipo: orig.tipo,
         ativo: false,
         ordem: orig.ordem + 1,
         perguntaFornecimentoId: orig.perguntaFornecimentoId,
         opcoesAbsFornece: orig.opcoesAbsFornece as Prisma.InputJsonValue,
+        pendenciaTitulo: orig.pendenciaTitulo,
+        pendenciaMensagem: orig.pendenciaMensagem,
+        pendenciaBloquearMateriais: orig.pendenciaBloquearMateriais,
+        perguntaResolucaoId: orig.perguntaResolucaoId,
+        opcoesResolucao: orig.opcoesResolucao as Prisma.InputJsonValue,
         condicoes: {
           create: orig.condicoes.map((c) => ({
             perguntaId: c.perguntaId,
@@ -394,6 +507,7 @@ export class ReceitaTecnicaService {
 
   /**
    * Gera lista de materiais na OS a partir das receitas do catálogo + respostas do pedido.
+   * Também cria pendências técnicas aplicáveis.
    * Idempotente: se já houver snapshot e linhas automáticas, não regenera (salvo force).
    */
   async gerarMateriaisParaOs(ordemServicoId: string, opts?: { force?: boolean }) {
@@ -401,6 +515,7 @@ export class ReceitaTecnicaService {
       where: { id: ordemServicoId },
       include: {
         materiais: true,
+        pendenciasTecnicas: true,
         pedido: {
           include: {
             solicitacao: { include: { servico: true } },
@@ -410,7 +525,7 @@ export class ReceitaTecnicaService {
     });
     if (!os) throw new Error('OS não encontrada');
     if (os.materiaisSnapshot && !opts?.force && os.materiais.some((m) => m.origem === 'automatico')) {
-      return os;
+      return this.buscarOsComMateriais(ordemServicoId);
     }
 
     const sol = os.pedido.solicitacao;
@@ -428,7 +543,11 @@ export class ReceitaTecnicaService {
       return this.buscarOsComMateriais(ordemServicoId);
     }
 
-    const { respostas, quantidadeUnidades } = extrairRespostasDoPedido(sol);
+    const extraido = extrairRespostasDoPedido(sol);
+    const respostasCliente = extraido.respostas;
+    const quantidadeUnidades = extraido.quantidadeUnidades;
+    const respostas = mesclarRespostasTecnicas(respostasCliente, os.dadosTecnicos);
+
     const receitas = await prisma.receitaTecnica.findMany({
       where: { catalogoServicoId: sol.servicoId, ativo: true },
       include: {
@@ -439,6 +558,57 @@ export class ReceitaTecnicaService {
     });
 
     const aplicaveis = receitas.filter((r) => receitaBateCondicoes(r.condicoes, respostas));
+    const pendenciasReceitas = aplicaveis.filter((r) => r.tipo === 'pendencia_tecnica');
+    const materiaisReceitas = aplicaveis.filter((r) => r.tipo !== 'pendencia_tecnica');
+
+    // Cria/atualiza pendências (não recria se já resolvida para a mesma receita)
+    for (const receita of pendenciasReceitas) {
+      const existente = os.pendenciasTecnicas.find((p) => p.receitaId === receita.id);
+      if (existente?.status === 'resolvida') continue;
+      const titulo = receita.pendenciaTitulo?.trim() || receita.nome;
+      const mensagem =
+        receita.pendenciaMensagem?.trim() ||
+        'Confirmação técnica necessária antes de seguir com materiais.';
+      const payload = {
+        titulo,
+        mensagem,
+        bloquearMateriais: receita.pendenciaBloquearMateriais !== false,
+        respostaOriginalCliente: recorteRespostasPendencia(
+          respostasCliente,
+          receita.condicoes
+        ) as Prisma.InputJsonValue,
+        perguntaResolucaoId: receita.perguntaResolucaoId || null,
+        opcoesResolucao: (asOpcoesResolucao(receita.opcoesResolucao) ||
+          []) as Prisma.InputJsonValue,
+        status: 'pendente' as const,
+      };
+      if (existente) {
+        await prisma.osPendenciaTecnica.update({
+          where: { id: existente.id },
+          data: payload,
+        });
+      } else {
+        await prisma.osPendenciaTecnica.create({
+          data: {
+            ordemServicoId,
+            receitaId: receita.id,
+            ...payload,
+          },
+        });
+      }
+    }
+
+    const pendentes = await prisma.osPendenciaTecnica.findMany({
+      where: { ordemServicoId, status: 'pendente' },
+    });
+    const bloqueiaMateriais = pendentes.some((p) => p.bloquearMateriais);
+    const avisos: string[] = [];
+    if (bloqueiaMateriais) {
+      avisos.push(
+        'Aguardando confirmação técnica — compra/separação de materiais bloqueada até resolver as pendências.'
+      );
+    }
+
     const linhas: Array<{
       receitaId: string;
       receitaNome: string;
@@ -454,36 +624,36 @@ export class ReceitaTecnicaService {
       consumivelOperacional: boolean;
     }> = [];
 
-    const avisos: string[] = [];
+    if (!bloqueiaMateriais) {
+      for (const receita of materiaisReceitas) {
+        const fornece = absForneceMaterial(receita, respostas);
+        if (fornece === false) {
+          avisos.push(
+            `Receita "${receita.nome}": material principal fornecido pelo cliente — gerando apenas consumíveis operacionais.`
+          );
+        }
 
-    for (const receita of aplicaveis) {
-      const fornece = absForneceMaterial(receita, respostas);
-      if (fornece === false) {
-        avisos.push(
-          `Receita "${receita.nome}": material principal fornecido pelo cliente — gerando apenas consumíveis operacionais.`
-        );
-      }
-
-      for (const mat of receita.materiais) {
-        if (fornece === false && !mat.consumivelOperacional) continue;
-        const qtd = calcularQuantidade(mat, respostas, quantidadeUnidades);
-        if (qtd <= 0) continue;
-        const custoUnit = mat.custoUnitario != null ? toNumber(mat.custoUnitario) : null;
-        const custoPrev = custoUnit != null ? Math.round(custoUnit * qtd * 100) / 100 : null;
-        linhas.push({
-          receitaId: receita.id,
-          receitaNome: receita.nome,
-          receitaMaterialId: mat.id,
-          nome: mat.nome,
-          especificacao: mat.especificacao,
-          bitolaModelo: mat.bitolaModelo,
-          unidade: mat.unidade,
-          quantidade: qtd,
-          custoUnitario: custoUnit,
-          custoPrevisto: custoPrev,
-          observacao: mat.observacaoInterna,
-          consumivelOperacional: mat.consumivelOperacional,
-        });
+        for (const mat of receita.materiais) {
+          if (fornece === false && !mat.consumivelOperacional) continue;
+          const qtd = calcularQuantidade(mat, respostas, quantidadeUnidades);
+          if (qtd <= 0) continue;
+          const custoUnit = mat.custoUnitario != null ? toNumber(mat.custoUnitario) : null;
+          const custoPrev = custoUnit != null ? Math.round(custoUnit * qtd * 100) / 100 : null;
+          linhas.push({
+            receitaId: receita.id,
+            receitaNome: receita.nome,
+            receitaMaterialId: mat.id,
+            nome: mat.nome,
+            especificacao: mat.especificacao,
+            bitolaModelo: mat.bitolaModelo,
+            unidade: mat.unidade,
+            quantidade: qtd,
+            custoUnitario: custoUnit,
+            custoPrevisto: custoPrev,
+            observacao: mat.observacaoInterna,
+            consumivelOperacional: mat.consumivelOperacional,
+          });
+        }
       }
     }
 
@@ -494,18 +664,28 @@ export class ReceitaTecnicaService {
       catalogoServicoId: sol.servicoId,
       servicoSlug: sol.servico?.slug,
       servicoNome: sol.servico?.nome,
-      respostas,
+      respostasCliente,
+      respostasEfetivas: respostas,
       quantidadeUnidades,
+      aguardandoConfirmacaoTecnica: bloqueiaMateriais,
+      pendenciasAbertas: pendentes.map((p) => ({
+        id: p.id,
+        titulo: p.titulo,
+        bloquearMateriais: p.bloquearMateriais,
+      })),
       receitasAplicadas: aplicaveis.map((r) => ({
         id: r.id,
         nome: r.nome,
+        tipo: r.tipo,
         condicoes: r.condicoes.map((c) => ({
           perguntaId: c.perguntaId,
           opcaoIds: asStringArray(c.opcaoIds),
         })),
       })),
       avisos,
-      materialClienteFornece: aplicaveis.some((r) => absForneceMaterial(r, respostas) === false),
+      materialClienteFornece: materiaisReceitas.some(
+        (r) => absForneceMaterial(r, respostas) === false
+      ),
       linhas,
       custoPrevistoTotal,
     };
@@ -551,6 +731,7 @@ export class ReceitaTecnicaService {
       where: { id: ordemServicoId },
       include: {
         materiais: { where: { ativo: true }, orderBy: [{ ordem: 'asc' }, { nome: 'asc' }] },
+        pendenciasTecnicas: { orderBy: { createdAt: 'asc' } },
         pedido: {
           include: {
             cliente: { select: { id: true, nome: true } },
@@ -565,12 +746,77 @@ export class ReceitaTecnicaService {
     const os = await this.buscarOsComMateriais(ordemServicoId);
     const ativos = os.materiais;
     const custoPrevistoTotal = ativos.reduce((s, m) => s + toNumber(m.custoPrevisto), 0);
+    const pendentes = os.pendenciasTecnicas.filter((p) => p.status === 'pendente');
+    const bloqueiaMateriais = pendentes.some((p) => p.bloquearMateriais);
     return {
       materiais: ativos,
       snapshot: os.materiaisSnapshot,
       ajusteManual: os.materiaisAjusteManual,
       custoPrevistoTotal: Math.round(custoPrevistoTotal * 100) / 100,
+      dadosTecnicos: os.dadosTecnicos,
+      pendencias: os.pendenciasTecnicas,
+      aguardandoConfirmacaoTecnica: bloqueiaMateriais,
+      statusMateriais: bloqueiaMateriais
+        ? 'Aguardando confirmação técnica'
+        : ativos.length
+          ? 'Materiais gerados'
+          : 'Sem materiais',
     };
+  }
+
+  /**
+   * Admin resolve pendência: grava confirmação técnica na OS (sem alterar pedido/cliente)
+   * e regenera materiais com as respostas efetivas.
+   */
+  async resolverPendenciaOs(
+    pendenciaId: string,
+    data: { opcaoId: string; userId?: string | null }
+  ) {
+    const pendencia = await prisma.osPendenciaTecnica.findUnique({
+      where: { id: pendenciaId },
+      include: { ordemServico: true },
+    });
+    if (!pendencia) throw new Error('Pendência não encontrada');
+    if (pendencia.status === 'resolvida') throw new Error('Pendência já resolvida');
+
+    const opcoes = asOpcoesResolucao(pendencia.opcoesResolucao);
+    const escolhida = opcoes.find((o) => o.id === data.opcaoId);
+    if (!escolhida) throw new Error('Opção de resolução inválida');
+
+    const perguntaId = pendencia.perguntaResolucaoId;
+    if (!perguntaId) throw new Error('Receita sem pergunta de resolução configurada');
+
+    const atual = dadosTecnicosObj(pendencia.ordemServico.dadosTecnicos);
+    atual.respostasConfirmadas[perguntaId] = escolhida.id;
+    atual.historico.push({
+      pendenciaId: pendencia.id,
+      perguntaId,
+      opcaoId: escolhida.id,
+      opcaoLabel: escolhida.label,
+      respostaOriginalCliente: pendencia.respostaOriginalCliente,
+      resolvidoEm: new Date().toISOString(),
+      resolvidoPorUserId: data.userId || null,
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.osPendenciaTecnica.update({
+        where: { id: pendencia.id },
+        data: {
+          status: 'resolvida',
+          resolucaoOpcaoId: escolhida.id,
+          resolucaoOpcaoLabel: escolhida.label,
+          resolvidoEm: new Date(),
+          resolvidoPorUserId: data.userId || null,
+        },
+      });
+      await tx.ordemServico.update({
+        where: { id: pendencia.ordemServicoId },
+        data: { dadosTecnicos: atual as Prisma.InputJsonValue },
+      });
+    });
+
+    await this.gerarMateriaisParaOs(pendencia.ordemServicoId, { force: true });
+    return this.listarMateriaisOs(pendencia.ordemServicoId);
   }
 
   async adicionarMaterialOs(

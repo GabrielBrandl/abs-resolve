@@ -5,7 +5,7 @@ import type {
   PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
   EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, EstoqueDashboard, MovimentacaoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin, IaConhecimento,
   ParceiroAdmin, ParceiroDetalhe, DashboardGerencial, FinLancamento, CrmIndicadores, LeadTimelineItem,
-  ReceitaTecnica, ReceitaMaterial, OsMaterial,
+  ReceitaTecnica, ReceitaMaterial, OsMaterial, OsPendenciaTecnica,
 } from '../types';
 
 async function get<T>(url: string) {
@@ -141,6 +141,10 @@ export const osApi = {
       snapshot: unknown;
       ajusteManual: boolean;
       custoPrevistoTotal: number;
+      dadosTecnicos?: unknown;
+      pendencias?: OsPendenciaTecnica[];
+      aguardandoConfirmacaoTecnica?: boolean;
+      statusMateriais?: string;
     }>(`/ordens-servico/${osId}/materiais`),
   regenerarMateriais: (osId: string) => post(`/ordens-servico/${osId}/materiais/regenerar`),
   adicionarMaterial: (
@@ -169,6 +173,14 @@ export const osApi = {
     }>
   ) => patch<OsMaterial>(`/ordens-servico/materiais/${materialId}`, body),
   removerMaterial: (materialId: string) => del(`/ordens-servico/materiais/${materialId}`),
+  resolverPendencia: (pendenciaId: string, body: { opcaoId: string }) =>
+    post<{
+      materiais: OsMaterial[];
+      pendencias?: OsPendenciaTecnica[];
+      custoPrevistoTotal: number;
+      aguardandoConfirmacaoTecnica?: boolean;
+      statusMateriais?: string;
+    }>(`/ordens-servico/pendencias/${pendenciaId}/resolver`, body),
 };
 
 export const pagamentosApi = {
@@ -628,10 +640,16 @@ export const catalogoAdminApi = {
     servicoId: string,
     body: {
       nome: string;
+      tipo?: string;
       ativo?: boolean;
       ordem?: number;
       perguntaFornecimentoId?: string | null;
       opcoesAbsFornece?: string[];
+      pendenciaTitulo?: string | null;
+      pendenciaMensagem?: string | null;
+      pendenciaBloquearMateriais?: boolean;
+      perguntaResolucaoId?: string | null;
+      opcoesResolucao?: Array<{ id: string; label: string }>;
       condicoes?: Array<{ perguntaId: string; opcaoIds: string[] }>;
     }
   ) => post<ReceitaTecnica>(`/admin/catalogo/servicos/${servicoId}/receitas`, body),
@@ -639,10 +657,16 @@ export const catalogoAdminApi = {
     id: string,
     body: Partial<{
       nome: string;
+      tipo: string;
       ativo: boolean;
       ordem: number;
       perguntaFornecimentoId: string | null;
       opcoesAbsFornece: string[];
+      pendenciaTitulo: string | null;
+      pendenciaMensagem: string | null;
+      pendenciaBloquearMateriais: boolean;
+      perguntaResolucaoId: string | null;
+      opcoesResolucao: Array<{ id: string; label: string }>;
       condicoes: Array<{ perguntaId: string; opcaoIds: string[] }>;
     }>
   ) => put<ReceitaTecnica>(`/admin/catalogo/receitas/${id}`, body),

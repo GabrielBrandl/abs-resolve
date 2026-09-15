@@ -20,6 +20,7 @@ async function main() {
 
   await prisma.$transaction(async (tx) => {
     await del('os_materiais', () => tx.osMaterial.deleteMany({}));
+    await del('os_pendencias', () => tx.osPendenciaTecnica.deleteMany({}));
     await del('avaliacoes', () => tx.avaliacao.deleteMany({}));
     await del('nfse', () => tx.nfse.deleteMany({}));
     await del('agendamentos', () => tx.agendamento.deleteMany({}));

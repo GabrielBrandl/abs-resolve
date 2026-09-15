@@ -551,9 +551,7 @@ export function AgendarServicoPage() {
           setAguardandoPagamento(false);
           cart.clear();
           const pagoConfirmado =
-            status.pagamento?.status === 'RECEIVED' ||
-            status.status === 'pago' ||
-            Boolean(status.podeAgendar && status.pedidoNumero);
+            status.pagamento?.status === 'RECEIVED' || status.status === 'pago';
           const valorPago = Number(status.pagamento?.valor);
           if (
             pagoConfirmado &&

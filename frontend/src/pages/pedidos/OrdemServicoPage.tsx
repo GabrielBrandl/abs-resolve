@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { osApi, agendamentoApi } from '../../services/modules.service';
-import type { OrdemServico, OsMaterial } from '../../types';
+import type { OrdemServico, OsMaterial, OsPendenciaTecnica } from '../../types';
 import { ETAPAS_OS, formatCurrency, formatDate, formatEndereco, mapsLink } from '../../types';
 import { PageHeader, Loading, Badge, Card, Button, Modal, Input, Select } from '../../components/ui';
 import { BotaoVerFotos } from '../../components/GaleriaFotos';
@@ -45,11 +45,16 @@ export function OrdemServicoPage() {
     fotoAntes: '', fotoDepois: '', materiais: '', observacoes: '', assinaturaCliente: '',
   });
   const [materiais, setMateriais] = useState<OsMaterial[]>([]);
+  const [pendencias, setPendencias] = useState<OsPendenciaTecnica[]>([]);
   const [custoPrevistoTotal, setCustoPrevistoTotal] = useState(0);
   const [ajusteManual, setAjusteManual] = useState(false);
   const [avisosSnapshot, setAvisosSnapshot] = useState<string[]>([]);
+  const [aguardandoTecnica, setAguardandoTecnica] = useState(false);
+  const [statusMateriais, setStatusMateriais] = useState('');
   const [carregandoMat, setCarregandoMat] = useState(false);
   const [novoMat, setNovoMat] = useState({ nome: '', quantidade: '1', unidade: 'unidade', custoUnitario: '', observacao: '' });
+  const [resolvendoId, setResolvendoId] = useState<string | null>(null);
+  const [opcaoResolucao, setOpcaoResolucao] = useState('');
   const { toast } = useToast();
   const isAdmin = useAuthStore((s) => s.hasRole('admin'));
 
@@ -65,14 +70,20 @@ export function OrdemServicoPage() {
     try {
       const data = await osApi.materiais(osId);
       setMateriais(data.materiais || []);
+      setPendencias(data.pendencias || []);
       setCustoPrevistoTotal(data.custoPrevistoTotal || 0);
       setAjusteManual(!!data.ajusteManual);
+      setAguardandoTecnica(!!data.aguardandoConfirmacaoTecnica);
+      setStatusMateriais(data.statusMateriais || '');
       const snap = data.snapshot as { avisos?: string[] } | null;
       setAvisosSnapshot(Array.isArray(snap?.avisos) ? snap.avisos : []);
     } catch {
       setMateriais([]);
+      setPendencias([]);
       setCustoPrevistoTotal(0);
       setAjusteManual(false);
+      setAguardandoTecnica(false);
+      setStatusMateriais('');
       setAvisosSnapshot([]);
     } finally {
       setCarregandoMat(false);
@@ -172,6 +183,27 @@ export function OrdemServicoPage() {
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro', 'error');
     }
+  };
+
+  const resolverPendencia = async (p: OsPendenciaTecnica) => {
+    if (!opcaoResolucao) {
+      toast('Selecione Inverter ou Convencional (ou a opção configurada)', 'error');
+      return;
+    }
+    try {
+      await osApi.resolverPendencia(p.id, { opcaoId: opcaoResolucao });
+      toast('Pendência resolvida — materiais regenerados', 'success');
+      setResolvendoId(null);
+      setOpcaoResolucao('');
+      if (detalhe) await carregarMateriais(detalhe.id);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro', 'error');
+    }
+  };
+
+  const opcoesPendencia = (p: OsPendenciaTecnica) => {
+    if (!Array.isArray(p.opcoesResolucao)) return [];
+    return p.opcoesResolucao as Array<{ id: string; label: string }>;
   };
 
   return (
@@ -297,6 +329,83 @@ export function OrdemServicoPage() {
                 Lista interna (não aparece para o cliente).
                 {ajusteManual ? ' · Ajustes manuais registrados.' : ''}
               </p>
+              {(aguardandoTecnica || statusMateriais) && (
+                <p className="mb-2 rounded-lg bg-amber-100 px-2 py-1.5 text-xs font-semibold text-amber-900">
+                  Status: {statusMateriais || 'Aguardando confirmação técnica'}
+                </p>
+              )}
+
+              {pendencias.length > 0 && (
+                <div className="mb-3 space-y-2">
+                  {pendencias.map((p) => (
+                    <div
+                      key={p.id}
+                      className={`rounded-lg border px-3 py-2 text-xs ${
+                        p.status === 'pendente' ? 'border-amber-300 bg-white' : 'border-emerald-200 bg-emerald-50'
+                      }`}
+                    >
+                      <p className="font-semibold text-slate-800">
+                        {p.status === 'pendente' ? '⚠️ ' : '✓ '}
+                        {p.titulo}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap text-slate-600">{p.mensagem}</p>
+                      {p.status === 'pendente' ? (
+                        <p className="mt-1 font-medium text-amber-800">Aguardando confirmação técnica</p>
+                      ) : (
+                        <p className="mt-1 text-emerald-700">
+                          Resolvida: {p.resolucaoOpcaoLabel || p.resolucaoOpcaoId}
+                          {p.resolvidoEm ? ` · ${formatDate(p.resolvidoEm)}` : ''}
+                        </p>
+                      )}
+                      {p.status === 'pendente' && (
+                        <div className="mt-2 space-y-2">
+                          {resolvendoId === p.id ? (
+                            <>
+                              <Select
+                                label="Confirmar tecnologia / opção"
+                                value={opcaoResolucao}
+                                onChange={(e) => setOpcaoResolucao(e.target.value)}
+                              >
+                                <option value="">Selecione</option>
+                                {opcoesPendencia(p).map((o) => (
+                                  <option key={o.id} value={o.id}>
+                                    {o.label}
+                                  </option>
+                                ))}
+                              </Select>
+                              <div className="flex gap-2">
+                                <Button variant="cta" onClick={() => void resolverPendencia(p)}>
+                                  Confirmar e regenerar materiais
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => {
+                                    setResolvendoId(null);
+                                    setOpcaoResolucao('');
+                                  }}
+                                >
+                                  Cancelar
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            <Button
+                              variant="cta"
+                              onClick={() => {
+                                setResolvendoId(p.id);
+                                setOpcaoResolucao('');
+                              }}
+                            >
+                              Resolver pendência
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {avisosSnapshot.map((a) => (
                 <p key={a} className="mb-1 text-xs text-amber-800">{a}</p>
               ))}
@@ -347,7 +456,9 @@ export function OrdemServicoPage() {
                     ))}
                     {!materiais.length && (
                       <p className="text-xs text-slate-400">
-                        Nenhum material gerado. Cadastre receitas no catálogo ou adicione manualmente.
+                        {aguardandoTecnica
+                          ? 'Materiais bloqueados até resolver a pendência técnica.'
+                          : 'Nenhum material gerado. Cadastre receitas no catálogo ou adicione manualmente.'}
                       </p>
                     )}
                   </ul>

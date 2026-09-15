@@ -661,12 +661,37 @@ export interface ReceitaTecnica {
   id: string;
   catalogoServicoId: string;
   nome: string;
+  /** materiais | pendencia_tecnica */
+  tipo?: string;
   ativo: boolean;
   ordem?: number;
   perguntaFornecimentoId?: string | null;
   opcoesAbsFornece?: string[] | unknown;
+  pendenciaTitulo?: string | null;
+  pendenciaMensagem?: string | null;
+  pendenciaBloquearMateriais?: boolean;
+  perguntaResolucaoId?: string | null;
+  opcoesResolucao?: Array<{ id: string; label: string }> | unknown;
   condicoes?: ReceitaCondicao[];
   materiais?: ReceitaMaterial[];
+}
+
+export interface OsPendenciaTecnica {
+  id: string;
+  ordemServicoId?: string;
+  receitaId?: string | null;
+  titulo: string;
+  mensagem: string;
+  bloquearMateriais: boolean;
+  status: string;
+  respostaOriginalCliente?: Record<string, string> | unknown;
+  perguntaResolucaoId?: string | null;
+  opcoesResolucao?: Array<{ id: string; label: string }> | unknown;
+  resolucaoOpcaoId?: string | null;
+  resolucaoOpcaoLabel?: string | null;
+  resolvidoEm?: string | null;
+  resolvidoPorUserId?: string | null;
+  createdAt?: string;
 }
 
 export interface IaConhecimento {

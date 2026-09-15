@@ -218,6 +218,11 @@ model OrdemServico {
   materiaisSnapshot Json?    @map("materiais_snapshot")
   /** True se a lista de materiais da OS foi editada manualmente. */
   materiaisAjusteManual Boolean @default(false) @map("materiais_ajuste_manual")
+  /**
+   * Confirmações técnicas do admin (não altera respostas comerciais do cliente).
+   * Ex.: { respostasConfirmadas: { tipoEquipamentoAr: "inverter" }, historico: [...] }
+   */
+  dadosTecnicos     Json?    @map("dados_tecnicos")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
   pedido            Pedido      @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
@@ -225,6 +230,7 @@ model OrdemServico {
   avaliacao         Avaliacao?
   lancamentosFinanceiros FinLancamento[]
   materiais         OsMaterial[]
+  pendenciasTecnicas OsPendenciaTecnica[]
 
   @@map("ordens_servico")
 }
@@ -762,20 +768,33 @@ model ReceitaTecnica {
   id                    String   @id @default(uuid())
   catalogoServicoId     String   @map("catalogo_servico_id")
   nome                  String
+  /** materiais | pendencia_tecnica */
+  tipo                  String   @default("materiais")
   ativo                 Boolean  @default(true)
   ordem                 Int      @default(0)
   /** Pergunta do fluxo que indica quem fornece o material principal (ID estável). */
   perguntaFornecimentoId String? @map("pergunta_fornecimento_id")
   /** Opções (IDs) que significam "ABS fornece". */
   opcoesAbsFornece      Json     @default("[]") @map("opcoes_abs_fornece")
+  /** Campos exclusivos de pendência técnica */
+  pendenciaTitulo       String?  @map("pendencia_titulo")
+  pendenciaMensagem     String?  @map("pendencia_mensagem") @db.Text
+  /** Se true, não gera/separa materiais enquanto pendência estiver aberta. */
+  pendenciaBloquearMateriais Boolean @default(true) @map("pendencia_bloquear_materiais")
+  /** Pergunta do fluxo que o admin confirma ao resolver (ex.: tipoEquipamentoAr). */
+  perguntaResolucaoId   String?  @map("pergunta_resolucao_id")
+  /** Opções que o admin pode escolher: [{ id, label }]. */
+  opcoesResolucao       Json     @default("[]") @map("opcoes_resolucao")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
   catalogoServico       CatalogoServico @relation(fields: [catalogoServicoId], references: [id], onDelete: Cascade)
   condicoes             ReceitaCondicao[]
   materiais             ReceitaMaterial[]
+  pendenciasOs          OsPendenciaTecnica[]
 
   @@index([catalogoServicoId])
   @@index([ativo])
+  @@index([tipo])
   @@map("receitas_tecnicas")
 }
 
@@ -849,4 +868,32 @@ model OsMaterial {
 
   @@index([ordemServicoId])
   @@map("os_materiais")
+}
+
+/** Pendência técnica gerada na OS a partir de uma receita do tipo pendencia_tecnica. */
+model OsPendenciaTecnica {
+  id                     String   @id @default(uuid())
+  ordemServicoId         String   @map("ordem_servico_id")
+  receitaId              String?  @map("receita_id")
+  titulo                 String
+  mensagem               String   @db.Text
+  bloquearMateriais      Boolean  @default(true) @map("bloquear_materiais")
+  /** pendente | resolvida */
+  status                 String   @default("pendente")
+  /** Recorte das respostas do cliente que dispararam a pendência (preservadas). */
+  respostaOriginalCliente Json?   @map("resposta_original_cliente")
+  perguntaResolucaoId    String?  @map("pergunta_resolucao_id")
+  opcoesResolucao        Json     @default("[]") @map("opcoes_resolucao")
+  resolucaoOpcaoId       String?  @map("resolucao_opcao_id")
+  resolucaoOpcaoLabel    String?  @map("resolucao_opcao_label")
+  resolvidoEm            DateTime? @map("resolvido_em")
+  resolvidoPorUserId     String?  @map("resolvido_por_user_id")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+  ordemServico           OrdemServico @relation(fields: [ordemServicoId], references: [id], onDelete: Cascade)
+  receita                ReceitaTecnica? @relation(fields: [receitaId], references: [id], onDelete: SetNull)
+
+  @@index([ordemServicoId])
+  @@index([status])
+  @@map("os_pendencias_tecnicas")
 }

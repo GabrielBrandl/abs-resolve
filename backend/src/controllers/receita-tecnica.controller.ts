@@ -131,6 +131,21 @@ export class ReceitaTecnicaController {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
     }
   }
+
+  async resolverPendenciaOs(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId || null;
+      return success(
+        res,
+        await receitaTecnicaService.resolverPendenciaOs(paramId(req.params.pendenciaId), {
+          opcaoId: String(req.body?.opcaoId || ''),
+          userId,
+        })
+      );
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
 }
 
 export const receitaTecnicaController = new ReceitaTecnicaController();
