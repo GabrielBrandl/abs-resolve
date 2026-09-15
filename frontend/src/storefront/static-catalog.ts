@@ -14,14 +14,8 @@ const SERVICOS = [
   ['troca-disjuntor', 'eletricista', 'Troca de disjuntor', 149, 'A partir de R$ 149', 'a_partir', 90],
   ['instalacao-luminaria', 'eletricista', 'Instalação de luminária', 149, 'R$ 149', 'fixo', 90],
   ['instalacao-ventilador-teto', 'eletricista', 'Instalação de ventilador de teto', 299, 'R$ 299', 'fixo', 90],
-  ['troca-torneira', 'hidraulica', 'Troca de torneira', 129, 'A partir de R$ 129', 'a_partir', 90],
-  ['troca-registro', 'hidraulica', 'Troca de registro', 149, 'A partir de R$ 149', 'a_partir', 90],
-  ['reparo-vazamento', 'hidraulica', 'Reparo de vazamento', 129, 'A partir de R$ 129', 'a_partir', 90],
-  ['desentupimento-pia', 'hidraulica', 'Desentupimento de pia', 249, 'R$ 249', 'fixo', 30],
-  ['desentupimento-vaso', 'hidraulica', 'Desentupimento de vaso', 299, 'A partir de R$ 299', 'a_partir', 30],
   ['instalacao-suporte-tv', 'montador', 'Instalação de suporte de TV', 149, 'A partir de R$ 149', 'a_partir', 90],
   ['instalacao-prateleira', 'montador', 'Instalação de prateleira', 129, 'A partir de R$ 129', 'a_partir', 30],
-  ['limpeza-ar-split', 'ar-condicionado', 'Limpeza preventiva (split)', 149, 'A partir de R$ 149', 'a_partir', 30],
   ['instalacao-ar-split', 'ar-condicionado', 'Instalação de ar-condicionado split', null, 'Sob orçamento', 'sob_orcamento', 90],
 ] as const;
 

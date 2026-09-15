@@ -55,9 +55,9 @@ export function money(value: number | string | null | undefined) {
 
 const FOTO_CATEGORIA: Record<string, string> = {
   eletricista: '/servicos/troca-tomada.webp',
-  hidraulica: '/servicos/troca-torneira.webp',
+  hidraulica: '/servicos/instalacao-chuveiro.webp',
   montador: '/servicos/instalacao-suporte-tv.webp',
-  'ar-condicionado': '/servicos/limpeza-ar-split.webp',
+  'ar-condicionado': '/servicos/instalacao-ar-split.webp',
   pecas: '/opcoes/troca-tomada/tipoTomada/simples.webp',
 };
 
@@ -105,7 +105,7 @@ export function fallbackFotoServico(s: { slug?: string; categoria?: string }) {
   if (s.categoria && FOTO_CATEGORIA[s.categoria]) return FOTO_CATEGORIA[s.categoria];
   if (s.slug?.startsWith('peca-')) return FOTO_CATEGORIA.pecas;
   if (s.slug) return `/servicos/${s.slug}.webp`;
-  return '/servicos/limpeza-ar-split.webp';
+  return '/servicos/troca-tomada.webp';
 }
 
 export function flattenServices(cats: CategoriaLoja[]) {
@@ -203,19 +203,13 @@ export function catalogItems(cats: CategoriaLoja[]) {
 export const FREQUENTLY_TOGETHER: Record<string, string[]> = {
   'troca-tomada': ['troca-interruptor', 'instalacao-luminaria', 'troca-disjuntor'],
   'troca-interruptor': ['troca-tomada', 'instalacao-luminaria', 'instalacao-ventilador-teto'],
-  'instalacao-chuveiro': ['troca-disjuntor', 'troca-torneira', 'troca-registro'],
+  'instalacao-chuveiro': ['troca-disjuntor', 'instalacao-luminaria', 'troca-tomada'],
   'troca-disjuntor': ['troca-tomada', 'instalacao-chuveiro', 'instalacao-luminaria'],
   'instalacao-luminaria': ['troca-interruptor', 'troca-tomada', 'instalacao-ventilador-teto'],
   'instalacao-ventilador-teto': ['instalacao-luminaria', 'troca-interruptor', 'troca-tomada'],
-  'troca-torneira': ['troca-registro', 'reparo-vazamento', 'desentupimento-pia'],
-  'troca-registro': ['troca-torneira', 'reparo-vazamento', 'instalacao-chuveiro'],
-  'reparo-vazamento': ['troca-registro', 'troca-torneira', 'desentupimento-pia'],
-  'desentupimento-pia': ['desentupimento-vaso', 'troca-torneira', 'reparo-vazamento'],
-  'desentupimento-vaso': ['desentupimento-pia', 'troca-registro', 'troca-torneira'],
   'instalacao-suporte-tv': ['instalacao-prateleira', 'instalacao-luminaria', 'troca-tomada'],
   'instalacao-prateleira': ['instalacao-suporte-tv', 'instalacao-luminaria', 'troca-tomada'],
-  'limpeza-ar-split': ['instalacao-ar-split', 'instalacao-luminaria', 'troca-disjuntor'],
-  'instalacao-ar-split': ['limpeza-ar-split', 'troca-disjuntor', 'instalacao-suporte-tv'],
+  'instalacao-ar-split': ['troca-disjuntor', 'instalacao-suporte-tv', 'instalacao-luminaria'],
 };
 
 function bySlug(cats: CategoriaLoja[]) {
