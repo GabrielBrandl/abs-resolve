@@ -158,9 +158,10 @@ export class SolicitacaoService {
         })
       );
 
-      const bySlug = new Map(SERVICOS_CATALOGO.map((s) => [s.slug, { ...s }]));
+      // Só serviços ativos no banco. SERVICOS_CATALOGO enriquece (texto/imagem), não força vitrine.
+      const bySlug = new Map<string, (typeof SERVICOS_CATALOGO)[number] & { imagens?: string[] }>();
       for (const s of servicos) {
-        const def = bySlug.get(s.slug);
+        const def = SERVICOS_CATALOGO.find((d) => d.slug === s.slug);
         const imagens = normalizarGaleria(
           s.imagemUrl || def?.imagemUrl,
           (s as { imagens?: unknown }).imagens ?? def?.imagens
@@ -182,27 +183,55 @@ export class SolicitacaoService {
         const precoTexto =
           precoMinimo != null && precoMinimo > 0
             ? textoPrecoAPartirDe(precoMinimo)
-            : def?.precoTexto || s.precoTexto;
+            : s.precoTexto || def?.precoTexto;
         bySlug.set(s.slug, {
-          ...def,
+          ...(def || {
+            slug: s.slug,
+            categoria: String(s.categoria || '').toLowerCase(),
+            nome: s.nome,
+            precoMinimo: null,
+            precoTexto: s.precoTexto || '',
+            tipoPreco: (s.tipoPreco as 'fixo' | 'a_partir' | 'sob_orcamento') || 'fixo',
+            garantiaDias: s.garantiaDias ?? 90,
+            descricao: s.descricao || '',
+            pontos: s.pontos ?? 1,
+            ordem: s.ordem ?? 0,
+            imagemUrl: s.imagemUrl || '',
+          }),
           ...s,
+          slug: s.slug,
+          nome: s.nome || def?.nome || s.slug,
           precoMinimo,
           precoTexto,
           tipoPreco:
             precoMinimo != null && precoMinimo > 0
               ? 'a_partir'
-              : def?.tipoPreco || s.tipoPreco,
+              : def?.tipoPreco || (s.tipoPreco as 'fixo' | 'a_partir' | 'sob_orcamento') || 'fixo',
           categoria: def?.categoria || String(s.categoria || '').toLowerCase(),
           imagemUrl: capaDaGaleria(s.imagemUrl || def?.imagemUrl, imagens) || def?.imagemUrl || null,
           imagens,
-          descricao: s.descricao || def?.descricao,
+          descricao: s.descricao || def?.descricao || '',
         } as (typeof SERVICOS_CATALOGO)[number] & { imagens: string[] });
       }
       const all = [...bySlug.values()];
-      const categorias = CATEGORIAS.map((cat) => ({
-        ...cat,
-        servicos: all.filter((s) => s.categoria === cat.slug),
-      })).filter((c) => c.servicos.length > 0);
+      const categoriasFromDb = [...new Set(all.map((s) => s.categoria))];
+      const categoriasBase = [
+        ...CATEGORIAS,
+        ...categoriasFromDb
+          .filter((slug) => !CATEGORIAS.some((c) => c.slug === slug))
+          .map((slug) => ({
+            slug,
+            nome: slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            icone: '•',
+            cor: '#64748b',
+          })),
+      ];
+      const categorias = categoriasBase
+        .map((cat) => ({
+          ...cat,
+          servicos: all.filter((s) => s.categoria === cat.slug),
+        }))
+        .filter((c) => c.servicos.length > 0);
 
       const cfg = await prisma.configSistema.findUnique({ where: { id: 'default' } });
       const pecasAvulsasAtivas = cfg?.pecasAvulsasAtivas === true;
