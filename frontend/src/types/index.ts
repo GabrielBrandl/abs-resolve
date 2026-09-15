@@ -164,6 +164,9 @@ export interface OrdemServico {
   checklistCompleto?: boolean;
   garantiaId?: string | null;
   tecnicoId?: string | null;
+  materiaisSnapshot?: unknown;
+  materiaisAjusteManual?: boolean;
+  materiais?: OsMaterial[];
   createdAt?: string;
   updatedAt?: string;
   tecnico?: { id: string; nome: string } | null;
@@ -199,6 +202,24 @@ export interface OrdemServico {
       dueDate?: string;
     }>;
   };
+}
+
+export interface OsMaterial {
+  id: string;
+  ordemServicoId?: string;
+  receitaId?: string | null;
+  receitaMaterialId?: string | null;
+  nome: string;
+  especificacao?: string | null;
+  bitolaModelo?: string | null;
+  unidade: string;
+  quantidade: number | string;
+  custoUnitario?: number | string | null;
+  custoPrevisto?: number | string | null;
+  observacao?: string | null;
+  origem: string;
+  ativo?: boolean;
+  ordem?: number;
 }
 
 export interface Pagamento {
@@ -606,6 +627,46 @@ export interface CatalogoServicoAdmin {
   imagemUrl: string | null;
   imagens?: string[] | null;
   relacionados?: string[];
+}
+
+export interface ReceitaCondicao {
+  id?: string;
+  perguntaId: string;
+  opcaoIds: string[] | unknown;
+}
+
+export interface ReceitaMaterial {
+  id: string;
+  receitaId?: string;
+  nome: string;
+  especificacao?: string | null;
+  bitolaModelo?: string | null;
+  unidade: string;
+  tipoCalculo: string;
+  fator?: number | string;
+  perguntaRefId?: string | null;
+  blocoX?: number | string | null;
+  blocoY?: number | string | null;
+  fixoEscopo?: string | null;
+  quantidadeFixa?: number | string | null;
+  observacaoInterna?: string | null;
+  custoUnitario?: number | string | null;
+  consumivelOperacional?: boolean;
+  produtoEstoqueId?: string | null;
+  ativo?: boolean;
+  ordem?: number;
+}
+
+export interface ReceitaTecnica {
+  id: string;
+  catalogoServicoId: string;
+  nome: string;
+  ativo: boolean;
+  ordem?: number;
+  perguntaFornecimentoId?: string | null;
+  opcoesAbsFornece?: string[] | unknown;
+  condicoes?: ReceitaCondicao[];
+  materiais?: ReceitaMaterial[];
 }
 
 export interface IaConhecimento {

@@ -118,9 +118,15 @@ export async function confirmarPagamentoRecebido(pagamentoId: string) {
 
   const osExistente = await prisma.ordemServico.findUnique({ where: { pedidoId: pedido.id } });
   if (!osExistente) {
-    await prisma.ordemServico.create({
+    const os = await prisma.ordemServico.create({
       data: { pedidoId: pedido.id, etapa: 'solicitacao' },
     });
+    try {
+      const { receitaTecnicaService } = await import('./receita-tecnica.service.js');
+      await receitaTecnicaService.gerarMateriaisParaOs(os.id);
+    } catch (err) {
+      console.warn('[receita-tecnica] geração falhou:', err instanceof Error ? err.message : err);
+    }
   }
 
   let nfse = null;

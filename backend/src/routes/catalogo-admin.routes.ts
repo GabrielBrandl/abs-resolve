@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { catalogoAdminController } from '../controllers/catalogo-admin.controller.js';
 import { adminEquipeController } from '../controllers/admin-equipe.controller.js';
+import { receitaTecnicaController } from '../controllers/receita-tecnica.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { checkRole } from '../middlewares/role.middleware.js';
 import { upload } from '../middlewares/upload.middleware.js';
@@ -18,6 +19,21 @@ router.post('/servicos/:id/imagens', upload.array('imagens', 12), (req, res) => 
 router.delete('/servicos/:id/imagem', (req, res) => catalogoAdminController.removerImagem(req, res));
 router.patch('/servicos/:id/capa', (req, res) => catalogoAdminController.definirCapa(req, res));
 router.delete('/servicos/:id', checkRole('admin'), (req, res) => catalogoAdminController.excluir(req, res));
+
+// Receitas Técnicas de Materiais
+router.get('/servicos/:servicoId/receitas', (req, res) => receitaTecnicaController.listarPorServico(req, res));
+router.post('/servicos/:servicoId/receitas', checkRole('admin'), (req, res) => receitaTecnicaController.criar(req, res));
+router.get('/receitas/:id', (req, res) => receitaTecnicaController.buscar(req, res));
+router.put('/receitas/:id', checkRole('admin'), (req, res) => receitaTecnicaController.atualizar(req, res));
+router.post('/receitas/:id/duplicar', checkRole('admin'), (req, res) => receitaTecnicaController.duplicar(req, res));
+router.post('/receitas/:id/materiais', checkRole('admin'), (req, res) => receitaTecnicaController.adicionarMaterial(req, res));
+router.put('/receitas/materiais/:materialId', checkRole('admin'), (req, res) =>
+  receitaTecnicaController.atualizarMaterial(req, res)
+);
+router.delete('/receitas/materiais/:materialId', checkRole('admin'), (req, res) =>
+  receitaTecnicaController.removerMaterial(req, res)
+);
+
 router.get('/config', (req, res) => catalogoAdminController.config(req, res));
 router.put('/config', (req, res) => catalogoAdminController.updateConfig(req, res));
 router.get('/estoque', (req, res) => catalogoAdminController.estoque(req, res));

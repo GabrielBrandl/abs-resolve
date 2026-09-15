@@ -214,12 +214,17 @@ model OrdemServico {
   checklistCompleto Boolean  @default(false) @map("checklist_completo")
   garantiaId        String?     @map("garantia_id")
   tecnicoId         String?     @map("tecnico_id")
+  /** Snapshot imutável da geração de materiais (receitas + respostas + linhas). */
+  materiaisSnapshot Json?    @map("materiais_snapshot")
+  /** True se a lista de materiais da OS foi editada manualmente. */
+  materiaisAjusteManual Boolean @default(false) @map("materiais_ajuste_manual")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
   pedido            Pedido      @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   tecnico           Tecnico?    @relation(fields: [tecnicoId], references: [id])
   avaliacao         Avaliacao?
   lancamentosFinanceiros FinLancamento[]
+  materiais         OsMaterial[]
 
   @@map("ordens_servico")
 }
@@ -410,6 +415,7 @@ model CatalogoServico {
   precosFixos  PrecoFixo[]
   solicitacoes SolicitacaoServico[]
   leads        Lead[]
+  receitasTecnicas ReceitaTecnica[]
 
   @@map("catalogo_servicos")
 }
@@ -749,4 +755,98 @@ model FinRecorrencia {
   lancamentos    FinLancamento[]
 
   @@map("fin_recorrencias")
+}
+
+/** Receita técnica de materiais vinculada a um serviço do catálogo (Marketplace). */
+model ReceitaTecnica {
+  id                    String   @id @default(uuid())
+  catalogoServicoId     String   @map("catalogo_servico_id")
+  nome                  String
+  ativo                 Boolean  @default(true)
+  ordem                 Int      @default(0)
+  /** Pergunta do fluxo que indica quem fornece o material principal (ID estável). */
+  perguntaFornecimentoId String? @map("pergunta_fornecimento_id")
+  /** Opções (IDs) que significam "ABS fornece". */
+  opcoesAbsFornece      Json     @default("[]") @map("opcoes_abs_fornece")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  catalogoServico       CatalogoServico @relation(fields: [catalogoServicoId], references: [id], onDelete: Cascade)
+  condicoes             ReceitaCondicao[]
+  materiais             ReceitaMaterial[]
+
+  @@index([catalogoServicoId])
+  @@index([ativo])
+  @@map("receitas_tecnicas")
+}
+
+/** Condição AND: resposta da perguntaId deve estar em opcaoIds. */
+model ReceitaCondicao {
+  id         String         @id @default(uuid())
+  receitaId  String         @map("receita_id")
+  perguntaId String         @map("pergunta_id")
+  opcaoIds   Json           @default("[]") @map("opcao_ids")
+  receita    ReceitaTecnica @relation(fields: [receitaId], references: [id], onDelete: Cascade)
+
+  @@index([receitaId])
+  @@map("receita_condicoes")
+}
+
+/**
+ * Material de uma receita.
+ * tipoCalculo: metragem | quantidade | fixo | bloco
+ * fixoEscopo: por_os | por_unidade (quando tipoCalculo=fixo)
+ */
+model ReceitaMaterial {
+  id                    String         @id @default(uuid())
+  receitaId             String         @map("receita_id")
+  nome                  String
+  especificacao         String?
+  bitolaModelo          String?        @map("bitola_modelo")
+  unidade               String         @default("unidade")
+  tipoCalculo           String         @map("tipo_calculo")
+  fator                 Decimal        @default(1) @db.Decimal(12, 4)
+  perguntaRefId         String?        @map("pergunta_ref_id")
+  blocoX                Decimal?       @map("bloco_x") @db.Decimal(12, 4)
+  blocoY                Decimal?       @map("bloco_y") @db.Decimal(12, 4)
+  fixoEscopo            String?        @map("fixo_escopo")
+  quantidadeFixa        Decimal?       @map("quantidade_fixa") @db.Decimal(12, 4)
+  observacaoInterna     String?        @map("observacao_interna") @db.Text
+  custoUnitario         Decimal?       @map("custo_unitario") @db.Decimal(12, 2)
+  /** Gera mesmo se o cliente fornece o material principal. */
+  consumivelOperacional Boolean        @default(false) @map("consumivel_operacional")
+  produtoEstoqueId      String?        @map("produto_estoque_id")
+  ativo                 Boolean        @default(true)
+  ordem                 Int            @default(0)
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+  receita               ReceitaTecnica @relation(fields: [receitaId], references: [id], onDelete: Cascade)
+
+  @@index([receitaId])
+  @@map("receita_materiais")
+}
+
+/** Linha de material gerada/editada na OS (snapshot operacional). */
+model OsMaterial {
+  id                 String       @id @default(uuid())
+  ordemServicoId     String       @map("ordem_servico_id")
+  receitaId          String?      @map("receita_id")
+  receitaMaterialId  String?      @map("receita_material_id")
+  nome               String
+  especificacao      String?
+  bitolaModelo       String?      @map("bitola_modelo")
+  unidade            String       @default("unidade")
+  quantidade         Decimal      @db.Decimal(12, 4)
+  custoUnitario      Decimal?     @map("custo_unitario") @db.Decimal(12, 2)
+  custoPrevisto      Decimal?     @map("custo_previsto") @db.Decimal(12, 2)
+  observacao         String?      @db.Text
+  /** automatico | manual | ajustado */
+  origem             String       @default("automatico")
+  ativo              Boolean      @default(true)
+  ordem              Int          @default(0)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+  ordemServico       OrdemServico @relation(fields: [ordemServicoId], references: [id], onDelete: Cascade)
+
+  @@index([ordemServicoId])
+  @@map("os_materiais")
 }

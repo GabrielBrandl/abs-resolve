@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { osApi, agendamentoApi } from '../../services/modules.service';
-import type { OrdemServico } from '../../types';
+import type { OrdemServico, OsMaterial } from '../../types';
 import { ETAPAS_OS, formatCurrency, formatDate, formatEndereco, mapsLink } from '../../types';
-import { PageHeader, Loading, Badge, Card, Button, Modal, Input } from '../../components/ui';
+import { PageHeader, Loading, Badge, Card, Button, Modal, Input, Select } from '../../components/ui';
 import { BotaoVerFotos } from '../../components/GaleriaFotos';
 import { RespostasQuestionario } from '../../components/RespostasQuestionario';
 import { useToast } from '../../components/Toast';
+import { useAuthStore } from '../../store/authStore';
 
 function fotosDoChecklist(checklist?: Record<string, string> | null): string[] {
   if (!checklist) return [];
@@ -29,6 +30,11 @@ function labelPagamento(status: string) {
   return map[status] || status;
 }
 
+function num(v: unknown) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function OrdemServicoPage() {
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +44,14 @@ export function OrdemServicoPage() {
   const [checklist, setChecklist] = useState({
     fotoAntes: '', fotoDepois: '', materiais: '', observacoes: '', assinaturaCliente: '',
   });
+  const [materiais, setMateriais] = useState<OsMaterial[]>([]);
+  const [custoPrevistoTotal, setCustoPrevistoTotal] = useState(0);
+  const [ajusteManual, setAjusteManual] = useState(false);
+  const [avisosSnapshot, setAvisosSnapshot] = useState<string[]>([]);
+  const [carregandoMat, setCarregandoMat] = useState(false);
+  const [novoMat, setNovoMat] = useState({ nome: '', quantidade: '1', unidade: 'unidade', custoUnitario: '', observacao: '' });
   const { toast } = useToast();
+  const isAdmin = useAuthStore((s) => s.hasRole('admin'));
 
   const carregar = () => {
     setLoading(true);
@@ -46,6 +59,31 @@ export function OrdemServicoPage() {
   };
 
   useEffect(() => { carregar(); }, [filtro]);
+
+  const carregarMateriais = async (osId: string) => {
+    setCarregandoMat(true);
+    try {
+      const data = await osApi.materiais(osId);
+      setMateriais(data.materiais || []);
+      setCustoPrevistoTotal(data.custoPrevistoTotal || 0);
+      setAjusteManual(!!data.ajusteManual);
+      const snap = data.snapshot as { avisos?: string[] } | null;
+      setAvisosSnapshot(Array.isArray(snap?.avisos) ? snap.avisos : []);
+    } catch {
+      setMateriais([]);
+      setCustoPrevistoTotal(0);
+      setAjusteManual(false);
+      setAvisosSnapshot([]);
+    } finally {
+      setCarregandoMat(false);
+    }
+  };
+
+  const abrirDetalhe = async (os: OrdemServico) => {
+    setDetalhe(os);
+    setNovoMat({ nome: '', quantidade: '1', unidade: 'unidade', custoUnitario: '', observacao: '' });
+    await carregarMateriais(os.id);
+  };
 
   const avancarEtapa = async (os: OrdemServico) => {
     const idx = ETAPAS_OS.findIndex((e) => e.key === os.etapa);
@@ -81,6 +119,59 @@ export function OrdemServicoPage() {
       assinaturaCliente: atual.assinaturaCliente || '',
     });
     setChecklistOs(os);
+  };
+
+  const regenerar = async () => {
+    if (!detalhe) return;
+    if (!confirm('Regenerar materiais automáticos a partir das receitas? Linhas manuais/ajustadas podem ser afetadas nas automáticas.')) return;
+    try {
+      await osApi.regenerarMateriais(detalhe.id);
+      toast('Materiais regenerados', 'success');
+      await carregarMateriais(detalhe.id);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro', 'error');
+    }
+  };
+
+  const adicionarLinha = async () => {
+    if (!detalhe || !novoMat.nome.trim()) {
+      toast('Informe o nome do material', 'error');
+      return;
+    }
+    try {
+      await osApi.adicionarMaterial(detalhe.id, {
+        nome: novoMat.nome.trim(),
+        quantidade: Number(novoMat.quantidade) || 1,
+        unidade: novoMat.unidade,
+        custoUnitario: novoMat.custoUnitario ? Number(novoMat.custoUnitario) : null,
+        observacao: novoMat.observacao || undefined,
+      });
+      setNovoMat({ nome: '', quantidade: '1', unidade: 'unidade', custoUnitario: '', observacao: '' });
+      toast('Material adicionado', 'success');
+      await carregarMateriais(detalhe.id);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro', 'error');
+    }
+  };
+
+  const atualizarQtd = async (m: OsMaterial, quantidade: number) => {
+    if (!(quantidade > 0)) return;
+    try {
+      await osApi.atualizarMaterial(m.id, { quantidade });
+      if (detalhe) await carregarMateriais(detalhe.id);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro', 'error');
+    }
+  };
+
+  const removerLinha = async (id: string) => {
+    if (!confirm('Remover este material da OS?')) return;
+    try {
+      await osApi.removerMaterial(id);
+      if (detalhe) await carregarMateriais(detalhe.id);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro', 'error');
+    }
   };
 
   return (
@@ -133,7 +224,7 @@ export function OrdemServicoPage() {
                   ))}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => setDetalhe(os)}>Ver detalhes</Button>
+                  <Button variant="secondary" onClick={() => void abrirDetalhe(os)}>Ver detalhes</Button>
                   {os.etapa === 'execucao' && (
                     <Button variant="cta" onClick={() => abrirChecklist(os)}>Preencher Checklist</Button>
                   )}
@@ -189,6 +280,95 @@ export function OrdemServicoPage() {
                 titulo="Fotos enviadas pelo cliente"
                 className="mt-2"
               />
+            </section>
+
+            <section className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="font-semibold text-primary-800">Materiais para execução</h4>
+                <div className="flex gap-1">
+                  {isAdmin && (
+                    <Button variant="secondary" onClick={() => void regenerar()}>
+                      Regenerar
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <p className="mb-2 text-xs text-slate-500">
+                Lista interna (não aparece para o cliente).
+                {ajusteManual ? ' · Ajustes manuais registrados.' : ''}
+              </p>
+              {avisosSnapshot.map((a) => (
+                <p key={a} className="mb-1 text-xs text-amber-800">{a}</p>
+              ))}
+              {carregandoMat ? (
+                <p className="text-xs text-slate-400">Carregando materiais…</p>
+              ) : (
+                <>
+                  <ul className="mb-3 space-y-1">
+                    {materiais.map((m) => (
+                      <li key={m.id} className="rounded-lg border border-white bg-white px-2 py-1.5 text-xs">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-800">{m.nome}</p>
+                            {(m.especificacao || m.bitolaModelo) && (
+                              <p className="text-slate-500">
+                                {[m.especificacao, m.bitolaModelo].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                            <p className="text-slate-400">
+                              {m.origem}
+                              {m.observacao ? ` · ${m.observacao}` : ''}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={0.01}
+                                step={0.01}
+                                className="w-20 rounded border px-1 py-0.5 text-right"
+                                defaultValue={num(m.quantidade)}
+                                onBlur={(e) => {
+                                  const q = Number(e.target.value);
+                                  if (q !== num(m.quantidade)) void atualizarQtd(m, q);
+                                }}
+                              />
+                              <span>{m.unidade}</span>
+                            </div>
+                            {m.custoPrevisto != null && (
+                              <p className="mt-0.5 text-slate-600">{formatCurrency(num(m.custoPrevisto))}</p>
+                            )}
+                            <button type="button" className="text-red-600" onClick={() => void removerLinha(m.id)}>
+                              Remover
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                    {!materiais.length && (
+                      <p className="text-xs text-slate-400">
+                        Nenhum material gerado. Cadastre receitas no catálogo ou adicione manualmente.
+                      </p>
+                    )}
+                  </ul>
+                  <p className="mb-3 text-sm font-bold text-primary-800">
+                    Custo previsto total: {formatCurrency(custoPrevistoTotal)}
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Input label="Adicionar material" value={novoMat.nome} onChange={(e) => setNovoMat({ ...novoMat, nome: e.target.value })} />
+                    <Input label="Qtd" type="number" min={0.01} step={0.01} value={novoMat.quantidade} onChange={(e) => setNovoMat({ ...novoMat, quantidade: e.target.value })} />
+                    <Select label="Unidade" value={novoMat.unidade} onChange={(e) => setNovoMat({ ...novoMat, unidade: e.target.value })}>
+                      {['metro', 'unidade', 'rolo', 'kit', 'peca', 'pacote'].map((u) => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </Select>
+                    <Input label="Custo unit. (opcional)" type="number" step={0.01} value={novoMat.custoUnitario} onChange={(e) => setNovoMat({ ...novoMat, custoUnitario: e.target.value })} />
+                  </div>
+                  <Button variant="cta" className="mt-2" onClick={() => void adicionarLinha()}>
+                    Adicionar à OS
+                  </Button>
+                </>
+              )}
             </section>
 
             <section>

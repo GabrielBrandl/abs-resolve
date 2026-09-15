@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { pedidosController, ordemServicoController } from '../controllers/pedidos.controller.js';
+import { receitaTecnicaController } from '../controllers/receita-tecnica.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { checkRole } from '../middlewares/role.middleware.js';
 
@@ -28,6 +29,13 @@ ordemServicoRouter.use(checkRole('admin', 'operacional', 'comercial'));
 
 ordemServicoRouter.get('/etapas', (req, res) => ordemServicoController.etapas(req, res));
 ordemServicoRouter.get('/', (req, res) => ordemServicoController.listar(req, res));
+ordemServicoRouter.get('/:id/materiais', (req, res) => receitaTecnicaController.materiaisOs(req, res));
+ordemServicoRouter.post('/:id/materiais/regenerar', checkRole('admin'), (req, res) =>
+  receitaTecnicaController.regenerarOs(req, res)
+);
+ordemServicoRouter.post('/:id/materiais', (req, res) => receitaTecnicaController.adicionarMaterialOs(req, res));
+ordemServicoRouter.patch('/materiais/:materialId', (req, res) => receitaTecnicaController.atualizarMaterialOs(req, res));
+ordemServicoRouter.delete('/materiais/:materialId', (req, res) => receitaTecnicaController.removerMaterialOs(req, res));
 ordemServicoRouter.get('/:id', (req, res) => ordemServicoController.buscar(req, res));
 ordemServicoRouter.patch('/:id/checklist', (req, res) => ordemServicoController.checklist(req, res));
 ordemServicoRouter.patch('/:id/etapa', (req, res) => ordemServicoController.atualizarEtapa(req, res));

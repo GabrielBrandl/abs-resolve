@@ -5,6 +5,7 @@ import { formatCurrency } from '../../types';
 import { PageHeader, Loading, Button, Badge, Modal, Input, TableWrapper } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 import { useAuthStore } from '../../store/authStore';
+import { ReceitasTecnicasPanel } from './ReceitasTecnicasPanel';
 
 const novoFormVazio = {
   nome: '',
@@ -155,6 +156,7 @@ export function CatalogoAdminPage() {
         : [];
     setForm({
       nome: s.nome,
+      slug: s.slug,
       precoMinimo: Number(s.precoMinimo),
       precoTexto: s.precoTexto || '',
       tipoPreco: s.tipoPreco || 'fixo',
@@ -557,6 +559,9 @@ export function CatalogoAdminPage() {
             <input type="checkbox" checked={form.ativo ?? true} onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))} />
             Ativo
           </label>
+          {editId && form.slug && (
+            <ReceitasTecnicasPanel servicoId={editId} servicoSlug={form.slug} isAdmin={isAdmin} />
+          )}
           <div>
             <p className="mb-1 text-sm font-medium">Serviços relacionados (quem leva este também vê)</p>
             <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border px-3 py-2">

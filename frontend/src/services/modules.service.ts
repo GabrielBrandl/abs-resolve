@@ -5,6 +5,7 @@ import type {
   PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
   EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, EstoqueDashboard, MovimentacaoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin, IaConhecimento,
   ParceiroAdmin, ParceiroDetalhe, DashboardGerencial, FinLancamento, CrmIndicadores, LeadTimelineItem,
+  ReceitaTecnica, ReceitaMaterial, OsMaterial,
 } from '../types';
 
 async function get<T>(url: string) {
@@ -134,6 +135,40 @@ export const osApi = {
   listar: (params?: Record<string, string>) => get<OrdemServico[]>(`/ordens-servico?${new URLSearchParams(params)}`),
   etapa: (id: string, etapa: string) => patch(`/ordens-servico/${id}/etapa`, { etapa }),
   checklist: (id: string, body: unknown) => patch(`/ordens-servico/${id}/checklist`, body),
+  materiais: (osId: string) =>
+    get<{
+      materiais: OsMaterial[];
+      snapshot: unknown;
+      ajusteManual: boolean;
+      custoPrevistoTotal: number;
+    }>(`/ordens-servico/${osId}/materiais`),
+  regenerarMateriais: (osId: string) => post(`/ordens-servico/${osId}/materiais/regenerar`),
+  adicionarMaterial: (
+    osId: string,
+    body: {
+      nome: string;
+      especificacao?: string;
+      bitolaModelo?: string;
+      unidade?: string;
+      quantidade: number;
+      custoUnitario?: number | null;
+      observacao?: string;
+    }
+  ) => post<OsMaterial>(`/ordens-servico/${osId}/materiais`, body),
+  atualizarMaterial: (
+    materialId: string,
+    body: Partial<{
+      nome: string;
+      especificacao: string | null;
+      bitolaModelo: string | null;
+      unidade: string;
+      quantidade: number;
+      custoUnitario: number | null;
+      observacao: string | null;
+      ativo: boolean;
+    }>
+  ) => patch<OsMaterial>(`/ordens-servico/materiais/${materialId}`, body),
+  removerMaterial: (materialId: string) => del(`/ordens-servico/materiais/${materialId}`),
 };
 
 export const pagamentosApi = {
@@ -588,6 +623,37 @@ export const catalogoAdminApi = {
   }>>('/admin/catalogo/orcamentos'),
   responderOrcamento: (id: string, body: { precoFinal: number; observacao?: string }) =>
     post(`/admin/catalogo/orcamentos/${id}/responder`, body),
+  receitas: (servicoId: string) => get<ReceitaTecnica[]>(`/admin/catalogo/servicos/${servicoId}/receitas`),
+  criarReceita: (
+    servicoId: string,
+    body: {
+      nome: string;
+      ativo?: boolean;
+      ordem?: number;
+      perguntaFornecimentoId?: string | null;
+      opcoesAbsFornece?: string[];
+      condicoes?: Array<{ perguntaId: string; opcaoIds: string[] }>;
+    }
+  ) => post<ReceitaTecnica>(`/admin/catalogo/servicos/${servicoId}/receitas`, body),
+  atualizarReceita: (
+    id: string,
+    body: Partial<{
+      nome: string;
+      ativo: boolean;
+      ordem: number;
+      perguntaFornecimentoId: string | null;
+      opcoesAbsFornece: string[];
+      condicoes: Array<{ perguntaId: string; opcaoIds: string[] }>;
+    }>
+  ) => put<ReceitaTecnica>(`/admin/catalogo/receitas/${id}`, body),
+  duplicarReceita: (id: string) => post<ReceitaTecnica>(`/admin/catalogo/receitas/${id}/duplicar`),
+  adicionarMaterialReceita: (
+    receitaId: string,
+    body: Partial<ReceitaMaterial> & { nome: string; tipoCalculo: string }
+  ) => post<ReceitaMaterial>(`/admin/catalogo/receitas/${receitaId}/materiais`, body),
+  atualizarMaterialReceita: (materialId: string, body: Partial<ReceitaMaterial>) =>
+    put<ReceitaMaterial>(`/admin/catalogo/receitas/materiais/${materialId}`, body),
+  removerMaterialReceita: (materialId: string) => del(`/admin/catalogo/receitas/materiais/${materialId}`),
 };
 
 export const iaTreinamentoApi = {

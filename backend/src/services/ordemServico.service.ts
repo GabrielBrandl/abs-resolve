@@ -62,6 +62,7 @@ export class OrdemServicoService {
       where: { id },
       include: {
         tecnico: { select: { id: true, nome: true } },
+        materiais: { where: { ativo: true }, orderBy: [{ ordem: 'asc' }, { nome: 'asc' }] },
         pedido: {
           include: {
             cliente: true,
@@ -88,10 +89,19 @@ export class OrdemServicoService {
     if (!pedido) throw new Error('Pedido não encontrado');
     if (pedido.ordemServico) throw new Error('Pedido já possui ordem de serviço');
 
-    return prisma.ordemServico.create({
+    const os = await prisma.ordemServico.create({
       data: { pedidoId, ...data },
       include: { pedido: { include: { cliente: true } } },
     });
+
+    try {
+      const { receitaTecnicaService } = await import('./receita-tecnica.service.js');
+      await receitaTecnicaService.gerarMateriaisParaOs(os.id);
+    } catch (err) {
+      console.warn('[receita-tecnica] geração falhou:', err instanceof Error ? err.message : err);
+    }
+
+    return this.buscarPorId(os.id);
   }
 
   async atualizarEtapa(id: string, etapa: string) {
