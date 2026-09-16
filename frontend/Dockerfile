@@ -1,15 +1,15 @@
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
-# Invalida cache do build quando o commit muda no EasyPanel/CI
 ARG BUILD_ID=dev
 ENV BUILD_ID=$BUILD_ID
 
 COPY package.json package-lock.json ./
-RUN npm ci
+# bookworm (glibc) evita falha do rolldown em alpine/musl no EasyPanel
+RUN npm ci --include=optional
 
 COPY index.html vite.config.ts tsconfig.json ./
 COPY public ./public

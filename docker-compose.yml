@@ -32,7 +32,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: /api
-        BUILD_ID: 2ccedf1-entrar-mobile
+        BUILD_ID: 3cfdfa0-fix-rolldown
     restart: unless-stopped
     depends_on:
       backend:
