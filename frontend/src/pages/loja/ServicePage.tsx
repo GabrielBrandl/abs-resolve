@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
 import { RelatedRail } from '../../components/loja/RelatedRail';
-import { Breadcrumb, Stars, TrustStrip, YellowButton } from '../../components/loja/store-ui';
+import { Breadcrumb, TrustStrip, YellowButton } from '../../components/loja/store-ui';
 import { useCatalog } from '../../hooks/useCatalog';
 import { addToCart } from '../../store/cartStore';
 import { solicitacaoApi } from '../../services/modules.service';
@@ -1195,7 +1195,6 @@ export function ServicePage() {
         <div>
           <p className="text-[11px] font-black uppercase tracking-wide text-[#002d62]">{servico.categoriaNome}</p>
           <h1 className="mt-1 text-[28px] font-black leading-tight text-[#111827]">{servico.nome}</h1>
-          <Stars value={4.9} count={186} />
           <div className="mt-4 rounded-[10px] border border-[#e6e8ee] bg-[#f8fafc] p-4">
             <p className="text-xs text-slate-500">
               {qty > 1 ? `Total · ${qty} un.` : slug === 'instalacao-ar-split' && total > 0 ? 'Total estimado' : 'A partir de'}
@@ -1387,7 +1386,7 @@ export function ServicePage() {
                                   <img
                                     src={v?.imagemUrl}
                                     alt={m.nome}
-                                    className="mb-2 h-28 w-full rounded-lg object-cover"
+                                    className="mb-2 h-28 w-full rounded-lg bg-[#eef3fb] object-contain object-center p-1.5"
                                   />
                                   <p className="text-sm font-black text-[#111827]">{m.nome}</p>
                                   <p className="mt-0.5 text-xs text-slate-500">

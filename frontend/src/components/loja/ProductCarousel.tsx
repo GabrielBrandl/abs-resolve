@@ -133,10 +133,10 @@ export function ProductCarouselItem({
       data-carousel-slide
       className={`shrink-0 snap-start ${
         rail
-          ? 'w-[11.25rem] sm:w-[12rem]'
+          ? 'w-[13rem] sm:w-[14rem]'
           : compact
             ? 'w-[88vw] max-w-[20rem] md:w-auto md:max-w-none'
-            : 'w-[82vw] max-w-[17.5rem] md:w-auto md:max-w-none'
+            : 'w-[85vw] max-w-[18.5rem] md:w-auto md:max-w-none'
       } ${className}`}
     >
       {children}

@@ -58,15 +58,6 @@ export function StoreCard({ children, className = '' }: { children: React.ReactN
   return <div className={`rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm ${className}`}>{children}</div>;
 }
 
-export function Stars({ value = 4.9, count }: { value?: number; count?: number }) {
-  return (
-    <p className="text-sm font-medium text-amber-500">
-      ★ {value.toFixed(1).replace('.', ',')}
-      {count != null && <span className="ml-1 font-normal text-slate-500">({count})</span>}
-    </p>
-  );
-}
-
 export function CashbackTag({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex min-w-[2.6rem] flex-col items-center rounded-md bg-[#fff4cc] px-1.5 py-0.5 text-center text-[9px] font-black uppercase leading-tight tracking-wide text-[#9a7200]">

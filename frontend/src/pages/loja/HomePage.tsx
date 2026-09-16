@@ -89,18 +89,14 @@ export function HomePage() {
 
       <BrandMarquee />
 
-      <section className="flex flex-col gap-4 rounded-[14px] border border-[#e6e8ee] bg-white px-4 py-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <div className="-mx-1 flex flex-1 gap-4 overflow-x-auto pb-1 scrollbar-none sm:flex-wrap sm:overflow-visible sm:pb-0">
+      <section className="rounded-[14px] border border-[#e6e8ee] bg-white px-4 py-4 shadow-[0_4px_14px_rgba(15,23,42,0.04)] sm:px-5">
+        <div className="-mx-1 flex gap-4 overflow-x-auto pb-1 scrollbar-none sm:flex-wrap sm:overflow-visible sm:pb-0">
           {TRUST_LINE.map((item) => (
             <p key={item.text} className="flex shrink-0 items-center gap-2 text-[12px] font-semibold text-[#334155] sm:shrink">
               <item.Icon className="h-4 w-4 text-[#002d62]" />
               {item.text}
             </p>
           ))}
-        </div>
-        <div className="shrink-0 rounded-lg border border-[#e6e8ee] px-4 py-2 text-center">
-          <p className="text-[11px] font-bold text-[#002d62]">Nossos clientes recomendam!</p>
-          <p className="text-sm font-black text-amber-500">★★★★★ 4,8/5</p>
         </div>
       </section>
     </div>

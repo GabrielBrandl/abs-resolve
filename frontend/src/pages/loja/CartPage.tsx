@@ -103,7 +103,7 @@ export function CartPage() {
               <img
                 src={item.imagemUrl || '/logo.png'}
                 alt=""
-                className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover"
+                className="h-[72px] w-[72px] shrink-0 rounded-lg bg-[#eef3fb] object-contain object-center p-1"
               />
               <div className="min-w-0 flex-1">
                 <p className="font-bold leading-tight text-[#111827]">{item.nome}</p>

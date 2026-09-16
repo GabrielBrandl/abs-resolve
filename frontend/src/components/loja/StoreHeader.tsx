@@ -135,7 +135,7 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
                       onClick={() => goItem(s.slug, s.tipo)}
                       className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-slate-50"
                     >
-                      <img src={fotoServico(s)} alt="" className="h-11 w-11 rounded-md object-cover" />
+                      <img src={fotoServico(s)} alt="" className="h-11 w-11 rounded-md bg-[#eef3fb] object-contain object-center p-0.5" />
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-bold text-[#002d62]">{s.nome}</span>
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -209,7 +209,7 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
                       onClick={() => goItem(s.slug, s.tipo)}
                       className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-slate-50"
                     >
-                      <img src={fotoServico(s)} alt="" className="h-11 w-11 rounded-md object-cover" />
+                      <img src={fotoServico(s)} alt="" className="h-11 w-11 rounded-md bg-[#eef3fb] object-contain object-center p-0.5" />
                       <span className="truncate text-sm font-bold text-[#002d62]">{s.nome}</span>
                     </button>
                   </li>

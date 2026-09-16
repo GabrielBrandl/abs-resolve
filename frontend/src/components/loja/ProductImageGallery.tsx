@@ -17,15 +17,15 @@ type Props = {
 
 function comCacheBust(url: string) {
   if (!url) return url;
-  return `${url}${url.includes('?') ? '&' : '?'}v=3`;
+  return `${url}${url.includes('?') ? '&' : '?'}v=4`;
 }
 
-/** Galeria de produto/serviço: capa + miniaturas; troca de destaque sem quebrar layout. */
+/** Galeria de produto/serviço: capa + miniaturas; imagem inteira sem cortar. */
 export function ProductImageGallery({
   item,
   destaqueUrl,
   className = '',
-  heightClass = 'h-[280px]',
+  heightClass = 'aspect-[4/3] min-h-[220px] sm:min-h-[260px] sm:aspect-[5/4]',
 }: Props) {
   const fotosBase = galeriaServico(item);
   const reserva = fallbackFotoServico(item);
@@ -51,11 +51,11 @@ export function ProductImageGallery({
 
   return (
     <div className={`overflow-hidden rounded-[12px] bg-white shadow-sm ${className}`}>
-      <div className={`relative ${heightClass} w-full overflow-hidden bg-[#dbe7f5]`}>
+      <div className={`relative ${heightClass} w-full overflow-hidden bg-[#eef3fb]`}>
         <img
           src={comCacheBust(mostrar)}
           alt={item.nome || ''}
-          className="h-full w-full object-cover object-center transition-opacity duration-200 ease-out"
+          className="absolute inset-0 h-full w-full object-contain object-center p-3 transition-opacity duration-200 ease-out sm:p-4"
           style={{ opacity: opacidade }}
           decoding="async"
           onError={(e) => {
@@ -76,11 +76,11 @@ export function ProductImageGallery({
               key={`${url}-${i}`}
               type="button"
               onClick={() => setIdx(i)}
-              className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 sm:h-16 sm:w-16 ${
+              className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 bg-[#eef3fb] sm:h-16 sm:w-16 ${
                 i === safeIdx ? 'border-[#002d62]' : 'border-transparent opacity-80 hover:opacity-100'
               }`}
             >
-              <img src={url} alt="" className="h-full w-full object-cover" />
+              <img src={url} alt="" className="h-full w-full object-contain object-center p-1" />
             </button>
           ))}
         </div>

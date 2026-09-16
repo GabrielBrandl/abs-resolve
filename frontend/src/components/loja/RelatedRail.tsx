@@ -30,8 +30,8 @@ export function RelatedRail({
           return (
             <ProductCarouselItem key={s.slug} compact>
               <article className="flex h-full gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-              <Link to={itemPath(s)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-[#dbe7f5]">
-                <img src={fotoServico(s)} alt="" className="h-full w-full object-cover" />
+              <Link to={itemPath(s)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-[#eef3fb]">
+                <img src={fotoServico(s)} alt="" className="h-full w-full object-contain object-center p-1.5" />
               </Link>
               <div className="min-w-0 flex-1">
                 <Link to={itemPath(s)} className="line-clamp-2 text-sm font-bold text-primary-950">

@@ -26,16 +26,19 @@ export function ServiceCard({
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-[12px] border border-[#e6e8ee] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-      <Link to={href} className="relative block h-32 shrink-0 overflow-hidden bg-[#dbe7f5] sm:h-36">
+      <Link
+        to={href}
+        className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden bg-[#eef3fb] sm:aspect-[5/4]"
+      >
         {!semFoto ? (
           <img
-            src={`${src}${src.includes('?') ? '&' : '?'}v=3`}
+            src={`${src}${src.includes('?') ? '&' : '?'}v=4`}
             alt=""
             width={400}
-            height={144}
+            height={300}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-cover object-center"
+            className="h-full w-full object-contain object-center p-2.5 sm:p-3"
             onError={() => {
               if (src !== reserva && reserva !== src) setSrc(reserva);
               else setSemFoto(true);
@@ -44,9 +47,11 @@ export function ServiceCard({
         ) : (
           <div className="h-full w-full bg-[linear-gradient(135deg,#d7e4f4_0%,#b9cbe4_100%)]" />
         )}
-        <span className="absolute left-2 top-2 rounded-md bg-white/95 px-2 py-1 text-[11px] font-bold text-[#002d62] shadow-sm">
-          {isPeca ? 'Peça avulsa' : '★ Avaliação 4,9'}
-        </span>
+        {isPeca ? (
+          <span className="absolute left-2 top-2 rounded-md bg-white/95 px-2 py-1 text-[11px] font-bold text-[#002d62] shadow-sm">
+            Peça avulsa
+          </span>
+        ) : null}
       </Link>
       <div className="flex flex-1 flex-col p-3.5">
         <Link to={href} className="line-clamp-2 min-h-10 text-[15px] font-extrabold leading-tight text-[#111827]">
