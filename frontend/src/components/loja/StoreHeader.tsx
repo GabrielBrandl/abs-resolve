@@ -151,23 +151,40 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
           </form>
 
           {user && isClienteRole(user.role) ? (
-            <Link to="/conta" className="hidden shrink-0 items-center gap-2 text-[#002d62] sm:flex">
-              <IconUser className="h-8 w-8" />
-              <span className="text-[13px] font-semibold leading-tight">
-                Olá, {firstName}
-                <span className="block text-[11px] font-medium text-slate-500">Minha conta</span>
+            <Link
+              to="/conta"
+              className="flex shrink-0 items-center gap-1.5 text-[#002d62] sm:gap-2"
+              aria-label={`Minha conta, ${firstName}`}
+            >
+              <IconUser className="h-7 w-7 sm:h-8 sm:w-8" />
+              <span className="text-[12px] font-semibold leading-tight sm:text-[13px]">
+                <span className="sm:hidden">Conta</span>
+                <span className="hidden sm:inline">
+                  Olá, {firstName}
+                  <span className="block text-[11px] font-medium text-slate-500">Minha conta</span>
+                </span>
               </span>
             </Link>
           ) : user ? (
-            <Link to={getHomeForRole(user.role)} className="hidden text-sm font-semibold text-[#002d62] sm:block">
-              Painel interno
+            <Link
+              to={getHomeForRole(user.role)}
+              className="shrink-0 text-xs font-semibold text-[#002d62] sm:text-sm"
+            >
+              Painel
             </Link>
           ) : (
-            <Link to="/login" className="hidden shrink-0 items-center gap-2 text-[#002d62] sm:flex">
-              <IconUser className="h-8 w-8" />
-              <span className="text-[13px] font-semibold leading-tight">
-                Entrar ou
-                <span className="block">cadastrar</span>
+            <Link
+              to="/login"
+              className="flex shrink-0 items-center gap-1.5 text-[#002d62] sm:gap-2"
+              aria-label="Entrar ou cadastrar"
+            >
+              <IconUser className="h-7 w-7 sm:h-8 sm:w-8" />
+              <span className="text-[12px] font-semibold leading-tight sm:text-[13px]">
+                <span className="sm:hidden">Entrar</span>
+                <span className="hidden sm:block">
+                  Entrar ou
+                  <span className="block">cadastrar</span>
+                </span>
               </span>
             </Link>
           )}
