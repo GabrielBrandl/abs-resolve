@@ -11,11 +11,11 @@ const TRUST_ICONS = {
 
 export function AbsBrand() {
   return (
-    <Link to="/" className="flex min-w-0 items-center gap-3">
+    <Link to="/" className="flex min-w-0 max-w-[42vw] items-center gap-3 sm:max-w-none">
       <img
         src="/logo-abs-resolve.png"
         alt="ABS Resolve"
-        className="h-11 w-auto max-w-[148px] object-contain object-left"
+        className="h-9 w-auto max-w-full object-contain object-left sm:h-11 sm:max-w-[148px]"
         width={148}
         height={44}
         decoding="async"

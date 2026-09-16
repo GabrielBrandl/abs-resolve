@@ -104,8 +104,10 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
       </div>
 
       <div className="border-b border-[#e6e8ee] bg-white">
-        <div className="mx-auto flex h-[76px] max-w-[1180px] items-center gap-4 px-4">
-          <AbsBrand />
+        <div className="mx-auto flex h-[64px] max-w-[1180px] items-center gap-2 px-3 sm:h-[76px] sm:gap-4 sm:px-4">
+          <div className="min-w-0 shrink">
+            <AbsBrand />
+          </div>
 
           <form onSubmit={search} className="relative hidden min-w-0 flex-1 md:flex" ref={boxRef}>
             <input
@@ -150,57 +152,59 @@ export function StoreHeader({ showCategories = true }: { showCategories?: boolea
             )}
           </form>
 
-          {user && isClienteRole(user.role) ? (
-            <Link
-              to="/conta"
-              className="flex shrink-0 items-center gap-1.5 text-[#002d62] sm:gap-2"
-              aria-label={`Minha conta, ${firstName}`}
-            >
-              <IconUser className="h-7 w-7 sm:h-8 sm:w-8" />
-              <span className="text-[12px] font-semibold leading-tight sm:text-[13px]">
-                <span className="sm:hidden">Conta</span>
-                <span className="hidden sm:inline">
-                  Olá, {firstName}
-                  <span className="block text-[11px] font-medium text-slate-500">Minha conta</span>
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            {user && isClienteRole(user.role) ? (
+              <Link
+                to="/conta"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#d5d9e2] bg-white px-2.5 py-2 text-[#002d62] sm:border-0 sm:bg-transparent sm:px-0 sm:py-0"
+                aria-label={`Minha conta, ${firstName}`}
+              >
+                <IconUser className="h-6 w-6 sm:h-8 sm:w-8" />
+                <span className="text-[12px] font-bold leading-none sm:text-[13px] sm:font-semibold sm:leading-tight">
+                  <span className="sm:hidden">Conta</span>
+                  <span className="hidden sm:inline">
+                    Olá, {firstName}
+                    <span className="block text-[11px] font-medium text-slate-500">Minha conta</span>
+                  </span>
                 </span>
-              </span>
-            </Link>
-          ) : user ? (
-            <Link
-              to={getHomeForRole(user.role)}
-              className="shrink-0 text-xs font-semibold text-[#002d62] sm:text-sm"
-            >
-              Painel
-            </Link>
-          ) : (
-            <Link
-              to="/login"
-              className="flex shrink-0 items-center gap-1.5 text-[#002d62] sm:gap-2"
-              aria-label="Entrar ou cadastrar"
-            >
-              <IconUser className="h-7 w-7 sm:h-8 sm:w-8" />
-              <span className="text-[12px] font-semibold leading-tight sm:text-[13px]">
-                <span className="sm:hidden">Entrar</span>
-                <span className="hidden sm:block">
-                  Entrar ou
-                  <span className="block">cadastrar</span>
+              </Link>
+            ) : user ? (
+              <Link
+                to={getHomeForRole(user.role)}
+                className="inline-flex items-center rounded-lg border border-[#d5d9e2] px-2.5 py-2 text-xs font-bold text-[#002d62] sm:border-0 sm:px-0 sm:py-0 sm:text-sm sm:font-semibold"
+              >
+                Painel
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#002d62] px-3 py-2 text-white sm:bg-transparent sm:px-0 sm:py-0 sm:text-[#002d62]"
+                aria-label="Entrar ou cadastrar"
+              >
+                <IconUser className="h-5 w-5 sm:h-8 sm:w-8" />
+                <span className="text-[12px] font-bold leading-none sm:text-[13px] sm:font-semibold sm:leading-tight">
+                  <span className="sm:hidden">Entrar</span>
+                  <span className="hidden sm:block">
+                    Entrar ou
+                    <span className="block">cadastrar</span>
+                  </span>
                 </span>
-              </span>
-            </Link>
-          )}
+              </Link>
+            )}
 
-          <Link to="/carrinho" className="relative flex shrink-0 items-center gap-2 text-[#002d62]">
-            <span className="relative">
-              <IconCart className="h-8 w-8" />
-              <span className="absolute -right-1.5 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ffb800] px-1 text-[10px] font-black text-[#002d62]">
-                {count}
+            <Link to="/carrinho" className="relative inline-flex items-center gap-2 text-[#002d62]">
+              <span className="relative">
+                <IconCart className="h-8 w-8" />
+                <span className="absolute -right-1.5 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ffb800] px-1 text-[10px] font-black text-[#002d62]">
+                  {count}
+                </span>
               </span>
-            </span>
-            <span className="hidden text-[13px] font-semibold leading-tight sm:block">
-              Meus serviços
-              <span className="block font-bold">{money(total)}</span>
-            </span>
-          </Link>
+              <span className="hidden text-[13px] font-semibold leading-tight sm:block">
+                Meus serviços
+                <span className="block font-bold">{money(total)}</span>
+              </span>
+            </Link>
+          </div>
         </div>
         <form onSubmit={search} className="px-4 pb-3 md:hidden">
           <div className="relative flex">
