@@ -113,11 +113,10 @@ export class FinanceiroController {
     try {
       return success(
         res,
-        await financeiroService.baixarLancamento(
-          req.params.id as string,
-          req.body?.dataMovimento,
-          req.body?.contaId
-        )
+        await financeiroService.baixarLancamento(req.params.id as string, {
+          ...req.body,
+          usuarioId: req.user?.userId,
+        })
       );
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);

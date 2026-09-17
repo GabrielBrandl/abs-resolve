@@ -105,6 +105,8 @@ export function NovaVendaPage() {
   const [observacoes, setObservacoes] = useState('');
   const [metodoPagamento, setMetodoPagamento] = useState('PIX');
   const [pagoCompleto, setPagoCompleto] = useState(true);
+  const [percentualPago, setPercentualPago] = useState('100');
+  const [valorPagoAgora, setValorPagoAgora] = useState('');
   const [agendarApos, setAgendarApos] = useState(true);
 
   const leadId = searchParams.get('lead') || undefined;
@@ -164,6 +166,13 @@ export function NovaVendaPage() {
   );
   const descontoNum = isAdmin && descontoValor ? Math.max(0, Number(descontoValor) || 0) : 0;
   const total = Math.max(0, Math.round((subtotal - descontoNum) * 100) / 100);
+  const valorPagoNum = (() => {
+    if (pagoCompleto) return total;
+    if (valorPagoAgora.trim()) return Math.min(total, Math.max(0, Number(valorPagoAgora) || 0));
+    const pct = Math.min(100, Math.max(0, Number(percentualPago) || 0));
+    return Math.round(((total * pct) / 100) * 100) / 100;
+  })();
+  const saldoReceberNum = Math.round((total - valorPagoNum) * 100) / 100;
 
   const selecionarCliente = async (id: string) => {
     const full = await clientesApi.buscar(id);
@@ -287,7 +296,11 @@ export function NovaVendaPage() {
         motivoAjuste: motivoAjuste || null,
         observacoes: observacoes || null,
         ...(modo === 'pedido'
-          ? { metodoPagamento, pagoCompleto }
+          ? {
+              metodoPagamento,
+              pagoCompleto: valorPagoNum >= total - 0.009,
+              valorPagoAgora: valorPagoNum,
+            }
           : {}),
         itens: itens.map((i) => ({
           slug: i.slug,
@@ -300,7 +313,13 @@ export function NovaVendaPage() {
         navigate('/admin/orcamentos');
       } else {
         toast(
-          `Pedido ${result.pedido?.numero} criado${pagoCompleto ? ' (pago)' : ' (pagamento pendente)'}!`,
+          `Pedido ${result.pedido?.numero} criado${
+            valorPagoNum >= total - 0.009
+              ? ' (pago)'
+              : valorPagoNum > 0
+                ? ` (entrada ${formatCurrency(valorPagoNum)}; saldo a receber ${formatCurrency(saldoReceberNum)})`
+                : ' (pagamento pendente)'
+          }!`,
           'success'
         );
         if (agendarApos && result.pedido?.id) {
@@ -742,11 +761,47 @@ export function NovaVendaPage() {
                   <input
                     type="checkbox"
                     checked={pagoCompleto}
-                    onChange={(e) => setPagoCompleto(e.target.checked)}
+                    onChange={(e) => {
+                      setPagoCompleto(e.target.checked);
+                      if (e.target.checked) {
+                        setPercentualPago('100');
+                        setValorPagoAgora('');
+                      } else {
+                        setPercentualPago('50');
+                      }
+                    }}
                     className="h-4 w-4 rounded border-slate-300"
                   />
                   Cliente já pagou completo
                 </label>
+                {!pagoCompleto && (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Input
+                      label="% pago agora"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={percentualPago}
+                      onChange={(e) => {
+                        setPercentualPago(e.target.value);
+                        setValorPagoAgora('');
+                      }}
+                    />
+                    <Input
+                      label="Valor pago agora (R$)"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={valorPagoAgora}
+                      onChange={(e) => setValorPagoAgora(e.target.value)}
+                      placeholder="Ou digite o valor"
+                    />
+                    <p className="sm:col-span-2 text-xs text-slate-600">
+                      Entrada: {formatCurrency(valorPagoNum)} · Saldo a receber (conclusão):{' '}
+                      {formatCurrency(saldoReceberNum)}
+                    </p>
+                  </div>
+                )}
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input
                     type="checkbox"

@@ -675,6 +675,7 @@ model FinConta {
   lancamentos  FinLancamento[] @relation("ContaOrigem")
   transferenciasRecebidas FinLancamento[] @relation("ContaDestino")
   recorrencias FinRecorrencia[]
+  baixas       FinBaixa[]
 
   @@map("fin_contas")
 }
@@ -692,8 +693,8 @@ model FinCentroCusto {
 
 /**
  * natureza: receita | despesa | transferencia
- * status receita: prevista | a_receber | recebida | vencida | cancelada | estornada
- * status despesa: prevista | a_pagar | paga | vencida | cancelada
+ * status receita: prevista | a_receber | parcial | recebida | vencida | cancelada | estornada
+ * status despesa: prevista | a_pagar | parcial | paga | vencida | cancelada
  */
 model FinLancamento {
   id              String           @id @default(uuid())
@@ -707,7 +708,14 @@ model FinLancamento {
   pedidoId        String?          @map("pedido_id")
   ordemServicoId  String?          @map("ordem_servico_id")
   pagamentoId     String?          @unique @map("pagamento_id")
+  /** Valor original da obrigação (não muda com baixas). */
   valor           Decimal          @db.Decimal(14, 2)
+  /** Soma do principal já liquidado nas baixas. */
+  valorPago       Decimal          @default(0) @map("valor_pago") @db.Decimal(14, 2)
+  jurosPago       Decimal          @default(0) @map("juros_pago") @db.Decimal(14, 2)
+  multaPaga       Decimal          @default(0) @map("multa_paga") @db.Decimal(14, 2)
+  descontoConcedido Decimal        @default(0) @map("desconto_concedido") @db.Decimal(14, 2)
+  taxaPaga        Decimal          @default(0) @map("taxa_paga") @db.Decimal(14, 2)
   dataCompetencia DateTime         @map("data_competencia")
   dataVencimento  DateTime?        @map("data_vencimento")
   dataMovimento   DateTime?        @map("data_movimento")
@@ -718,6 +726,10 @@ model FinLancamento {
   recorrenciaId   String?          @map("recorrencia_id")
   anexoUrl        String?          @map("anexo_url")
   observacoes     String?
+  parcelaNumero   Int?             @map("parcela_numero")
+  parcelaTotal    Int?             @map("parcela_total")
+  grupoParcelasId String?          @map("grupo_parcelas_id")
+  historico       Json?
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
   categoria       FinCategoria?    @relation(fields: [categoriaId], references: [id])
@@ -730,6 +742,7 @@ model FinLancamento {
   conta           FinConta?        @relation("ContaOrigem", fields: [contaId], references: [id])
   contaDestino    FinConta?        @relation("ContaDestino", fields: [contaDestinoId], references: [id])
   recorrencia     FinRecorrencia?  @relation(fields: [recorrenciaId], references: [id])
+  baixas          FinBaixa[]
 
   @@index([natureza, status])
   @@index([dataCompetencia])
@@ -737,7 +750,38 @@ model FinLancamento {
   @@index([dataVencimento])
   @@index([clienteId])
   @@index([pedidoId])
+  @@index([grupoParcelasId])
   @@map("fin_lancamentos")
+}
+
+/** Baixa individual (pagamento/recebimento/estorno) de um lançamento. */
+model FinBaixa {
+  id                   String        @id @default(uuid())
+  lancamentoId         String        @map("lancamento_id")
+  tipo                 String        @default("baixa")
+  dataMovimento        DateTime      @map("data_movimento")
+  valorPrincipal       Decimal       @map("valor_principal") @db.Decimal(14, 2)
+  juros                Decimal       @default(0) @db.Decimal(14, 2)
+  multa                Decimal       @default(0) @db.Decimal(14, 2)
+  desconto             Decimal       @default(0) @db.Decimal(14, 2)
+  taxa                 Decimal       @default(0) @db.Decimal(14, 2)
+  /** Valor que efetivamente moveu o caixa (principal+juros+multa-desconto-taxa). */
+  valorLiquido         Decimal       @map("valor_liquido") @db.Decimal(14, 2)
+  contaId              String?       @map("conta_id")
+  formaPagamento       String?       @map("forma_pagamento")
+  anexoUrl             String?       @map("anexo_url")
+  observacoes          String?
+  usuarioId            String?       @map("usuario_id")
+  estornado            Boolean       @default(false)
+  baixaOrigemId        String?       @map("baixa_origem_id")
+  asaasId              String?       @map("asaas_id")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  lancamento           FinLancamento @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
+  conta                FinConta?     @relation(fields: [contaId], references: [id])
+
+  @@index([lancamentoId])
+  @@index([dataMovimento])
+  @@map("fin_baixas")
 }
 
 model FinRecorrencia {

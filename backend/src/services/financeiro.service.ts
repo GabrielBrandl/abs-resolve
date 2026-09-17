@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { toNumber } from '../utils/helpers.js';
 import {
@@ -303,16 +304,23 @@ export class FinanceiroService {
 
     const agora = new Date();
     return {
-      items: items.map((l) => ({
-        ...l,
-        valor: toNumber(l.valor),
-        statusEfetivo:
-          l.natureza === 'receita'
-            ? statusReceitaEfetivo(l.status, l.dataVencimento, agora)
-            : l.natureza === 'despesa'
-              ? statusDespesaEfetivo(l.status, l.dataVencimento, agora)
-              : l.status,
-      })),
+      items: items.map((l) => {
+        const valor = toNumber(l.valor);
+        const valorPago = toNumber((l as { valorPago?: unknown }).valorPago);
+        const saldo = round2(Math.max(0, valor - valorPago));
+        return {
+          ...l,
+          valor,
+          valorPago,
+          saldo,
+          statusEfetivo:
+            l.natureza === 'receita'
+              ? statusReceitaEfetivo(l.status, l.dataVencimento, agora)
+              : l.natureza === 'despesa'
+                ? statusDespesaEfetivo(l.status, l.dataVencimento, agora)
+                : l.status,
+        };
+      }),
       total,
       page,
       totalPages: Math.ceil(total / limit),
@@ -358,11 +366,14 @@ export class FinanceiroService {
       else status = 'paga';
     }
 
+    const liquidado = status === 'recebida' || status === 'paga';
+
     return prisma.finLancamento.create({
       data: {
         natureza: data.natureza,
         descricao: data.descricao,
         valor: data.valor,
+        valorPago: liquidado ? data.valor : 0,
         dataCompetencia: inicioDiaBrasil(data.dataCompetencia.slice(0, 10)),
         dataVencimento: data.dataVencimento
           ? inicioDiaBrasil(data.dataVencimento.slice(0, 10))
@@ -387,6 +398,14 @@ export class FinanceiroService {
         observacoes: data.observacoes || null,
         recorrenciaId: data.recorrenciaId || null,
         pagamentoId: data.pagamentoId || null,
+        historico: [
+          {
+            em: new Date().toISOString(),
+            acao: 'criado',
+            status,
+            valor: data.valor,
+          },
+        ] as Prisma.InputJsonValue,
       },
       include: { categoria: true, subcategoria: true, conta: true, cliente: true },
     });
@@ -406,18 +425,130 @@ export class FinanceiroService {
     });
   }
 
-  async baixarLancamento(id: string, dataMovimento?: string, contaId?: string) {
-    const l = await prisma.finLancamento.findUnique({ where: { id } });
-    if (!l) throw new Error('Lançamento não encontrado');
-    const mov = dataMovimento ? inicioDiaBrasil(dataMovimento.slice(0, 10)) : new Date();
-    const status = l.natureza === 'receita' ? 'recebida' : l.natureza === 'despesa' ? 'paga' : l.status;
-    return prisma.finLancamento.update({
+  async baixarLancamento(
+    id: string,
+    input: {
+      dataMovimento?: string;
+      contaId?: string;
+      valorPrincipal?: number;
+      juros?: number;
+      multa?: number;
+      desconto?: number;
+      taxa?: number;
+      formaPagamento?: string;
+      observacoes?: string;
+      anexoUrl?: string;
+      usuarioId?: string;
+    } = {}
+  ) {
+    const l = await prisma.finLancamento.findUnique({
       where: { id },
-      data: {
-        dataMovimento: mov,
-        status,
-        ...(contaId ? { contaId } : {}),
+      include: { baixas: { where: { estornado: false } } },
+    });
+    if (!l) throw new Error('Lançamento não encontrado');
+    if (['cancelada', 'estornada'].includes(l.status)) {
+      throw new Error('Lançamento cancelado/estornado não pode ser baixado');
+    }
+    if (['recebida', 'paga'].includes(l.status)) {
+      throw new Error('Lançamento já está liquidado');
+    }
+
+    const valorOriginal = toNumber(l.valor);
+    const jaPago = toNumber(l.valorPago);
+    const saldo = round2(Math.max(0, valorOriginal - jaPago));
+    if (saldo <= 0) throw new Error('Não há saldo em aberto');
+
+    const juros = Math.max(0, Number(input.juros) || 0);
+    const multa = Math.max(0, Number(input.multa) || 0);
+    const desconto = Math.max(0, Number(input.desconto) || 0);
+    const taxa = Math.max(0, Number(input.taxa) || 0);
+    let principal = input.valorPrincipal != null ? Number(input.valorPrincipal) : saldo;
+    if (!(principal > 0)) throw new Error('Informe o valor do pagamento');
+    principal = round2(Math.min(principal, saldo));
+
+    const valorLiquido = round2(principal + juros + multa - desconto - taxa);
+    if (valorLiquido < 0) throw new Error('Valor líquido inválido');
+
+    const mov = input.dataMovimento
+      ? inicioDiaBrasil(input.dataMovimento.slice(0, 10))
+      : new Date();
+
+    const novoPago = round2(jaPago + principal);
+    const liquidado = novoPago + 0.001 >= valorOriginal;
+    const status = liquidado
+      ? l.natureza === 'receita'
+        ? 'recebida'
+        : 'paga'
+      : 'parcial';
+
+    const historicoAtual = Array.isArray(l.historico) ? (l.historico as object[]) : [];
+    const evento = {
+      em: new Date().toISOString(),
+      acao: liquidado ? 'baixa_total' : 'baixa_parcial',
+      usuarioId: input.usuarioId || null,
+      dataMovimento: ymdBrasil(mov),
+      valorPrincipal: principal,
+      juros,
+      multa,
+      desconto,
+      taxa,
+      valorLiquido,
+      saldoApos: round2(Math.max(0, valorOriginal - novoPago)),
+    };
+
+    const [baixa] = await prisma.$transaction([
+      prisma.finBaixa.create({
+        data: {
+          lancamentoId: id,
+          tipo: 'baixa',
+          dataMovimento: mov,
+          valorPrincipal: principal,
+          juros,
+          multa,
+          desconto,
+          taxa,
+          valorLiquido,
+          contaId: input.contaId || l.contaId || null,
+          formaPagamento: input.formaPagamento || l.formaPagamento || null,
+          anexoUrl: input.anexoUrl || null,
+          observacoes: input.observacoes || null,
+          usuarioId: input.usuarioId || null,
+        },
+      }),
+      prisma.finLancamento.update({
+        where: { id },
+        data: {
+          valorPago: novoPago,
+          jurosPago: round2(toNumber(l.jurosPago) + juros),
+          multaPaga: round2(toNumber(l.multaPaga) + multa),
+          descontoConcedido: round2(toNumber(l.descontoConcedido) + desconto),
+          taxaPaga: round2(toNumber(l.taxaPaga) + taxa),
+          dataMovimento: mov,
+          status,
+          ...(input.contaId ? { contaId: input.contaId } : {}),
+          ...(input.formaPagamento ? { formaPagamento: input.formaPagamento } : {}),
+          historico: [...historicoAtual, evento] as Prisma.InputJsonValue,
+        },
+      }),
+    ]);
+
+    return prisma.finLancamento.findUnique({
+      where: { id },
+      include: {
+        categoria: true,
+        subcategoria: true,
+        conta: true,
+        cliente: true,
+        baixas: { orderBy: { createdAt: 'asc' }, include: { conta: true } },
       },
+    }).then((row) => ({ ...row, baixa }));
+  }
+
+  async listarBaixas(lancamentoId: string) {
+    return prisma.finBaixa.findMany({
+      where: { lancamentoId },
+      include: { conta: true },
+      orderBy: { dataMovimento: 'asc' },
     });
   }
 
@@ -763,12 +894,12 @@ export class FinanceiroService {
     const agora = new Date();
 
     const aReceber = await prisma.finLancamento.findMany({
-      where: { natureza: 'receita', status: { in: ['prevista', 'a_receber', 'vencida'] } },
-      select: { valor: true, status: true, dataVencimento: true },
+      where: { natureza: 'receita', status: { in: ['prevista', 'a_receber', 'parcial', 'vencida'] } },
+      select: { valor: true, valorPago: true, status: true, dataVencimento: true },
     });
     const aPagar = await prisma.finLancamento.findMany({
-      where: { natureza: 'despesa', status: { in: ['prevista', 'a_pagar', 'vencida'] } },
-      select: { valor: true, status: true, dataVencimento: true },
+      where: { natureza: 'despesa', status: { in: ['prevista', 'a_pagar', 'parcial', 'vencida'] } },
+      select: { valor: true, valorPago: true, status: true, dataVencimento: true },
     });
 
     let totalAReceber = 0;
@@ -776,13 +907,15 @@ export class FinanceiroService {
     let vencidos = 0;
     for (const r of aReceber) {
       const st = statusReceitaEfetivo(r.status, r.dataVencimento, agora);
-      totalAReceber += toNumber(r.valor);
-      if (st === 'vencida') vencidos += toNumber(r.valor);
+      const saldo = round2(Math.max(0, toNumber(r.valor) - toNumber(r.valorPago)));
+      totalAReceber += saldo;
+      if (st === 'vencida' || st === 'parcial_vencida') vencidos += saldo;
     }
     for (const d of aPagar) {
       const st = statusDespesaEfetivo(d.status, d.dataVencimento, agora);
-      totalAPagar += toNumber(d.valor);
-      if (st === 'vencida') vencidos += toNumber(d.valor);
+      const saldo = round2(Math.max(0, toNumber(d.valor) - toNumber(d.valorPago)));
+      totalAPagar += saldo;
+      if (st === 'vencida' || st === 'parcial_vencida') vencidos += saldo;
     }
 
     const { inicio, fim } = resolverPeriodo(params);

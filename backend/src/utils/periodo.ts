@@ -176,6 +176,10 @@ export function statusReceitaEfetivo(
   agora = new Date()
 ): string {
   if (['recebida', 'cancelada', 'estornada'].includes(status)) return status;
+  if (status === 'parcial') {
+    if (dataVencimento && dataVencimento < agora) return 'parcial_vencida';
+    return 'parcial';
+  }
   if (dataVencimento && dataVencimento < agora && ['prevista', 'a_receber'].includes(status)) {
     return 'vencida';
   }
@@ -188,6 +192,10 @@ export function statusDespesaEfetivo(
   agora = new Date()
 ): string {
   if (['paga', 'cancelada'].includes(status)) return status;
+  if (status === 'parcial') {
+    if (dataVencimento && dataVencimento < agora) return 'parcial_vencida';
+    return 'parcial';
+  }
   if (dataVencimento && dataVencimento < agora && ['prevista', 'a_pagar'].includes(status)) {
     return 'vencida';
   }

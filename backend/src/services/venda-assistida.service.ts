@@ -45,8 +45,10 @@ export type VendaAssistidaInput = {
   observacoes?: string | null;
   /** Método de pagamento da venda direta. */
   metodoPagamento?: 'PIX' | 'BOLETO' | 'CARTAO' | 'DINHEIRO' | 'TRANSFERENCIA' | null;
-  /** Se true, registra pagamento como RECEIVED. */
+  /** Se true, registra pagamento integral como RECEIVED. */
   pagoCompleto?: boolean | null;
+  /** Valor já pago agora (permite entrada parcial, ex.: 50%). */
+  valorPagoAgora?: number | null;
   usuarioId: string;
   isAdmin: boolean;
   ip?: string;
@@ -260,7 +262,16 @@ export class VendaAssistidaService {
     const metodo = METODOS_PAGAMENTO.includes(metodoRaw as (typeof METODOS_PAGAMENTO)[number])
       ? (metodoRaw as (typeof METODOS_PAGAMENTO)[number])
       : null;
-    const pagoCompleto = Boolean(input.pagoCompleto);
+    const pagoCompletoFlag = Boolean(input.pagoCompleto);
+    let valorPagoAgora =
+      input.valorPagoAgora != null && Number(input.valorPagoAgora) > 0
+        ? Math.round(Number(input.valorPagoAgora) * 100) / 100
+        : pagoCompletoFlag
+          ? precoFinal
+          : 0;
+    if (valorPagoAgora > precoFinal) valorPagoAgora = precoFinal;
+    const pagoCompleto = valorPagoAgora >= precoFinal - 0.009;
+    const saldoAReceber = Math.round((precoFinal - valorPagoAgora) * 100) / 100;
 
     if (!metodo) throw new Error('Informe o método de pagamento');
 
@@ -316,18 +327,21 @@ export class VendaAssistidaService {
         origem: 'venda_assistida',
         metodoPagamento: metodo,
         pagoCompleto,
+        valorPagoAgora,
+        saldoAReceber,
       },
       input.ip
     );
 
     let pagamento = null;
+    let lancamentoAReceber = null;
     if (metodo) {
-      if (pagoCompleto) {
+      if (valorPagoAgora > 0) {
         pagamento = await prisma.pagamento.create({
           data: {
             clienteId: input.clienteId,
             pedidoId: pedido.id,
-            valor: precoFinal,
+            valor: valorPagoAgora,
             metodo,
             status: 'RECEIVED',
             dueDate: new Date(),
@@ -336,17 +350,49 @@ export class VendaAssistidaService {
         });
         const { confirmarPagamentoRecebido } = await import('./pagamento-confirmacao.service.js');
         await confirmarPagamentoRecebido(pagamento.id);
-      } else {
-        pagamento = await prisma.pagamento.create({
+      }
+
+      if (saldoAReceber > 0.009) {
+        const { financeiroService, garantirPlanoFinanceiroPadrao } = await import(
+          './financeiro.service.js'
+        );
+        await garantirPlanoFinanceiroPadrao().catch(() => undefined);
+
+        const hoje = new Date().toISOString().slice(0, 10);
+        const vencimentoConclusao = new Date();
+        vencimentoConclusao.setDate(vencimentoConclusao.getDate() + 30);
+        const vencYmd = vencimentoConclusao.toISOString().slice(0, 10);
+
+        const pagRestante = await prisma.pagamento.create({
           data: {
             clienteId: input.clienteId,
             pedidoId: pedido.id,
-            valor: precoFinal,
+            valor: saldoAReceber,
             metodo,
             status: 'PENDING',
-            dueDate: new Date(),
+            dueDate: vencimentoConclusao,
           },
         });
+
+        lancamentoAReceber = await financeiroService.criarLancamento({
+          natureza: 'receita',
+          descricao: `Saldo a receber ${pedido.numero} — conclusão do serviço (${Math.round((saldoAReceber / precoFinal) * 100)}%)`,
+          valor: saldoAReceber,
+          dataCompetencia: hoje,
+          dataVencimento: vencYmd,
+          dataMovimento: null,
+          clienteId: input.clienteId,
+          pedidoId: pedido.id,
+          formaPagamento: metodo,
+          status: 'a_receber',
+          pagamentoId: pagRestante.id,
+          observacoes:
+            valorPagoAgora > 0
+              ? `Entrada de R$ ${valorPagoAgora.toFixed(2)} já recebida. Saldo na conclusão do serviço.`
+              : 'Pagamento integral pendente.',
+        });
+
+        if (!pagamento) pagamento = pagRestante;
       }
     }
 
@@ -355,11 +401,14 @@ export class VendaAssistidaService {
       solicitacao: { ...sol, pedidoId: pedido.id },
       pedido,
       pagamento,
+      lancamentoAReceber,
       precoFinal,
       subtotal,
       desconto: descontoAplicado,
       metodoPagamento: metodo,
       pagoCompleto,
+      valorPagoAgora,
+      saldoAReceber,
     };
   }
 

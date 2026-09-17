@@ -298,6 +298,8 @@ export interface FinLancamento {
   natureza: string;
   descricao: string;
   valor: number;
+  valorPago?: number;
+  saldo?: number;
   status: string;
   statusEfetivo?: string;
   dataCompetencia: string;
@@ -305,6 +307,8 @@ export interface FinLancamento {
   dataMovimento?: string | null;
   fornecedorNome?: string | null;
   formaPagamento?: string | null;
+  observacoes?: string | null;
+  contaId?: string | null;
   categoria?: { id: string; nome: string; tipo: string } | null;
   subcategoria?: { id: string; nome: string } | null;
   conta?: { id: string; nome: string } | null;
