@@ -1,7 +1,9 @@
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { prisma } from '../utils/prisma.js';
 import { toNumber } from '../utils/helpers.js';
 import {
+  addMesesYmd,
   fimDiaBrasil,
   inicioDiaBrasil,
   resolverPeriodo,
@@ -201,11 +203,224 @@ export class FinanceiroService {
   }
 
   // ── Contas / centros ──────────────────────────────────────────────────────
+  async saldoConta(contaId: string, ate?: Date) {
+    const conta = await prisma.finConta.findUnique({ where: { id: contaId } });
+    if (!conta) throw new Error('Conta não encontrada');
+
+    const ateFiltro = ate ? { lte: ate } : undefined;
+
+    const baixas = await prisma.finBaixa.findMany({
+      where: {
+        contaId,
+        estornado: false,
+        tipo: { in: ['baixa', 'estorno'] },
+        ...(ateFiltro ? { dataMovimento: ateFiltro } : {}),
+      },
+      include: { lancamento: { select: { natureza: true } } },
+    });
+
+    let saldo = toNumber(conta.saldoInicial);
+    for (const b of baixas) {
+      const v = toNumber(b.valorLiquido);
+      const nat = b.lancamento.natureza;
+      if (b.tipo === 'estorno') {
+        // estorno already has opposite sign via valorLiquido negative? We'll store positive and reverse by tipo
+        if (nat === 'receita') saldo -= v;
+        else if (nat === 'despesa') saldo += v;
+      } else if (nat === 'receita') {
+        saldo += v;
+      } else if (nat === 'despesa') {
+        saldo -= v;
+      }
+    }
+
+    const transferencias = await prisma.finLancamento.findMany({
+      where: {
+        natureza: 'transferencia',
+        status: { notIn: ['cancelada', 'estornada'] },
+        OR: [{ contaId }, { contaDestinoId: contaId }],
+        ...(ateFiltro ? { dataMovimento: ateFiltro } : {}),
+      },
+      select: { valor: true, contaId: true, contaDestinoId: true },
+    });
+    for (const t of transferencias) {
+      const v = toNumber(t.valor);
+      if (t.contaId === contaId) saldo -= v;
+      if (t.contaDestinoId === contaId) saldo += v;
+    }
+
+    // Lançamentos liquidados sem baixa registrada (legado / liquidação na criação)
+    const liquidadosSemBaixa = await prisma.finLancamento.findMany({
+      where: {
+        natureza: { in: ['receita', 'despesa'] },
+        status: { in: ['recebida', 'paga'] },
+        contaId,
+        baixas: { none: {} },
+        ...(ateFiltro ? { dataMovimento: ateFiltro } : {}),
+      },
+      select: { natureza: true, valor: true, valorPago: true },
+    });
+    for (const l of liquidadosSemBaixa) {
+      const v = toNumber(l.valorPago) || toNumber(l.valor);
+      if (l.natureza === 'receita') saldo += v;
+      else saldo -= v;
+    }
+
+    return round2(saldo);
+  }
+
   async listarContas(incluirInativos = false) {
-    return prisma.finConta.findMany({
+    const contas = await prisma.finConta.findMany({
       where: incluirInativos ? undefined : { ativo: true },
       orderBy: { nome: 'asc' },
     });
+    return Promise.all(
+      contas.map(async (c) => ({
+        ...c,
+        saldoInicial: toNumber(c.saldoInicial),
+        saldoAtual: await this.saldoConta(c.id),
+      }))
+    );
+  }
+
+  async extratoConta(
+    contaId: string,
+    params: { periodo?: string; de?: string; ate?: string } = {}
+  ) {
+    const conta = await prisma.finConta.findUnique({ where: { id: contaId } });
+    if (!conta) throw new Error('Conta não encontrada');
+
+    const { inicio, fim, inicioYmd, fimYmd, label } = resolverPeriodo(params);
+    const saldoAbertura = await this.saldoConta(contaId, new Date(inicio.getTime() - 1));
+
+    type Mov = {
+      id: string;
+      data: string;
+      tipo: string;
+      descricao: string;
+      valor: number;
+      lancamentoId?: string;
+      baixaId?: string;
+      formaPagamento?: string | null;
+      anexoUrl?: string | null;
+    };
+    const movs: Mov[] = [];
+
+    const baixas = await prisma.finBaixa.findMany({
+      where: {
+        contaId,
+        dataMovimento: { gte: inicio, lte: fim },
+      },
+      include: {
+        lancamento: { select: { id: true, descricao: true, natureza: true } },
+      },
+      orderBy: { dataMovimento: 'asc' },
+    });
+    for (const b of baixas) {
+      if (b.estornado && b.tipo === 'baixa') continue;
+      const nat = b.lancamento.natureza;
+      let sinal = 0;
+      if (b.tipo === 'estorno') {
+        sinal = nat === 'receita' ? -1 : nat === 'despesa' ? 1 : 0;
+      } else {
+        sinal = nat === 'receita' ? 1 : nat === 'despesa' ? -1 : 0;
+      }
+      if (!sinal) continue;
+      movs.push({
+        id: `baixa-${b.id}`,
+        data: ymdBrasil(b.dataMovimento),
+        tipo: b.tipo === 'estorno' ? 'estorno' : nat === 'receita' ? 'entrada' : 'saida',
+        descricao:
+          b.tipo === 'estorno'
+            ? `Estorno: ${b.lancamento.descricao}`
+            : b.lancamento.descricao,
+        valor: round2(sinal * toNumber(b.valorLiquido)),
+        lancamentoId: b.lancamentoId,
+        baixaId: b.id,
+        formaPagamento: b.formaPagamento,
+        anexoUrl: b.anexoUrl,
+      });
+    }
+
+    const transferencias = await prisma.finLancamento.findMany({
+      where: {
+        natureza: 'transferencia',
+        status: { notIn: ['cancelada', 'estornada'] },
+        OR: [{ contaId }, { contaDestinoId: contaId }],
+        dataMovimento: { gte: inicio, lte: fim },
+      },
+      include: { conta: true, contaDestino: true },
+      orderBy: { dataMovimento: 'asc' },
+    });
+    for (const t of transferencias) {
+      const v = toNumber(t.valor);
+      if (t.contaId === contaId) {
+        movs.push({
+          id: `tr-out-${t.id}`,
+          data: ymdBrasil(t.dataMovimento || t.dataCompetencia),
+          tipo: 'transferencia_saida',
+          descricao: `Transferência para ${t.contaDestino?.nome || 'conta'}`,
+          valor: round2(-v),
+          lancamentoId: t.id,
+          formaPagamento: t.formaPagamento,
+          anexoUrl: t.anexoUrl,
+        });
+      }
+      if (t.contaDestinoId === contaId) {
+        movs.push({
+          id: `tr-in-${t.id}`,
+          data: ymdBrasil(t.dataMovimento || t.dataCompetencia),
+          tipo: 'transferencia_entrada',
+          descricao: `Transferência de ${t.conta?.nome || 'conta'}`,
+          valor: round2(v),
+          lancamentoId: t.id,
+          formaPagamento: t.formaPagamento,
+          anexoUrl: t.anexoUrl,
+        });
+      }
+    }
+
+    const liquidadosSemBaixa = await prisma.finLancamento.findMany({
+      where: {
+        natureza: { in: ['receita', 'despesa'] },
+        status: { in: ['recebida', 'paga'] },
+        contaId,
+        baixas: { none: {} },
+        dataMovimento: { gte: inicio, lte: fim },
+      },
+      orderBy: { dataMovimento: 'asc' },
+    });
+    for (const l of liquidadosSemBaixa) {
+      const v = toNumber(l.valorPago) || toNumber(l.valor);
+      movs.push({
+        id: `lanc-${l.id}`,
+        data: ymdBrasil(l.dataMovimento || l.dataCompetencia),
+        tipo: l.natureza === 'receita' ? 'entrada' : 'saida',
+        descricao: l.descricao,
+        valor: round2(l.natureza === 'receita' ? v : -v),
+        lancamentoId: l.id,
+        formaPagamento: l.formaPagamento,
+        anexoUrl: l.anexoUrl,
+      });
+    }
+
+    movs.sort((a, b) => a.data.localeCompare(b.data) || a.id.localeCompare(b.id));
+
+    let running = saldoAbertura;
+    const itens = movs.map((m) => {
+      running = round2(running + m.valor);
+      return { ...m, saldoApos: running };
+    });
+
+    return {
+      conta: { id: conta.id, nome: conta.nome, tipo: conta.tipo },
+      periodo: { inicioYmd, fimYmd, label },
+      saldoAbertura: round2(saldoAbertura),
+      saldoAtual: running,
+      entradas: round2(itens.filter((i) => i.valor > 0).reduce((s, i) => s + i.valor, 0)),
+      saidas: round2(itens.filter((i) => i.valor < 0).reduce((s, i) => s + Math.abs(i.valor), 0)),
+      itens,
+    };
   }
 
   async salvarConta(data: {
@@ -349,6 +564,8 @@ export class FinanceiroService {
     observacoes?: string | null;
     recorrenciaId?: string | null;
     pagamentoId?: string | null;
+    /** Quantidade de parcelas (1 = único). Só para receita/despesa. */
+    parcelas?: number;
   }) {
     if (data.natureza === 'transferencia') {
       if (!data.contaId || !data.contaDestinoId) {
@@ -359,56 +576,109 @@ export class FinanceiroService {
       }
     }
 
-    let status = data.status;
-    if (!status) {
-      if (data.natureza === 'receita') status = data.dataMovimento ? 'recebida' : 'a_receber';
-      else if (data.natureza === 'despesa') status = data.dataMovimento ? 'paga' : 'a_pagar';
-      else status = 'paga';
+    const nParcelas = Math.max(1, Math.min(60, Math.floor(Number(data.parcelas) || 1)));
+    if (nParcelas > 1 && data.natureza === 'transferencia') {
+      throw new Error('Transferência não pode ser parcelada');
+    }
+    if (!(data.valor > 0)) throw new Error('Valor deve ser positivo');
+
+    const criarUm = async (opts: {
+      descricao: string;
+      valor: number;
+      dataCompetencia: string;
+      dataVencimento?: string | null;
+      parcelaNumero?: number | null;
+      parcelaTotal?: number | null;
+      grupoParcelasId?: string | null;
+    }) => {
+      let status = data.status;
+      if (!status) {
+        if (data.natureza === 'receita') status = data.dataMovimento ? 'recebida' : 'a_receber';
+        else if (data.natureza === 'despesa') status = data.dataMovimento ? 'paga' : 'a_pagar';
+        else status = 'paga';
+      }
+      const liquidado = status === 'recebida' || status === 'paga';
+      return prisma.finLancamento.create({
+        data: {
+          natureza: data.natureza,
+          descricao: opts.descricao,
+          valor: opts.valor,
+          valorPago: liquidado ? opts.valor : 0,
+          dataCompetencia: inicioDiaBrasil(opts.dataCompetencia.slice(0, 10)),
+          dataVencimento: opts.dataVencimento
+            ? inicioDiaBrasil(opts.dataVencimento.slice(0, 10))
+            : null,
+          dataMovimento: data.dataMovimento
+            ? inicioDiaBrasil(data.dataMovimento.slice(0, 10))
+            : data.natureza === 'transferencia'
+              ? inicioDiaBrasil(opts.dataCompetencia.slice(0, 10))
+              : null,
+          categoriaId: data.categoriaId || null,
+          subcategoriaId: data.subcategoriaId || null,
+          centroCustoId: data.centroCustoId || null,
+          clienteId: data.clienteId || null,
+          fornecedorNome: data.fornecedorNome || null,
+          pedidoId: data.pedidoId || null,
+          ordemServicoId: data.ordemServicoId || null,
+          formaPagamento: data.formaPagamento || null,
+          contaId: data.contaId || null,
+          contaDestinoId: data.contaDestinoId || null,
+          status,
+          anexoUrl: data.anexoUrl || null,
+          observacoes: data.observacoes || null,
+          recorrenciaId: data.recorrenciaId || null,
+          pagamentoId: data.pagamentoId || null,
+          parcelaNumero: opts.parcelaNumero ?? null,
+          parcelaTotal: opts.parcelaTotal ?? null,
+          grupoParcelasId: opts.grupoParcelasId ?? null,
+          historico: [
+            {
+              em: new Date().toISOString(),
+              acao: nParcelas > 1 ? 'criado_parcela' : 'criado',
+              status,
+              valor: opts.valor,
+              parcela: opts.parcelaNumero || null,
+              parcelaTotal: opts.parcelaTotal || null,
+            },
+          ] as Prisma.InputJsonValue,
+        },
+        include: { categoria: true, subcategoria: true, conta: true, cliente: true },
+      });
+    };
+
+    if (nParcelas === 1) {
+      return criarUm({
+        descricao: data.descricao,
+        valor: round2(data.valor),
+        dataCompetencia: data.dataCompetencia,
+        dataVencimento: data.dataVencimento,
+      });
     }
 
-    const liquidado = status === 'recebida' || status === 'paga';
-
-    return prisma.finLancamento.create({
-      data: {
-        natureza: data.natureza,
-        descricao: data.descricao,
-        valor: data.valor,
-        valorPago: liquidado ? data.valor : 0,
-        dataCompetencia: inicioDiaBrasil(data.dataCompetencia.slice(0, 10)),
-        dataVencimento: data.dataVencimento
-          ? inicioDiaBrasil(data.dataVencimento.slice(0, 10))
-          : null,
-        dataMovimento: data.dataMovimento
-          ? inicioDiaBrasil(data.dataMovimento.slice(0, 10))
-          : data.natureza === 'transferencia'
-            ? inicioDiaBrasil(data.dataCompetencia.slice(0, 10))
-            : null,
-        categoriaId: data.categoriaId || null,
-        subcategoriaId: data.subcategoriaId || null,
-        centroCustoId: data.centroCustoId || null,
-        clienteId: data.clienteId || null,
-        fornecedorNome: data.fornecedorNome || null,
-        pedidoId: data.pedidoId || null,
-        ordemServicoId: data.ordemServicoId || null,
-        formaPagamento: data.formaPagamento || null,
-        contaId: data.contaId || null,
-        contaDestinoId: data.contaDestinoId || null,
-        status,
-        anexoUrl: data.anexoUrl || null,
-        observacoes: data.observacoes || null,
-        recorrenciaId: data.recorrenciaId || null,
-        pagamentoId: data.pagamentoId || null,
-        historico: [
-          {
-            em: new Date().toISOString(),
-            acao: 'criado',
-            status,
-            valor: data.valor,
-          },
-        ] as Prisma.InputJsonValue,
-      },
-      include: { categoria: true, subcategoria: true, conta: true, cliente: true },
-    });
+    const grupoId = randomUUID();
+    const baseComp = data.dataCompetencia.slice(0, 10);
+    const baseVenc = (data.dataVencimento || data.dataCompetencia).slice(0, 10);
+    const valorBase = round2(data.valor / nParcelas);
+    const criado = [];
+    let acumulado = 0;
+    for (let i = 1; i <= nParcelas; i++) {
+      const valor =
+        i === nParcelas ? round2(data.valor - acumulado) : valorBase;
+      acumulado = round2(acumulado + valor);
+      const offset = i - 1;
+      criado.push(
+        await criarUm({
+          descricao: `${data.descricao} (${i}/${nParcelas})`,
+          valor,
+          dataCompetencia: addMesesYmd(baseComp, offset),
+          dataVencimento: addMesesYmd(baseVenc, offset),
+          parcelaNumero: i,
+          parcelaTotal: nParcelas,
+          grupoParcelasId: grupoId,
+        })
+      );
+    }
+    return { grupoParcelasId: grupoId, parcelas: criado, total: criado.length };
   }
 
   async atualizarLancamento(id: string, data: Record<string, unknown>) {
@@ -418,11 +688,53 @@ export class FinanceiroService {
         patch[k] = inicioDiaBrasil(String(patch[k]).slice(0, 10));
       }
     }
+    const historicoEvento = {
+      em: new Date().toISOString(),
+      acao: 'atualizado',
+      campos: Object.keys(data),
+    };
+    const atual = await prisma.finLancamento.findUnique({ where: { id } });
+    if (!atual) throw new Error('Lançamento não encontrado');
+    const hist = Array.isArray(atual.historico) ? (atual.historico as object[]) : [];
     return prisma.finLancamento.update({
       where: { id },
-      data: patch,
+      data: {
+        ...patch,
+        historico: [...hist, historicoEvento] as Prisma.InputJsonValue,
+      },
       include: { categoria: true, subcategoria: true, conta: true, cliente: true },
     });
+  }
+
+  async obterLancamento(id: string) {
+    const l = await prisma.finLancamento.findUnique({
+      where: { id },
+      include: {
+        categoria: true,
+        subcategoria: true,
+        conta: true,
+        contaDestino: true,
+        centroCusto: true,
+        cliente: { select: { id: true, nome: true } },
+        pedido: { select: { id: true, numero: true } },
+        baixas: { orderBy: { createdAt: 'asc' }, include: { conta: true } },
+      },
+    });
+    if (!l) throw new Error('Lançamento não encontrado');
+    const valor = toNumber(l.valor);
+    const valorPago = toNumber(l.valorPago);
+    return {
+      ...l,
+      valor,
+      valorPago,
+      saldo: round2(Math.max(0, valor - valorPago)),
+      statusEfetivo:
+        l.natureza === 'receita'
+          ? statusReceitaEfetivo(l.status, l.dataVencimento)
+          : l.natureza === 'despesa'
+            ? statusDespesaEfetivo(l.status, l.dataVencimento)
+            : l.status,
+    };
   }
 
   async baixarLancamento(
@@ -550,6 +862,95 @@ export class FinanceiroService {
       include: { conta: true },
       orderBy: { dataMovimento: 'asc' },
     });
+  }
+
+  async estornarBaixa(
+    baixaId: string,
+    input: { motivo?: string; usuarioId?: string; dataMovimento?: string } = {}
+  ) {
+    const baixa = await prisma.finBaixa.findUnique({
+      where: { id: baixaId },
+      include: { lancamento: true },
+    });
+    if (!baixa) throw new Error('Baixa não encontrada');
+    if (baixa.estornado) throw new Error('Baixa já foi estornada');
+    if (baixa.tipo === 'estorno') throw new Error('Não é possível estornar um estorno');
+
+    const l = baixa.lancamento;
+    const principal = toNumber(baixa.valorPrincipal);
+    const juros = toNumber(baixa.juros);
+    const multa = toNumber(baixa.multa);
+    const desconto = toNumber(baixa.desconto);
+    const taxa = toNumber(baixa.taxa);
+    const liquido = toNumber(baixa.valorLiquido);
+
+    const novoPago = round2(Math.max(0, toNumber(l.valorPago) - principal));
+    const valorOriginal = toNumber(l.valor);
+    let status: string;
+    if (novoPago <= 0.001) {
+      status = l.natureza === 'receita' ? 'a_receber' : 'a_pagar';
+    } else if (novoPago + 0.001 < valorOriginal) {
+      status = 'parcial';
+    } else {
+      status = l.natureza === 'receita' ? 'recebida' : 'paga';
+    }
+
+    const mov = input.dataMovimento
+      ? inicioDiaBrasil(input.dataMovimento.slice(0, 10))
+      : new Date();
+
+    const hist = Array.isArray(l.historico) ? (l.historico as object[]) : [];
+    const evento = {
+      em: new Date().toISOString(),
+      acao: 'estorno_baixa',
+      usuarioId: input.usuarioId || null,
+      baixaId,
+      motivo: input.motivo || null,
+      valorPrincipal: principal,
+      valorLiquido: liquido,
+      saldoApos: round2(Math.max(0, valorOriginal - novoPago)),
+    };
+
+    const [, estorno] = await prisma.$transaction([
+      prisma.finBaixa.update({
+        where: { id: baixaId },
+        data: { estornado: true },
+      }),
+      prisma.finBaixa.create({
+        data: {
+          lancamentoId: l.id,
+          tipo: 'estorno',
+          dataMovimento: mov,
+          valorPrincipal: principal,
+          juros,
+          multa,
+          desconto,
+          taxa,
+          valorLiquido: liquido,
+          contaId: baixa.contaId,
+          formaPagamento: baixa.formaPagamento,
+          observacoes: input.motivo || `Estorno da baixa ${baixaId.slice(0, 8)}`,
+          usuarioId: input.usuarioId || null,
+          baixaOrigemId: baixaId,
+          estornado: false,
+        },
+      }),
+      prisma.finLancamento.update({
+        where: { id: l.id },
+        data: {
+          valorPago: novoPago,
+          jurosPago: round2(Math.max(0, toNumber(l.jurosPago) - juros)),
+          multaPaga: round2(Math.max(0, toNumber(l.multaPaga) - multa)),
+          descontoConcedido: round2(Math.max(0, toNumber(l.descontoConcedido) - desconto)),
+          taxaPaga: round2(Math.max(0, toNumber(l.taxaPaga) - taxa)),
+          status,
+          dataMovimento: novoPago > 0.001 ? l.dataMovimento : null,
+          historico: [...hist, evento] as Prisma.InputJsonValue,
+        },
+      }),
+    ]);
+
+    return this.obterLancamento(l.id).then((row) => ({ ...row, estorno }));
   }
 
   /** Gera receita financeira a partir de pagamento RECEIVED (idempotente via pagamentoId). */
@@ -729,8 +1130,10 @@ export class FinanceiroService {
             formaPagamento: r.formaPagamento,
             status: r.natureza === 'receita' ? 'a_receber' : 'a_pagar',
             recorrenciaId: r.id,
+            parcelas: 1,
           });
-          gerados.push(created.id);
+          if ('id' in created) gerados.push(created.id);
+          else gerados.push(...created.parcelas.map((p) => p.id));
         }
         const [y, m] = prox.split('-').map(Number);
         const nm = m === 12 ? 1 : m + 1;
@@ -751,33 +1154,63 @@ export class FinanceiroService {
     const contas = await prisma.finConta.findMany({ where: { ativo: true } });
     const saldoInicialContas = contas.reduce((s, c) => s + toNumber(c.saldoInicial), 0);
 
-    const movAntes = await prisma.finLancamento.findMany({
+    const baixasAntes = await prisma.finBaixa.findMany({
       where: {
-        natureza: { in: ['receita', 'despesa'] },
-        status: { in: ['recebida', 'paga'] },
-        dataMovimento: { lt: inicio, not: null },
+        estornado: false,
+        tipo: 'baixa',
+        dataMovimento: { lt: inicio },
       },
-      select: { natureza: true, valor: true },
+      include: { lancamento: { select: { natureza: true } } },
     });
     let saldoInicial = saldoInicialContas;
-    for (const m of movAntes) {
-      const v = toNumber(m.valor);
-      saldoInicial += m.natureza === 'receita' ? v : -v;
+    for (const b of baixasAntes) {
+      const v = toNumber(b.valorLiquido);
+      if (b.lancamento.natureza === 'receita') saldoInicial += v;
+      else if (b.lancamento.natureza === 'despesa') saldoInicial -= v;
     }
 
-    const noPeriodo = await prisma.finLancamento.findMany({
+    const baixasPeriodo = await prisma.finBaixa.findMany({
       where: {
-        natureza: { in: ['receita', 'despesa'] },
-        status: { in: ['recebida', 'paga'] },
+        estornado: false,
+        tipo: 'baixa',
         dataMovimento: { gte: inicio, lte: fim },
       },
-      select: { natureza: true, valor: true, dataMovimento: true },
+      include: { lancamento: { select: { natureza: true } } },
     });
 
     let entradas = 0;
     let saidas = 0;
-    for (const m of noPeriodo) {
-      const v = toNumber(m.valor);
+    for (const b of baixasPeriodo) {
+      const v = toNumber(b.valorLiquido);
+      if (b.lancamento.natureza === 'receita') entradas += v;
+      else if (b.lancamento.natureza === 'despesa') saidas += v;
+    }
+
+    // Legado: liquidados sem baixa
+    const legadoAntes = await prisma.finLancamento.findMany({
+      where: {
+        natureza: { in: ['receita', 'despesa'] },
+        status: { in: ['recebida', 'paga'] },
+        baixas: { none: {} },
+        dataMovimento: { lt: inicio, not: null },
+      },
+      select: { natureza: true, valor: true, valorPago: true },
+    });
+    for (const m of legadoAntes) {
+      const v = toNumber(m.valorPago) || toNumber(m.valor);
+      saldoInicial += m.natureza === 'receita' ? v : -v;
+    }
+    const legadoPeriodo = await prisma.finLancamento.findMany({
+      where: {
+        natureza: { in: ['receita', 'despesa'] },
+        status: { in: ['recebida', 'paga'] },
+        baixas: { none: {} },
+        dataMovimento: { gte: inicio, lte: fim },
+      },
+      select: { natureza: true, valor: true, valorPago: true },
+    });
+    for (const m of legadoPeriodo) {
+      const v = toNumber(m.valorPago) || toNumber(m.valor);
       if (m.natureza === 'receita') entradas += v;
       else saidas += v;
     }
@@ -785,28 +1218,34 @@ export class FinanceiroService {
     const aReceber = await prisma.finLancamento.findMany({
       where: {
         natureza: 'receita',
-        status: { in: ['prevista', 'a_receber', 'vencida'] },
+        status: { in: ['prevista', 'a_receber', 'parcial', 'vencida'] },
         OR: [
           { dataVencimento: { gte: inicio, lte: fim } },
           { dataVencimento: null, dataCompetencia: { gte: inicio, lte: fim } },
         ],
       },
-      select: { valor: true },
+      select: { valor: true, valorPago: true },
     });
     const aPagar = await prisma.finLancamento.findMany({
       where: {
         natureza: 'despesa',
-        status: { in: ['prevista', 'a_pagar', 'vencida'] },
+        status: { in: ['prevista', 'a_pagar', 'parcial', 'vencida'] },
         OR: [
           { dataVencimento: { gte: inicio, lte: fim } },
           { dataVencimento: null, dataCompetencia: { gte: inicio, lte: fim } },
         ],
       },
-      select: { valor: true },
+      select: { valor: true, valorPago: true },
     });
 
-    const projReceber = aReceber.reduce((s, x) => s + toNumber(x.valor), 0);
-    const projPagar = aPagar.reduce((s, x) => s + toNumber(x.valor), 0);
+    const projReceber = aReceber.reduce(
+      (s, x) => s + Math.max(0, toNumber(x.valor) - toNumber(x.valorPago)),
+      0
+    );
+    const projPagar = aPagar.reduce(
+      (s, x) => s + Math.max(0, toNumber(x.valor) - toNumber(x.valorPago)),
+      0
+    );
 
     return {
       periodo: { inicioYmd, fimYmd, label },

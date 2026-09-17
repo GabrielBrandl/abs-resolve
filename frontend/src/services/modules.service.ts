@@ -224,13 +224,27 @@ export const financeiroApi = {
   salvarSubcategoria: (body: unknown) => post('/financeiro/subcategorias', body),
   contas: (all?: boolean) => get<unknown[]>(`/financeiro/contas${all ? '?all=1' : ''}`),
   salvarConta: (body: unknown) => post('/financeiro/contas', body),
+  extratoConta: (id: string, params?: Record<string, string>) =>
+    get<Record<string, unknown>>(`/financeiro/contas/${id}/extrato?${new URLSearchParams(params)}`),
   centros: () => get<unknown[]>('/financeiro/centros-custo'),
   salvarCentro: (body: unknown) => post('/financeiro/centros-custo', body),
   lancamentos: (params?: Record<string, string>) =>
     get<{ items: FinLancamento[]; total: number }>(`/financeiro/lancamentos?${new URLSearchParams(params)}`),
+  obterLancamento: (id: string) => get<FinLancamento & { baixas?: unknown[]; historico?: unknown[] }>(`/financeiro/lancamentos/${id}`),
   criarLancamento: (body: unknown) => post('/financeiro/lancamentos', body),
   atualizarLancamento: (id: string, body: unknown) => put(`/financeiro/lancamentos/${id}`, body),
   baixarLancamento: (id: string, body?: unknown) => post(`/financeiro/lancamentos/${id}/baixar`, body || {}),
+  listarBaixas: (id: string) => get<unknown[]>(`/financeiro/lancamentos/${id}/baixas`),
+  estornarBaixa: (id: string, body?: unknown) => post(`/financeiro/baixas/${id}/estornar`, body || {}),
+  uploadAnexo: async (file: File) => {
+    const form = new FormData();
+    form.append('arquivo', file);
+    const { data } = await api.post('/financeiro/anexos', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    if (!data.success) throw new Error(data.error || 'Erro no upload');
+    return data.data as { url: string; filename: string };
+  },
   recorrencias: () => get<unknown[]>('/financeiro/recorrencias'),
   salvarRecorrencia: (body: unknown) => post('/financeiro/recorrencias', body),
   processarRecorrencias: () => post('/financeiro/recorrencias/processar', {}),

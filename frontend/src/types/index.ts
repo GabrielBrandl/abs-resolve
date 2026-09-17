@@ -293,6 +293,23 @@ export interface DashboardKPIs {
   leadsPorEtapa: { etapa: string; _count: number }[];
 }
 
+export interface FinBaixa {
+  id: string;
+  tipo: string;
+  dataMovimento: string;
+  valorPrincipal: number;
+  juros: number;
+  multa: number;
+  desconto: number;
+  taxa: number;
+  valorLiquido: number;
+  formaPagamento?: string | null;
+  anexoUrl?: string | null;
+  observacoes?: string | null;
+  estornado: boolean;
+  conta?: { id: string; nome: string } | null;
+}
+
 export interface FinLancamento {
   id: string;
   natureza: string;
@@ -308,7 +325,13 @@ export interface FinLancamento {
   fornecedorNome?: string | null;
   formaPagamento?: string | null;
   observacoes?: string | null;
+  anexoUrl?: string | null;
   contaId?: string | null;
+  parcelaNumero?: number | null;
+  parcelaTotal?: number | null;
+  grupoParcelasId?: string | null;
+  historico?: Array<Record<string, unknown>>;
+  baixas?: FinBaixa[];
   categoria?: { id: string; nome: string; tipo: string } | null;
   subcategoria?: { id: string; nome: string } | null;
   conta?: { id: string; nome: string } | null;

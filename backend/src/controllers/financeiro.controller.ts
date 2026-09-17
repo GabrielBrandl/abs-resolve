@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { financeiroService } from '../services/financeiro.service.js';
+import { storageService } from '../services/storage.service.js';
 import { success, error } from '../utils/response.js';
 
 export class FinanceiroController {
@@ -60,6 +61,22 @@ export class FinanceiroController {
     }
   }
 
+  async extratoConta(req: Request, res: Response) {
+    try {
+      const q = req.query as Record<string, string>;
+      return success(
+        res,
+        await financeiroService.extratoConta(req.params.id as string, {
+          periodo: q.periodo,
+          de: q.de,
+          ate: q.ate,
+        })
+      );
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async centros(req: Request, res: Response) {
     try {
       return success(res, await financeiroService.listarCentrosCusto(req.query.all === '1'));
@@ -93,6 +110,14 @@ export class FinanceiroController {
     }
   }
 
+  async obterLancamento(req: Request, res: Response) {
+    try {
+      return success(res, await financeiroService.obterLancamento(req.params.id as string));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 404);
+    }
+  }
+
   async criarLancamento(req: Request, res: Response) {
     try {
       return success(res, await financeiroService.criarLancamento(req.body), 201);
@@ -120,6 +145,40 @@ export class FinanceiroController {
       );
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async listarBaixas(req: Request, res: Response) {
+    try {
+      return success(res, await financeiroService.listarBaixas(req.params.id as string));
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async estornarBaixa(req: Request, res: Response) {
+    try {
+      return success(
+        res,
+        await financeiroService.estornarBaixa(req.params.id as string, {
+          ...req.body,
+          usuarioId: req.user?.userId,
+        })
+      );
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
+  async uploadAnexo(req: Request, res: Response) {
+    try {
+      const file = req.file;
+      if (!file) return error(res, 'Arquivo obrigatório', 400);
+      const userId = req.user?.userId || 'financeiro';
+      const uploaded = await storageService.upload(`fin/${userId}`, file);
+      return success(res, { url: uploaded.url, filename: uploaded.filename });
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro no upload', 400);
     }
   }
 

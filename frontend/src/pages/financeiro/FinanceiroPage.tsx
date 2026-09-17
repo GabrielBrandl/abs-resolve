@@ -1,18 +1,41 @@
 import { useCallback, useEffect, useState } from 'react';
 import { clientesApi, financeiroApi, pagamentosApi } from '../../services/modules.service';
-import type { Cliente, FinLancamento, Pagamento } from '../../types';
+import type { Cliente, FinBaixa, FinLancamento, Pagamento } from '../../types';
 import { formatCurrency, formatDate } from '../../types';
 import { Badge, Button, Card, Input, Loading, Modal, PageHeader, Select, TableWrapper, Tabs } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 
-interface FinConta { id: string; nome: string; tipo: string; saldoInicial: number; ativo: boolean }
+interface FinConta { id: string; nome: string; tipo: string; saldoInicial: number; saldoAtual?: number; ativo: boolean }
 interface FinSubcategoria { id: string; categoriaId: string; nome: string; ativo: boolean }
 interface FinCategoria { id: string; tipo: string; nome: string; grupoDre?: string; ativo: boolean; subcategorias: FinSubcategoria[] }
 type Resumo = { saldoDisponivel?: number; aReceber?: number; aPagar?: number; vencidos?: number; receitasRealizadas?: number; despesasRealizadas?: number };
 type Fluxo = { periodo?: { label: string }; saldoInicial?: number; entradas?: number; saidas?: number; saldoAtual?: number; projecaoReceber?: number; projecaoPagar?: number; saldoProjetado?: number };
 type Dre = Record<string, number | boolean | object>;
+type Extrato = {
+  conta?: { id: string; nome: string };
+  saldoAbertura?: number;
+  saldoAtual?: number;
+  entradas?: number;
+  saidas?: number;
+  itens?: Array<{ id: string; data: string; tipo: string; descricao: string; valor: number; saldoApos: number; anexoUrl?: string | null }>;
+};
 
 const hoje = new Date().toISOString().slice(0, 10);
+const formLancVazio = {
+  natureza: 'despesa',
+  descricao: '',
+  valor: '',
+  dataCompetencia: hoje,
+  dataVencimento: hoje,
+  categoriaId: '',
+  contaId: '',
+  contaDestinoId: '',
+  fornecedorNome: '',
+  formaPagamento: '',
+  observacoes: '',
+  parcelas: '1',
+  anexoUrl: '',
+};
 const TABS = [{ key: 'dashboard', label: 'Dashboard' }, { key: 'lancamentos', label: 'Lançamentos' }, { key: 'contas', label: 'Contas' }, { key: 'categorias', label: 'Categorias' }, { key: 'recorrencias', label: 'Recorrentes' }, { key: 'fluxo', label: 'Fluxo' }, { key: 'dre', label: 'DRE' }, { key: 'cobrancas', label: 'Cobranças' }];
 
 export function FinanceiroPage() {
@@ -31,19 +54,7 @@ export function FinanceiroPage() {
   const [modalCategoria, setModalCategoria] = useState(false);
   const [modalSubcategoria, setModalSubcategoria] = useState(false);
   const [categoriaEditando, setCategoriaEditando] = useState<FinCategoria | null>(null);
-  const [formLanc, setFormLanc] = useState({
-    natureza: 'despesa',
-    descricao: '',
-    valor: '',
-    dataCompetencia: hoje,
-    dataVencimento: '',
-    categoriaId: '',
-    contaId: '',
-    contaDestinoId: '',
-    fornecedorNome: '',
-    formaPagamento: '',
-    observacoes: '',
-  });
+  const [formLanc, setFormLanc] = useState(formLancVazio);
   const [modalBaixa, setModalBaixa] = useState(false);
   const [lancBaixa, setLancBaixa] = useState<FinLancamento | null>(null);
   const [formBaixa, setFormBaixa] = useState({
@@ -56,7 +67,13 @@ export function FinanceiroPage() {
     contaId: '',
     formaPagamento: '',
     observacoes: '',
+    anexoUrl: '',
   });
+  const [modalDetalhe, setModalDetalhe] = useState(false);
+  const [lancDetalhe, setLancDetalhe] = useState<(FinLancamento & { baixas?: FinBaixa[]; historico?: Array<Record<string, unknown>> }) | null>(null);
+  const [modalExtrato, setModalExtrato] = useState(false);
+  const [extrato, setExtrato] = useState<Extrato | null>(null);
+  const [uploadingAnexo, setUploadingAnexo] = useState(false);
   const [formConta, setFormConta] = useState({ nome: '', tipo: 'bancaria', saldoInicial: '' });
   const [formCategoria, setFormCategoria] = useState({ nome: '', tipo: 'despesa', grupoDre: 'despesa_administrativa', ativo: true });
   const [formSubcategoria, setFormSubcategoria] = useState({ categoriaId: '', nome: '' });
@@ -95,6 +112,9 @@ export function FinanceiroPage() {
       setLoading(true);
       financeiroApi.lancamentos({ ...filtros, periodo }).then((r) => setLancamentos(r.items)).finally(() => setLoading(false));
     }
+    if (tab === 'contas') {
+      financeiroApi.contas(true).then((c) => setContas(c as FinConta[]));
+    }
     if (tab === 'fluxo') financeiroApi.fluxo({ periodo }).then((r) => setFluxo(r as Fluxo));
     if (tab === 'dre') financeiroApi.dre({ periodo }).then((r) => setDre(r as Dre));
     if (tab === 'recorrencias') financeiroApi.recorrencias().then((r) => setRecorrencias(r as typeof recorrencias));
@@ -106,9 +126,19 @@ export function FinanceiroPage() {
     setContas(c as FinConta[]); setCategorias(cats as FinCategoria[]);
   };
   const erro = (e: unknown) => toast(e instanceof Error ? e.message : 'Não foi possível concluir', 'error');
+  const uploadAnexo = async (file: File, destino: 'lanc' | 'baixa') => {
+    setUploadingAnexo(true);
+    try {
+      const r = await financeiroApi.uploadAnexo(file);
+      if (destino === 'lanc') setFormLanc((f) => ({ ...f, anexoUrl: r.url }));
+      else setFormBaixa((f) => ({ ...f, anexoUrl: r.url }));
+      toast('Anexo enviado', 'success');
+    } catch (e) { erro(e); }
+    finally { setUploadingAnexo(false); }
+  };
   const salvarLancamento = async () => {
     try {
-      await financeiroApi.criarLancamento({
+      const criado = await financeiroApi.criarLancamento({
         ...formLanc,
         valor: Number(formLanc.valor),
         dataVencimento: formLanc.dataVencimento || null,
@@ -118,9 +148,17 @@ export function FinanceiroPage() {
         fornecedorNome: formLanc.fornecedorNome || null,
         formaPagamento: formLanc.formaPagamento || null,
         observacoes: formLanc.observacoes || null,
-      });
+        anexoUrl: formLanc.anexoUrl || null,
+        parcelas: Number(formLanc.parcelas) || 1,
+      }) as { total?: number };
       setModalLancamento(false);
-      toast('Lançamento criado', 'success');
+      setFormLanc(formLancVazio);
+      toast(
+        criado?.total && criado.total > 1
+          ? `${criado.total} parcelas criadas`
+          : 'Lançamento criado',
+        'success'
+      );
       setTab('lancamentos');
       setLoading(true);
       financeiroApi.lancamentos({ ...filtros, periodo }).then((r) => setLancamentos(r.items)).finally(() => setLoading(false));
@@ -142,6 +180,7 @@ export function FinanceiroPage() {
       contaId: l.contaId || '',
       formaPagamento: l.formaPagamento || '',
       observacoes: '',
+      anexoUrl: '',
     });
     setModalBaixa(true);
   };
@@ -164,6 +203,7 @@ export function FinanceiroPage() {
         contaId: formBaixa.contaId || null,
         formaPagamento: formBaixa.formaPagamento || null,
         observacoes: formBaixa.observacoes || null,
+        anexoUrl: formBaixa.anexoUrl || null,
       });
       setModalBaixa(false);
       setLancBaixa(null);
@@ -173,9 +213,34 @@ export function FinanceiroPage() {
       );
       setLancamentos((await financeiroApi.lancamentos({ ...filtros, periodo })).items);
       carregarBase();
+      if (modalDetalhe) {
+        setLancDetalhe(await financeiroApi.obterLancamento(lancBaixa.id));
+      }
     } catch (e) {
       erro(e);
     }
+  };
+  const abrirDetalhe = async (id: string) => {
+    try {
+      setLancDetalhe(await financeiroApi.obterLancamento(id));
+      setModalDetalhe(true);
+    } catch (e) { erro(e); }
+  };
+  const estornar = async (baixaId: string) => {
+    if (!confirm('Confirmar estorno desta baixa?')) return;
+    try {
+      const r = await financeiroApi.estornarBaixa(baixaId, { motivo: 'Estorno manual' });
+      setLancDetalhe(r as typeof lancDetalhe);
+      toast('Baixa estornada', 'success');
+      setLancamentos((await financeiroApi.lancamentos({ ...filtros, periodo })).items);
+      carregarBase();
+    } catch (e) { erro(e); }
+  };
+  const abrirExtrato = async (contaId: string) => {
+    try {
+      setExtrato(await financeiroApi.extratoConta(contaId, { periodo }) as Extrato);
+      setModalExtrato(true);
+    } catch (e) { erro(e); }
   };
   const exportar = async () => {
     try {
@@ -212,13 +277,13 @@ export function FinanceiroPage() {
     <PageHeader title="Financeiro" subtitle="Controle financeiro e cobranças" />
     <Tabs tabs={TABS} active={tab} onChange={setTab} />
     {tab === 'dashboard' && <>{filtroPeriodo}{loading ? <Loading /> : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[['Saldo disponível', resumo.saldoDisponivel], ['A receber', resumo.aReceber], ['A pagar', resumo.aPagar], ['Vencidos', resumo.vencidos], ['Receitas realizadas', resumo.receitasRealizadas], ['Despesas realizadas', resumo.despesasRealizadas]].map(([l, v]) => <Card key={String(l)}><p className="text-sm text-slate-500">{l}</p><p className="text-2xl font-bold text-primary-700">{formatCurrency(Number(v || 0))}</p></Card>)}</div>}</>}
-    {tab === 'lancamentos' && <><div className="mb-4 flex flex-wrap items-end gap-2">{filtroPeriodo}<Select label="Natureza" value={filtros.natureza} onChange={(e) => setFiltros({ ...filtros, natureza: e.target.value })}><option value="">Todas</option><option value="receita">A receber / Receitas</option><option value="despesa">A pagar / Despesas</option><option value="transferencia">Transferência</option></Select><Select label="Status" value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}><option value="">Todos</option><option value="a_receber">A receber</option><option value="a_pagar">A pagar</option><option value="parcial">Parcial</option><option value="recebida">Recebida</option><option value="paga">Paga</option><option value="vencida">Vencida</option></Select><Input label="Buscar" value={filtros.busca} onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })} /><Button variant="secondary" onClick={exportar}>Exportar CSV</Button><Button onClick={() => { setFormLanc({ natureza: 'despesa', descricao: '', valor: '', dataCompetencia: hoje, dataVencimento: hoje, categoriaId: '', contaId: '', contaDestinoId: '', fornecedorNome: '', formaPagamento: '', observacoes: '' }); setModalLancamento(true); }}>Nova conta a pagar</Button></div>
+    {tab === 'lancamentos' && <><div className="mb-4 flex flex-wrap items-end gap-2">{filtroPeriodo}<Select label="Natureza" value={filtros.natureza} onChange={(e) => setFiltros({ ...filtros, natureza: e.target.value })}><option value="">Todas</option><option value="receita">A receber / Receitas</option><option value="despesa">A pagar / Despesas</option><option value="transferencia">Transferência</option></Select><Select label="Status" value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}><option value="">Todos</option><option value="a_receber">A receber</option><option value="a_pagar">A pagar</option><option value="parcial">Parcial</option><option value="recebida">Recebida</option><option value="paga">Paga</option><option value="vencida">Vencida</option></Select><Input label="Buscar" value={filtros.busca} onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })} /><Button variant="secondary" onClick={exportar}>Exportar CSV</Button><Button onClick={() => { setFormLanc(formLancVazio); setModalLancamento(true); }}>Nova conta a pagar</Button></div>
       {loading ? <Loading /> : <TableWrapper><table className="w-full min-w-[1100px] text-sm"><thead className="bg-slate-50 text-left"><tr><th className="p-3">Descrição</th><th className="p-3">Fornecedor/Cliente</th><th className="p-3">Categoria</th><th className="p-3">Vencimento</th><th className="p-3">Valor</th><th className="p-3">Pago/Recebido</th><th className="p-3">Saldo</th><th className="p-3">Status</th><th className="p-3">Pagamento</th><th className="p-3">Conta</th><th className="p-3"></th></tr></thead><tbody>{lancamentos.map((l) => {
         const pago = Number((l as { valorPago?: number }).valorPago || (['recebida','paga'].includes(l.status) ? l.valor : 0));
         const saldo = Number((l as { saldo?: number }).saldo ?? Math.max(0, Number(l.valor) - pago));
-        return <tr key={l.id} className="border-t"><td className="p-3 font-medium">{l.descricao}</td><td className="p-3">{l.fornecedorNome || l.cliente?.nome || '—'}</td><td className="p-3">{l.categoria?.nome || '—'}</td><td className="p-3">{l.dataVencimento ? formatDate(l.dataVencimento) : '—'}</td><td className="p-3">{formatCurrency(l.valor)}</td><td className="p-3">{formatCurrency(pago)}</td><td className="p-3">{formatCurrency(saldo)}</td><td className="p-3"><Badge>{l.statusEfetivo || l.status}</Badge></td><td className="p-3">{l.dataMovimento ? formatDate(l.dataMovimento) : '—'}</td><td className="p-3">{l.conta?.nome || '—'}</td><td className="p-3">{!['recebida', 'paga', 'cancelada', 'estornada'].includes(l.status) && <Button variant="secondary" onClick={() => abrirBaixa(l)}>Registrar pagamento</Button>}</td></tr>;
+        return <tr key={l.id} className="border-t"><td className="p-3 font-medium">{l.descricao}{l.parcelaTotal ? <span className="ml-1 text-xs text-slate-400">{l.parcelaNumero}/{l.parcelaTotal}</span> : null}</td><td className="p-3">{l.fornecedorNome || l.cliente?.nome || '—'}</td><td className="p-3">{l.categoria?.nome || '—'}</td><td className="p-3">{l.dataVencimento ? formatDate(l.dataVencimento) : '—'}</td><td className="p-3">{formatCurrency(l.valor)}</td><td className="p-3">{formatCurrency(pago)}</td><td className="p-3">{formatCurrency(saldo)}</td><td className="p-3"><Badge>{l.statusEfetivo || l.status}</Badge></td><td className="p-3">{l.dataMovimento ? formatDate(l.dataMovimento) : '—'}</td><td className="p-3">{l.conta?.nome || '—'}</td><td className="p-3"><div className="flex flex-wrap gap-1"><Button variant="secondary" onClick={() => abrirDetalhe(l.id)}>Detalhes</Button>{!['recebida', 'paga', 'cancelada', 'estornada'].includes(l.status) && <Button variant="secondary" onClick={() => abrirBaixa(l)}>Registrar pagamento</Button>}</div></td></tr>;
       })}</tbody></table></TableWrapper>}</>}
-    {tab === 'contas' && <><div className="mb-4 flex justify-end"><Button onClick={() => setModalConta(true)}>Nova conta</Button></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{contas.map((c) => <Card key={c.id}><div className="flex justify-between"><h3 className="font-semibold">{c.nome}</h3><Badge color={c.ativo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}>{c.ativo ? 'Ativa' : 'Inativa'}</Badge></div><p className="text-sm capitalize text-slate-500">{c.tipo}</p><p className="mt-2 text-xl font-bold text-primary-700">{formatCurrency(c.saldoInicial)}</p></Card>)}</div></>}
+    {tab === 'contas' && <><div className="mb-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => { setFormLanc({ ...formLancVazio, natureza: 'transferencia', dataVencimento: '' }); setModalLancamento(true); }}>Transferir</Button><Button onClick={() => setModalConta(true)}>Nova conta</Button></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{contas.map((c) => <Card key={c.id}><div className="flex justify-between"><h3 className="font-semibold">{c.nome}</h3><Badge color={c.ativo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}>{c.ativo ? 'Ativa' : 'Inativa'}</Badge></div><p className="text-sm capitalize text-slate-500">{c.tipo}</p><p className="mt-1 text-xs text-slate-400">Saldo inicial {formatCurrency(c.saldoInicial)}</p><p className="mt-2 text-xl font-bold text-primary-700">{formatCurrency(c.saldoAtual ?? c.saldoInicial)}</p><Button className="mt-3" variant="secondary" onClick={() => abrirExtrato(c.id)}>Ver extrato</Button></Card>)}</div></>}
     {tab === 'categorias' && <><div className="mb-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => setModalSubcategoria(true)}>Nova subcategoria</Button><Button onClick={() => { setCategoriaEditando(null); setFormCategoria({ nome: '', tipo: 'despesa_operacional', grupoDre: 'despesa_administrativa', ativo: true }); setModalCategoria(true); }}>Nova categoria</Button></div><div className="space-y-3">{categorias.map((c) => <Card key={c.id}><div className="flex items-center justify-between"><div><h3 className="font-semibold">{c.nome} <Badge>{c.tipo}</Badge></h3><p className="text-xs text-slate-500">{c.grupoDre || 'Sem grupo DRE'}</p></div><div className="flex gap-2"><Badge color={c.ativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>{c.ativo ? 'Ativa' : 'Inativa'}</Badge><Button variant="secondary" onClick={() => editarCategoria(c)}>Editar</Button></div></div>{c.subcategorias?.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{c.subcategorias.map((s) => <Badge key={s.id}>{s.nome}</Badge>)}</div>}</Card>)}</div></>}
     {tab === 'recorrencias' && <><div className="mb-4 flex flex-wrap justify-end gap-2"><Button variant="secondary" onClick={async () => { try { const r = await financeiroApi.processarRecorrencias(); toast(`${(r as { gerados?: number }).gerados || 0} lançamentos gerados`, 'success'); } catch (e) { erro(e); } }}>Gerar competências</Button><Button onClick={() => setModalRec(true)}>Nova recorrência</Button></div><TableWrapper><table className="w-full text-sm"><thead className="bg-slate-50 text-left"><tr><th className="p-3">Descrição</th><th className="p-3">Dia</th><th className="p-3">Valor</th><th className="p-3">Categoria</th><th className="p-3">Status</th></tr></thead><tbody>{recorrencias.map((r) => <tr key={r.id} className="border-t"><td className="p-3">{r.descricao}</td><td className="p-3">Todo dia {r.diaDoMes}</td><td className="p-3">{formatCurrency(Number(r.valor))}</td><td className="p-3">{r.categoria?.nome || '—'}</td><td className="p-3"><Badge>{r.ativo ? 'Ativa' : 'Inativa'}</Badge></td></tr>)}</tbody></table></TableWrapper></>}
     {tab === 'fluxo' && <>{filtroPeriodo}<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[['Saldo inicial', fluxo.saldoInicial], ['Entradas', fluxo.entradas], ['Saídas', fluxo.saidas], ['Saldo atual', fluxo.saldoAtual], ['A receber', fluxo.projecaoReceber], ['A pagar', fluxo.projecaoPagar], ['Saldo projetado', fluxo.saldoProjetado]].map(([l, v]) => <Card key={String(l)}><p className="text-sm text-slate-500">{l}</p><p className="text-xl font-bold text-primary-700">{formatCurrency(Number(v || 0))}</p></Card>)}</div></>}
@@ -237,6 +302,21 @@ export function FinanceiroPage() {
           <Input label="Fornecedor / beneficiário" value={formLanc.fornecedorNome} onChange={(e) => setFormLanc({ ...formLanc, fornecedorNome: e.target.value })} />
         )}
         <Input label="Valor original" type="number" min="0" step="0.01" value={formLanc.valor} onChange={(e) => setFormLanc({ ...formLanc, valor: e.target.value })} />
+        {formLanc.natureza !== 'transferencia' && (
+          <Input
+            label="Parcelas"
+            type="number"
+            min="1"
+            max="60"
+            value={formLanc.parcelas}
+            onChange={(e) => setFormLanc({ ...formLanc, parcelas: e.target.value })}
+          />
+        )}
+        {Number(formLanc.parcelas) > 1 && formLanc.valor && (
+          <p className="text-xs text-slate-500">
+            {formLanc.parcelas}x de aproximadamente {formatCurrency(Number(formLanc.valor) / Number(formLanc.parcelas))} (vencimentos mensais a partir da data informada)
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label="Competência" type="date" value={formLanc.dataCompetencia} onChange={(e) => setFormLanc({ ...formLanc, dataCompetencia: e.target.value })} />
           <Input label="Vencimento" type="date" value={formLanc.dataVencimento} onChange={(e) => setFormLanc({ ...formLanc, dataVencimento: e.target.value })} />
@@ -268,7 +348,22 @@ export function FinanceiroPage() {
           <option value="TRANSFERENCIA">Transferência</option>
         </Select>
         <Input label="Observações" value={formLanc.observacoes} onChange={(e) => setFormLanc({ ...formLanc, observacoes: e.target.value })} />
-        <p className="text-xs text-slate-500">Cadastrar a conta não movimenta o caixa. A saída/entrada só ocorre ao registrar o pagamento.</p>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Anexo (NF, comprovante)</label>
+          <input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx"
+            disabled={uploadingAnexo}
+            onChange={(e) => e.target.files?.[0] && uploadAnexo(e.target.files[0], 'lanc')}
+            className="block w-full text-sm"
+          />
+          {formLanc.anexoUrl && (
+            <a href={formLanc.anexoUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-primary-600 underline">
+              Ver anexo
+            </a>
+          )}
+        </div>
+        <p className="text-xs text-slate-500">Cadastrar a conta não movimenta o caixa. A saída/entrada só ocorre ao registrar o pagamento (exceto transferência).</p>
         <Button disabled={!formLanc.descricao || !formLanc.valor} onClick={salvarLancamento}>Salvar</Button>
       </div>
     </Modal>
@@ -334,6 +429,21 @@ export function FinanceiroPage() {
             <option value="TRANSFERENCIA">Transferência</option>
           </Select>
           <Input label="Observação" value={formBaixa.observacoes} onChange={(e) => setFormBaixa({ ...formBaixa, observacoes: e.target.value })} />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Comprovante</label>
+            <input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp"
+              disabled={uploadingAnexo}
+              onChange={(e) => e.target.files?.[0] && uploadAnexo(e.target.files[0], 'baixa')}
+              className="block w-full text-sm"
+            />
+            {formBaixa.anexoUrl && (
+              <a href={formBaixa.anexoUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-primary-600 underline">
+                Ver comprovante
+              </a>
+            )}
+          </div>
           <Button disabled={!formBaixa.dataMovimento || !(Number(formBaixa.valorPrincipal) > 0)} onClick={confirmarBaixa}>
             Confirmar baixa
           </Button>
@@ -346,5 +456,110 @@ export function FinanceiroPage() {
     <Modal open={modalSubcategoria} onClose={() => setModalSubcategoria(false)} title="Nova subcategoria"><Select label="Categoria" value={formSubcategoria.categoriaId} onChange={(e) => setFormSubcategoria({ ...formSubcategoria, categoriaId: e.target.value })}><option value="">Selecione</option>{categorias.filter((c) => c.ativo).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</Select><Input label="Nome" value={formSubcategoria.nome} onChange={(e) => setFormSubcategoria({ ...formSubcategoria, nome: e.target.value })} /><Button disabled={!formSubcategoria.categoriaId || !formSubcategoria.nome} onClick={salvarSubcategoria}>Salvar</Button></Modal>
     <Modal open={modalCobranca} onClose={() => setModalCobranca(false)} title="Nova cobrança"><Select label="Cliente" value={formCobranca.clienteId} onChange={(e) => setFormCobranca({ ...formCobranca, clienteId: e.target.value })}><option value="">Selecione</option>{clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</Select><Input label="Valor" type="number" value={formCobranca.valor} onChange={(e) => setFormCobranca({ ...formCobranca, valor: e.target.value })} /><Select label="Método" value={formCobranca.metodo} onChange={(e) => setFormCobranca({ ...formCobranca, metodo: e.target.value })}><option value="PIX">PIX</option><option value="BOLETO">Boleto</option><option value="CARTAO">Cartão</option></Select><Input label="Vencimento" type="date" value={formCobranca.dueDate} onChange={(e) => setFormCobranca({ ...formCobranca, dueDate: e.target.value })} /><Button onClick={cobrar}>Gerar cobrança</Button></Modal>
     <Modal open={modalVia} onClose={() => setModalVia(false)} title="2ª via">{viaData?.invoiceUrl && <a href={viaData.invoiceUrl} target="_blank" rel="noreferrer" className="text-primary-600 underline">Abrir fatura</a>}{viaData?.pixCode && <textarea readOnly value={viaData.pixCode} className="mt-3 w-full rounded border p-2 text-xs" rows={4} />}{!viaData?.invoiceUrl && !viaData?.pixCode && <p className="text-slate-500">Nenhum link disponível.</p>}</Modal>
+    <Modal open={modalDetalhe} onClose={() => setModalDetalhe(false)} title="Detalhe do lançamento">
+      {lancDetalhe && (
+        <div className="grid max-h-[75vh] gap-4 overflow-y-auto pr-1">
+          <div className="rounded-lg bg-slate-50 p-3 text-sm">
+            <p className="font-semibold">{lancDetalhe.descricao}</p>
+            <p className="text-slate-600">
+              {formatCurrency(lancDetalhe.valor)} · {lancDetalhe.statusEfetivo || lancDetalhe.status}
+              {lancDetalhe.parcelaTotal ? ` · Parcela ${lancDetalhe.parcelaNumero}/${lancDetalhe.parcelaTotal}` : ''}
+            </p>
+            <p className="text-slate-600">
+              Pago {formatCurrency(Number(lancDetalhe.valorPago || 0))} · Saldo {formatCurrency(Number(lancDetalhe.saldo || 0))}
+            </p>
+            {lancDetalhe.anexoUrl && (
+              <a href={lancDetalhe.anexoUrl} target="_blank" rel="noreferrer" className="text-xs text-primary-600 underline">Anexo do lançamento</a>
+            )}
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-slate-800">Baixas</h3>
+            {!lancDetalhe.baixas?.length ? (
+              <p className="text-sm text-slate-500">Nenhuma baixa registrada.</p>
+            ) : (
+              <div className="space-y-2">
+                {lancDetalhe.baixas.map((b) => (
+                  <div key={b.id} className={`rounded border p-3 text-sm ${b.estornado || b.tipo === 'estorno' ? 'bg-slate-50 opacity-70' : ''}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium">
+                        {b.tipo === 'estorno' ? 'Estorno' : 'Baixa'} · {formatDate(b.dataMovimento)} · {formatCurrency(Number(b.valorLiquido))}
+                      </span>
+                      <Badge>{b.estornado ? 'Estornada' : b.tipo}</Badge>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Principal {formatCurrency(Number(b.valorPrincipal))}
+                      {Number(b.juros) > 0 ? ` · Juros ${formatCurrency(Number(b.juros))}` : ''}
+                      {Number(b.multa) > 0 ? ` · Multa ${formatCurrency(Number(b.multa))}` : ''}
+                      {Number(b.desconto) > 0 ? ` · Desc. ${formatCurrency(Number(b.desconto))}` : ''}
+                      {Number(b.taxa) > 0 ? ` · Taxa ${formatCurrency(Number(b.taxa))}` : ''}
+                      {b.conta?.nome ? ` · ${b.conta.nome}` : ''}
+                    </p>
+                    {b.anexoUrl && <a href={b.anexoUrl} target="_blank" rel="noreferrer" className="text-xs text-primary-600 underline">Comprovante</a>}
+                    {b.tipo === 'baixa' && !b.estornado && (
+                      <Button className="mt-2" variant="secondary" onClick={() => estornar(b.id)}>Estornar</Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-slate-800">Histórico / auditoria</h3>
+            {!lancDetalhe.historico?.length ? (
+              <p className="text-sm text-slate-500">Sem eventos.</p>
+            ) : (
+              <ul className="space-y-1 text-xs text-slate-600">
+                {[...lancDetalhe.historico].reverse().map((h, i) => (
+                  <li key={i} className="rounded border border-slate-100 px-2 py-1">
+                    <span className="font-medium">{String(h.acao || 'evento')}</span>
+                    {h.em ? ` · ${new Date(String(h.em)).toLocaleString('pt-BR')}` : ''}
+                    {h.valorPrincipal != null ? ` · principal ${formatCurrency(Number(h.valorPrincipal))}` : ''}
+                    {h.motivo ? ` · ${String(h.motivo)}` : ''}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {!['recebida', 'paga', 'cancelada', 'estornada'].includes(lancDetalhe.status) && (
+            <Button onClick={() => { setModalDetalhe(false); abrirBaixa(lancDetalhe); }}>Registrar pagamento</Button>
+          )}
+        </div>
+      )}
+    </Modal>
+    <Modal open={modalExtrato} onClose={() => setModalExtrato(false)} title={`Extrato — ${extrato?.conta?.nome || ''}`}>
+      {extrato && (
+        <div className="grid max-h-[75vh] gap-3 overflow-y-auto pr-1">
+          <div className="grid gap-2 sm:grid-cols-4">
+            {[['Abertura', extrato.saldoAbertura], ['Entradas', extrato.entradas], ['Saídas', extrato.saidas], ['Saldo', extrato.saldoAtual]].map(([l, v]) => (
+              <div key={String(l)} className="rounded bg-slate-50 p-2 text-sm">
+                <p className="text-slate-500">{l}</p>
+                <p className="font-semibold">{formatCurrency(Number(v || 0))}</p>
+              </div>
+            ))}
+          </div>
+          <TableWrapper>
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left">
+                <tr><th className="p-2">Data</th><th className="p-2">Descrição</th><th className="p-2">Tipo</th><th className="p-2">Valor</th><th className="p-2">Saldo</th></tr>
+              </thead>
+              <tbody>
+                {(extrato.itens || []).map((m) => (
+                  <tr key={m.id} className="border-t">
+                    <td className="p-2">{formatDate(m.data)}</td>
+                    <td className="p-2">{m.descricao}{m.anexoUrl ? <> · <a href={m.anexoUrl} target="_blank" rel="noreferrer" className="text-primary-600 underline">anexo</a></> : null}</td>
+                    <td className="p-2"><Badge>{m.tipo}</Badge></td>
+                    <td className={`p-2 font-medium ${m.valor >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(m.valor)}</td>
+                    <td className="p-2">{formatCurrency(m.saldoApos)}</td>
+                  </tr>
+                ))}
+                {!extrato.itens?.length && (
+                  <tr><td colSpan={5} className="p-3 text-slate-500">Sem movimentos no período.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </TableWrapper>
+        </div>
+      )}
+    </Modal>
   </div>;
 }

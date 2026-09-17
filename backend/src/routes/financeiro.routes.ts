@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { financeiroController } from '../controllers/financeiro.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { checkRole } from '../middlewares/role.middleware.js';
+import { upload } from '../middlewares/upload.middleware.js';
 
 const router = Router();
 
@@ -17,14 +18,19 @@ router.post('/subcategorias', (req, res) => financeiroController.salvarSubcatego
 
 router.get('/contas', (req, res) => financeiroController.contas(req, res));
 router.post('/contas', (req, res) => financeiroController.salvarConta(req, res));
+router.get('/contas/:id/extrato', (req, res) => financeiroController.extratoConta(req, res));
 
 router.get('/centros-custo', (req, res) => financeiroController.centros(req, res));
 router.post('/centros-custo', (req, res) => financeiroController.salvarCentro(req, res));
 
 router.get('/lancamentos', (req, res) => financeiroController.lancamentos(req, res));
 router.post('/lancamentos', (req, res) => financeiroController.criarLancamento(req, res));
+router.get('/lancamentos/:id', (req, res) => financeiroController.obterLancamento(req, res));
 router.put('/lancamentos/:id', (req, res) => financeiroController.atualizarLancamento(req, res));
 router.post('/lancamentos/:id/baixar', (req, res) => financeiroController.baixarLancamento(req, res));
+router.get('/lancamentos/:id/baixas', (req, res) => financeiroController.listarBaixas(req, res));
+router.post('/baixas/:id/estornar', (req, res) => financeiroController.estornarBaixa(req, res));
+router.post('/anexos', upload.single('arquivo'), (req, res) => financeiroController.uploadAnexo(req, res));
 router.get('/export', (req, res) => financeiroController.exportar(req, res));
 
 router.get('/recorrencias', (req, res) => financeiroController.recorrencias(req, res));

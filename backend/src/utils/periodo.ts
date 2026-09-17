@@ -26,6 +26,15 @@ export function addDiasYmd(ymd: string, dias: number): string {
   return ymdBrasil(dt);
 }
 
+/** Soma meses mantendo o dia (ajusta para último dia do mês se necessário). */
+export function addMesesYmd(ymd: string, meses: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const base = new Date(Date.UTC(y, m - 1 + meses, 1, 15, 0, 0));
+  const ultimoDia = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0, 15)).getUTCDate();
+  const dia = Math.min(d, ultimoDia);
+  return ymdBrasil(new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), dia, 15, 0, 0)));
+}
+
 export function resolverPeriodo(params: {
   periodo?: string;
   de?: string;
