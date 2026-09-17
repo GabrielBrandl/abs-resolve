@@ -302,9 +302,14 @@ export class SolicitacaoService {
     const fluxo = fluxoConfigService.getFluxoEfetivo(slug);
     if (!fluxo) throw new Error(`Questionário não disponível para "${slug}"`);
     const preco = fluxoConfigService.getPrecoConfig(slug);
+    const cat = await prisma.catalogoServico.findUnique({
+      where: { slug },
+      select: { nome: true },
+    });
     // Vitrine precisa do preço composto para exibir/recalcular kit+metros no site
     return {
       ...fluxo,
+      nome: cat?.nome || fluxo.nome,
       modoPreco: preco?.modoPreco ?? 'padrao',
       precoBase: preco?.precoBase ?? null,
       precoComposto: preco?.precoComposto ?? null,
@@ -557,11 +562,17 @@ export class SolicitacaoService {
     const somentePecas = detalhes.length > 0 && detalhes.every((d) => d.tipo === 'peca');
     const misto = temServico && detalhes.some((d) => d.tipo === 'peca');
 
-    if (temServico && precoSubtotal < MINIMO_CARRINHO_SERVICO) {
-      const falta = MINIMO_CARRINHO_SERVICO - precoSubtotal;
+    const cfgSistema = await getConfigPrecificacao();
+    const minimoCarrinho =
+      Number(cfgSistema.minimoCarrinhoServico) > 0
+        ? Number(cfgSistema.minimoCarrinhoServico)
+        : MINIMO_CARRINHO_SERVICO;
+
+    if (temServico && precoSubtotal < minimoCarrinho) {
+      const falta = minimoCarrinho - precoSubtotal;
       const contexto = misto ? 'Pedidos com serviço e peça' : 'Pedidos só com serviço';
       throw new Error(
-        `${contexto} exigem valor mínimo de R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}. ` +
+        `${contexto} exigem valor mínimo de R$ ${minimoCarrinho.toFixed(2).replace('.', ',')}. ` +
           `Faltam R$ ${falta.toFixed(2).replace('.', ',')}.`
       );
     }

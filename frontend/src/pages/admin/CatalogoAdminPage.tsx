@@ -46,6 +46,7 @@ export function CatalogoAdminPage() {
     lucro: 25,
     overhead: 15,
     pecasAvulsasAtivas: false,
+    minimoCarrinhoServico: 150,
   });
   const [salvandoRegras, setSalvandoRegras] = useState(false);
   const [salvandoPecas, setSalvandoPecas] = useState(false);
@@ -73,6 +74,7 @@ export function CatalogoAdminPage() {
           lucro: Math.round(Number(c.lucro ?? 0.25) * 1000) / 10,
           overhead: Math.round(Number(c.overhead ?? 0.15) * 1000) / 10,
           pecasAvulsasAtivas: c.pecasAvulsasAtivas === true,
+          minimoCarrinhoServico: Number(c.minimoCarrinhoServico ?? 150),
         });
       })
       .catch(() => undefined);
@@ -93,6 +95,7 @@ export function CatalogoAdminPage() {
         lucro: regras.lucro / 100,
         overhead: regras.overhead / 100,
         pecasAvulsasAtivas: regras.pecasAvulsasAtivas,
+        minimoCarrinhoServico: regras.minimoCarrinhoServico,
       });
       toast('Regras da loja atualizadas!', 'success');
     } catch (e) {
@@ -293,6 +296,7 @@ export function CatalogoAdminPage() {
             Indicação, garantia e taxas. A vitrine e o checkout usam estes números.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Input label="Valor mínimo do pedido (R$)" type="number" min={0} value={regras.minimoCarrinhoServico} onChange={(e) => setRegras({ ...regras, minimoCarrinhoServico: Number(e.target.value) })} />
             <Input label="Desconto novo cliente (%)" type="number" min={0} step={0.1} value={regras.descontoNovoClientePercent} onChange={(e) => setRegras({ ...regras, descontoNovoClientePercent: Number(e.target.value) })} />
             <Input label="Bônus indicação (R$)" type="number" min={0} value={regras.bonusIndicacao} onChange={(e) => setRegras({ ...regras, bonusIndicacao: Number(e.target.value) })} />
             <Input label="Garantia padrão (dias)" type="number" min={0} value={regras.garantiaPadraoDias} onChange={(e) => setRegras({ ...regras, garantiaPadraoDias: Number(e.target.value) })} />

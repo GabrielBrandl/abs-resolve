@@ -14,6 +14,7 @@ import {
 import type { CatalogoServicoAdmin, Cliente } from '../../types';
 import { formatCurrency } from '../../types';
 import { PageHeader, Loading, Input, Select, Button, Card } from '../../components/ui';
+import { normalizeSearch } from '../../storefront/search';
 
 const ETAPAS = [
   'Cliente',
@@ -98,16 +99,22 @@ export function NovaVendaPage() {
   const [itens, setItens] = useState<ItemCarrinho[]>([]);
   const [itemAtivo, setItemAtivo] = useState<string | null>(null);
 
-  // Etapa 5 — Ajuste admin
+  // Etapa 5 — Ajuste admin + pagamento
   const [descontoValor, setDescontoValor] = useState('');
   const [motivoAjuste, setMotivoAjuste] = useState('');
   const [observacoes, setObservacoes] = useState('');
+  const [metodoPagamento, setMetodoPagamento] = useState('PIX');
+  const [pagoCompleto, setPagoCompleto] = useState(true);
+  const [agendarApos, setAgendarApos] = useState(true);
 
   const leadId = searchParams.get('lead') || undefined;
 
   useEffect(() => {
-    catalogoAdminApi.servicos().then(setCatalogo).catch(() => {});
-  }, []);
+    catalogoAdminApi
+      .servicos()
+      .then(setCatalogo)
+      .catch((e) => toast(e instanceof Error ? e.message : 'Erro ao carregar catálogo', 'error'));
+  }, [toast]);
 
   useEffect(() => {
     if (user?.nome) setOrigem((o) => ({ ...o, responsavel: o.responsavel || user.nome }));
@@ -131,17 +138,24 @@ export function NovaVendaPage() {
   }, [telefoneBusca]);
 
   const servicosFiltrados = useMemo(() => {
-    const q = buscaServico.trim().toLowerCase();
-    return catalogo
-      .filter((s) => s.ativo !== false)
-      .filter(
-        (s) =>
-          !q ||
-          s.nome.toLowerCase().includes(q) ||
-          s.slug.toLowerCase().includes(q) ||
-          s.categoria.toLowerCase().includes(q)
-      )
-      .slice(0, 40);
+    const q = normalizeSearch(buscaServico);
+    const ativos = catalogo.filter((s) => s.ativo !== false);
+    if (!q) return ativos;
+    return ativos
+      .map((s) => {
+        const hay = normalizeSearch([s.nome, s.slug.replace(/-/g, ' '), s.categoria].join(' '));
+        const score = hay.includes(q)
+          ? 100
+          : q.split(/\s+/).filter(Boolean).every((t) => hay.includes(t))
+            ? 80
+            : q.split(/\s+/).filter(Boolean).some((t) => hay.includes(t))
+              ? 40
+              : 0;
+        return { s, score };
+      })
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((r) => r.s);
   }, [catalogo, buscaServico]);
 
   const subtotal = useMemo(
@@ -254,6 +268,10 @@ export function NovaVendaPage() {
       toast('Total inválido — complete o questionário', 'error');
       return;
     }
+    if (modo === 'pedido' && !metodoPagamento) {
+      toast('Selecione o método de pagamento', 'error');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -268,6 +286,9 @@ export function NovaVendaPage() {
         descontoValor: descontoNum > 0 ? descontoNum : null,
         motivoAjuste: motivoAjuste || null,
         observacoes: observacoes || null,
+        ...(modo === 'pedido'
+          ? { metodoPagamento, pagoCompleto }
+          : {}),
         itens: itens.map((i) => ({
           slug: i.slug,
           quantidade: i.quantidade,
@@ -278,8 +299,24 @@ export function NovaVendaPage() {
         toast('Orçamento salvo!', 'success');
         navigate('/admin/orcamentos');
       } else {
-        toast(`Pedido ${result.pedido?.numero} criado!`, 'success');
-        navigate(`/pedidos/${result.pedido?.id}`);
+        toast(
+          `Pedido ${result.pedido?.numero} criado${pagoCompleto ? ' (pago)' : ' (pagamento pendente)'}!`,
+          'success'
+        );
+        if (agendarApos && result.pedido?.id) {
+          const params = new URLSearchParams({
+            novo: '1',
+            pedidoId: result.pedido.id,
+            clienteId: cliente.id,
+            clienteNome: cliente.nome || '',
+            valor: String(result.precoFinal ?? total),
+            oQueFazer: itens.map((i) => i.nome).join(', '),
+            servicoSlug: itens[0]?.slug || '',
+          });
+          navigate(`/agenda?${params.toString()}`);
+        } else {
+          navigate(`/pedidos/${result.pedido?.id}`);
+        }
       }
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao finalizar venda', 'error');
@@ -687,6 +724,40 @@ export function NovaVendaPage() {
               value={observacoes}
               onChange={(e) => setObservacoes(e.target.value)}
             />
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Select
+                label="Método de pagamento"
+                value={metodoPagamento}
+                onChange={(e) => setMetodoPagamento(e.target.value)}
+              >
+                <option value="PIX">PIX</option>
+                <option value="CARTAO">Cartão</option>
+                <option value="DINHEIRO">Dinheiro</option>
+                <option value="TRANSFERENCIA">Transferência</option>
+                <option value="BOLETO">Boleto</option>
+              </Select>
+              <div className="flex flex-col justify-end gap-2 pb-1">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={pagoCompleto}
+                    onChange={(e) => setPagoCompleto(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  Cliente já pagou completo
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={agendarApos}
+                    onChange={(e) => setAgendarApos(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  Agendar horário após criar a venda
+                </label>
+              </div>
+            </div>
 
             <div className="rounded-xl bg-[#0033B5] p-4 text-white">
               <div className="flex justify-between text-sm opacity-90">

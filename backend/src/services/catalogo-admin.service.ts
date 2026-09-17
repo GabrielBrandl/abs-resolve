@@ -18,6 +18,8 @@ export type CriarAgendamentoOperacionalInput = {
   horarioFim: string;
   tecnicoId?: string | null;
   valor?: number;
+  /** Vincula agendamento a pedido já criado (ex.: venda assistida). */
+  pedidoId?: string | null;
   /** O que o técnico precisa fazer no local */
   oQueFazer?: string;
   observacoes?: string;
@@ -197,7 +199,7 @@ export class CatalogoAdminService {
     const precoTexto = data.precoTexto ?? atual.precoTexto;
     const normalizado = normalizarPreco({ tipoPreco, precoMinimo, precoTexto });
 
-    return prisma.catalogoServico.update({
+    const updated = await prisma.catalogoServico.update({
       where: { id },
       data: {
         ...(data.nome !== undefined && { nome: data.nome }),
@@ -226,6 +228,21 @@ export class CatalogoAdminService {
         ...(normalizado.precoTexto && !data.precoTexto?.trim() && { precoTexto: normalizado.precoTexto }),
       },
     });
+
+    // Espelha o preço do catálogo no questionário (precoBase) para o checkout usar o mesmo valor.
+    if (data.precoMinimo !== undefined && data.precoMinimo != null && data.precoMinimo > 0) {
+      try {
+        const { fluxoConfigService } = await import('./fluxo-config.service.js');
+        await fluxoConfigService.sincronizarPrecoBaseDoCatalogo(atual.slug, Number(data.precoMinimo));
+      } catch (err) {
+        console.warn(
+          '[catalogo] sync preço → questionário:',
+          err instanceof Error ? err.message : err
+        );
+      }
+    }
+
+    return updated;
   }
 
   async atualizarImagem(id: string, file: Express.Multer.File) {
@@ -361,6 +378,9 @@ export class CatalogoAdminService {
           descontoNovoClientePercent: num('descontoNovoClientePercent'),
         }),
         ...(bool('pecasAvulsasAtivas') !== undefined && { pecasAvulsasAtivas: bool('pecasAvulsasAtivas') }),
+        ...(num('minimoCarrinhoServico') !== undefined && {
+          minimoCarrinhoServico: Math.max(0, num('minimoCarrinhoServico')!),
+        }),
       },
     });
   }
@@ -472,6 +492,7 @@ export class CatalogoAdminService {
       horarioFim,
       tecnicoId,
       valor,
+      pedidoId: pedidoExistenteId,
       oQueFazer,
       observacoes,
       materiais,
@@ -515,10 +536,9 @@ export class CatalogoAdminService {
           : 0;
 
     const descricaoPedido = [servico.nome, oQueFazer?.trim()].filter(Boolean).join(' — ').slice(0, 500);
-    const numero = await gerarNumeroPedido();
 
     const opcoes: Record<string, unknown> = {
-      origem: 'agenda_operacional',
+      origem: pedidoExistenteId ? 'venda_assistida_agenda' : 'agenda_operacional',
       oQueFazer: oQueFazer?.trim() || '',
       observacoes: observacoes?.trim() || '',
       materiais: materiais?.trim() || '',
@@ -529,30 +549,87 @@ export class CatalogoAdminService {
     };
 
     const result = await prisma.$transaction(async (tx) => {
-      const pedido = await tx.pedido.create({
-        data: {
-          numero,
-          clienteId,
-          valor: valorPedido,
-          responsavel,
-          descricao: descricaoPedido || servico.nome,
-          status: 'em_processamento',
-        },
-      });
+      let pedido: { id: string; numero: string };
+      let solicitacao: { id: string };
 
-      const solicitacao = await tx.solicitacaoServico.create({
-        data: {
-          clienteId,
-          servicoId: servico.id,
-          tipo: servico.tipo || 'padrao',
-          status: 'agendado',
-          precoBase: valorPedido || null,
-          precoFinal: valorPedido || null,
-          express,
-          pedidoId: pedido.id,
-          opcoes: opcoes as Prisma.InputJsonValue,
-        },
-      });
+      if (pedidoExistenteId) {
+        const existente = await tx.pedido.findUnique({
+          where: { id: pedidoExistenteId },
+          include: {
+            solicitacao: true,
+            agendamentos: { where: { status: { notIn: ['cancelado'] } }, take: 1 },
+          },
+        });
+        if (!existente) throw new Error('Pedido não encontrado');
+        if (existente.clienteId !== clienteId) throw new Error('Pedido não pertence a este cliente');
+        if (existente.agendamentos.length) throw new Error('Este pedido já possui agendamento');
+
+        pedido = { id: existente.id, numero: existente.numero };
+
+        if (existente.solicitacao) {
+          solicitacao = await tx.solicitacaoServico.update({
+            where: { id: existente.solicitacao.id },
+            data: {
+              status: 'agendado',
+              express,
+              opcoes: {
+                ...((existente.solicitacao.opcoes as Record<string, unknown>) || {}),
+                ...opcoes,
+              } as Prisma.InputJsonValue,
+            },
+          });
+        } else {
+          solicitacao = await tx.solicitacaoServico.create({
+            data: {
+              clienteId,
+              servicoId: servico.id,
+              tipo: servico.tipo || 'padrao',
+              status: 'agendado',
+              precoBase: valorPedido || Number(existente.valor) || null,
+              precoFinal: valorPedido || Number(existente.valor) || null,
+              express,
+              pedidoId: pedido.id,
+              opcoes: opcoes as Prisma.InputJsonValue,
+            },
+          });
+        }
+
+        if (oQueFazer?.trim() || descricaoPedido) {
+          await tx.pedido.update({
+            where: { id: pedido.id },
+            data: {
+              descricao: descricaoPedido || existente.descricao,
+              status: existente.status === 'recebido' ? 'em_processamento' : existente.status,
+            },
+          });
+        }
+      } else {
+        const numero = await gerarNumeroPedido();
+        pedido = await tx.pedido.create({
+          data: {
+            numero,
+            clienteId,
+            valor: valorPedido,
+            responsavel,
+            descricao: descricaoPedido || servico.nome,
+            status: 'em_processamento',
+          },
+        });
+
+        solicitacao = await tx.solicitacaoServico.create({
+          data: {
+            clienteId,
+            servicoId: servico.id,
+            tipo: servico.tipo || 'padrao',
+            status: 'agendado',
+            precoBase: valorPedido || null,
+            precoFinal: valorPedido || null,
+            express,
+            pedidoId: pedido.id,
+            opcoes: opcoes as Prisma.InputJsonValue,
+          },
+        });
+      }
 
       const [y, m, d] = data.split('-').map(Number);
       const dataPersistida = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
@@ -569,7 +646,6 @@ export class CatalogoAdminService {
       const usados = usadosAgg
         .filter((a) => {
           const iso = a.data.toISOString().slice(0, 10);
-          // data persistida em UTC noon → dia UTC = dia do slot
           return iso === data;
         })
         .reduce((s, a) => s + a.pontosUsados, 0);
@@ -592,17 +668,20 @@ export class CatalogoAdminService {
         },
       });
 
-      await tx.ordemServico.create({
-        data: {
-          pedidoId: pedido.id,
-          etapa: 'aprovacao',
-          tecnicoId: tecnicoId || undefined,
-          observacoes: [oQueFazer, observacoes, materiais ? `Materiais: ${materiais}` : '', acesso ? `Acesso: ${acesso}` : '']
-            .filter(Boolean)
-            .join('\n')
-            .slice(0, 2000) || null,
-        },
-      });
+      const osExistente = await tx.ordemServico.findUnique({ where: { pedidoId: pedido.id } });
+      if (!osExistente) {
+        await tx.ordemServico.create({
+          data: {
+            pedidoId: pedido.id,
+            etapa: 'aprovacao',
+            tecnicoId: tecnicoId || undefined,
+            observacoes: [oQueFazer, observacoes, materiais ? `Materiais: ${materiais}` : '', acesso ? `Acesso: ${acesso}` : '']
+              .filter(Boolean)
+              .join('\n')
+              .slice(0, 2000) || null,
+          },
+        });
+      }
 
       return { agendamento, pedido, solicitacao, servico };
     });

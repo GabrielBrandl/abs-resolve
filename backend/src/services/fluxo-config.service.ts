@@ -276,26 +276,21 @@ export class FluxoConfigService {
     }
   }
 
-  /** Fluxo mínimo para serviços novos do catálogo (preço fixo, sem questionário). */
+  /** Fluxo mínimo para serviços novos do catálogo (preço fixo). Não apaga perguntas existentes. */
   async criarFluxoPrecoFixo(slug: string, precoBase: number | null) {
+    const padrao = getFluxo(slug);
     await prisma.fluxoServicoConfig.upsert({
       where: { slug },
       update: {
-        modoPreco: 'personalizado',
-        precoBase,
-        perguntas: [],
-        fotosObrigatorias: [],
-        regrasValidacao: [],
-        itensPreco: [],
-        precoComposto: toJson(PRECO_COMPOSTO_VAZIO),
+        ...(precoBase != null && precoBase > 0 ? { precoBase } : {}),
       },
       create: {
         slug,
-        modoPreco: 'personalizado',
+        modoPreco: padrao ? 'padrao' : 'personalizado',
         precoBase,
-        perguntas: [],
-        fotosObrigatorias: [],
-        regrasValidacao: [],
+        perguntas: toJson(padrao?.perguntas ?? []),
+        fotosObrigatorias: padrao?.fotosObrigatorias ?? [],
+        regrasValidacao: toJson(padrao?.regrasValidacao ?? []),
         itensPreco: [],
         precoComposto: toJson(PRECO_COMPOSTO_VAZIO),
       },
@@ -305,19 +300,34 @@ export class FluxoConfigService {
 
   async listar(): Promise<Array<{ slug: string; nome: string; totalPerguntas: number; modoPreco: string }>> {
     await this.ensureSeeded();
-    const rows = await prisma.fluxoServicoConfig.findMany({ orderBy: { slug: 'asc' } });
-    const catalogo = await prisma.catalogoServico.findMany({ select: { slug: true, nome: true } });
-    const nomes = Object.fromEntries(catalogo.map((s) => [s.slug, s.nome]));
-    return rows.map((row) => {
-      const padrao = getFluxo(row.slug);
-      const perguntas = fromJson<FluxoPerguntaConfig[]>(row.perguntas);
-      return {
-        slug: row.slug,
-        nome: padrao?.nome ?? nomes[row.slug] ?? row.slug,
-        totalPerguntas: perguntas.length,
-        modoPreco: row.modoPreco,
-      };
+    // Garante questionário para todo serviço ativo do catálogo (mesmo sem fluxo padrão)
+    const catalogo = await prisma.catalogoServico.findMany({
+      select: { slug: true, nome: true, ativo: true, precoMinimo: true },
     });
+    const existentes = new Set(
+      (await prisma.fluxoServicoConfig.findMany({ select: { slug: true } })).map((r) => r.slug)
+    );
+    for (const s of catalogo) {
+      if (!s.ativo || existentes.has(s.slug)) continue;
+      const preco = s.precoMinimo != null ? Number(s.precoMinimo) : null;
+      await this.criarFluxoPrecoFixo(s.slug, preco != null && preco > 0 ? preco : null);
+      existentes.add(s.slug);
+    }
+
+    const rows = await prisma.fluxoServicoConfig.findMany({ orderBy: { slug: 'asc' } });
+    const nomes = Object.fromEntries(catalogo.map((s) => [s.slug, s.nome]));
+    return rows
+      .map((row) => {
+        const padrao = getFluxo(row.slug);
+        const perguntas = fromJson<FluxoPerguntaConfig[]>(row.perguntas);
+        return {
+          slug: row.slug,
+          nome: nomes[row.slug] || padrao?.nome || row.slug,
+          totalPerguntas: perguntas.length,
+          modoPreco: row.modoPreco,
+        };
+      })
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   }
 
   async obter(slug: string): Promise<FluxoConfigAdmin> {
@@ -455,6 +465,24 @@ export class FluxoConfigService {
     }
   }
 
+  /**
+   * Espelha o preço mínimo do catálogo no questionário (precoBase),
+   * para o checkout/questionário respeitar o que o admin editou no catálogo.
+   */
+  async sincronizarPrecoBaseDoCatalogo(slug: string, precoMinimo: number) {
+    if (!(precoMinimo > 0)) return;
+    const row = await prisma.fluxoServicoConfig.findUnique({ where: { slug } });
+    if (!row) {
+      await this.criarFluxoPrecoFixo(slug, precoMinimo);
+      return;
+    }
+    await prisma.fluxoServicoConfig.update({
+      where: { slug },
+      data: { precoBase: precoMinimo },
+    });
+    await this.refreshSlug(slug);
+  }
+
   async restaurarPadrao(slug: string) {
     const fluxo = getFluxo(slug);
     if (!fluxo) throw new Error('Serviço sem questionário padrão');
@@ -509,7 +537,7 @@ export class FluxoConfigService {
     return this.obterFromRow(row);
   }
 
-  private obterFromRow(row: {
+  private async obterFromRow(row: {
     slug: string;
     perguntas: unknown;
     fotosObrigatorias: unknown;
@@ -520,13 +548,17 @@ export class FluxoConfigService {
     precoComposto?: unknown;
     perguntaQuantidadeId: string | null;
     multiplicarBasePorQuantidade: boolean;
-  }): FluxoConfigAdmin {
+  }): Promise<FluxoConfigAdmin> {
     const padrao = getFluxo(row.slug);
     const perguntas = fromJson<FluxoPerguntaConfig[]>(row.perguntas);
     const preco = precoCacheDoRow(row);
+    const cat = await prisma.catalogoServico.findUnique({
+      where: { slug: row.slug },
+      select: { nome: true },
+    });
     return {
       slug: row.slug,
-      nome: padrao?.nome ?? row.slug,
+      nome: cat?.nome || padrao?.nome || row.slug,
       perguntas,
       fotosObrigatorias: fromJson<string[]>(row.fotosObrigatorias),
       regrasValidacao: fromJson<RegraValidacaoFluxo[]>(row.regrasValidacao),

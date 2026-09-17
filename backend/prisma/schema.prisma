@@ -453,6 +453,8 @@ model ConfigSistema {
   descontoNovoClientePercent  Decimal  @default(0.10) @map("desconto_novo_cliente_percent") @db.Decimal(5, 4)
   /** Vitrine: venda de peças avulsas (sem instalação). Desligado por padrão. */
   pecasAvulsasAtivas Boolean @default(false) @map("pecas_avulsas_ativas")
+  /** Valor mínimo do pedido quando há serviço (visita técnica). */
+  minimoCarrinhoServico Decimal @default(150) @map("minimo_carrinho_servico") @db.Decimal(12, 2)
 
   @@map("config_sistema")
 }

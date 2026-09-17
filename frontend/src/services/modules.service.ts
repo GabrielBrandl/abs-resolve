@@ -606,6 +606,7 @@ export const catalogoAdminApi = {
     horarioFim: string;
     tecnicoId?: string | null;
     valor?: number;
+    pedidoId?: string | null;
     oQueFazer?: string;
     observacoes?: string;
     materiais?: string;

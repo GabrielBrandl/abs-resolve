@@ -10,6 +10,12 @@ export type PrefillSlot = {
   data?: string;
   horarioInicio?: string;
   horarioFim?: string;
+  clienteId?: string;
+  clienteNome?: string;
+  pedidoId?: string;
+  valor?: string;
+  oQueFazer?: string;
+  catalogoServicoId?: string;
 };
 
 type Props = {
@@ -64,9 +70,26 @@ export function AgendaNovoForm({ open, onClose, onCreated, tecnicos, slotsPadrao
       data: prefill?.data || new Date().toISOString().slice(0, 10),
       horarioInicio: prefill?.horarioInicio || slotsPadrao[0]?.inicio || '08:00',
       horarioFim: prefill?.horarioFim || slotsPadrao[0]?.fim || '10:00',
+      clienteId: prefill?.clienteId || '',
+      valor: prefill?.valor || '',
+      oQueFazer: prefill?.oQueFazer || '',
+      catalogoServicoId: prefill?.catalogoServicoId || '',
     });
-    setClienteSel(null);
-    setBuscaCliente('');
+    if (prefill?.clienteId) {
+      clientesApi
+        .buscar(prefill.clienteId)
+        .then((c) => {
+          setClienteSel(c);
+          setBuscaCliente(c.nome || prefill.clienteNome || '');
+        })
+        .catch(() => {
+          setClienteSel(null);
+          setBuscaCliente(prefill.clienteNome || '');
+        });
+    } else {
+      setClienteSel(null);
+      setBuscaCliente(prefill?.clienteNome || '');
+    }
     setClientes([]);
   }, [open, prefill, slotsPadrao]);
 
@@ -137,6 +160,7 @@ export function AgendaNovoForm({ open, onClose, onCreated, tecnicos, slotsPadrao
         horarioFim: form.horarioFim,
         tecnicoId: form.tecnicoId || null,
         valor: form.valor ? Number(form.valor) : undefined,
+        pedidoId: prefill?.pedidoId || undefined,
         oQueFazer: form.oQueFazer.trim(),
         observacoes: form.observacoes.trim() || undefined,
         materiais: form.materiais.trim() || undefined,

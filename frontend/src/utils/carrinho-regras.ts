@@ -113,7 +113,11 @@ export function calcularTaxaEntrega(endereco: EnderecoEntrega): { taxa: number; 
   return { taxa: 20, regiao: 'Manaus' };
 }
 
-export function validarCarrinhoFrontend(itens: ItemCarrinhoResumo[], endereco?: EnderecoEntrega | null) {
+export function validarCarrinhoFrontend(
+  itens: ItemCarrinhoResumo[],
+  endereco?: EnderecoEntrega | null,
+  minimoServico = MINIMO_CARRINHO_SERVICO
+) {
   const normalizados = itens.map((i) => ({
     ...i,
     precoMinimo:
@@ -122,15 +126,16 @@ export function validarCarrinhoFrontend(itens: ItemCarrinhoResumo[], endereco?: 
         : Number(String(i.precoMinimo ?? '').replace(/[^\d.-]/g, '')) || 0,
   }));
   const resumo = analisarItensCarrinho(normalizados);
+  const minimo = Number.isFinite(minimoServico) && minimoServico >= 0 ? minimoServico : MINIMO_CARRINHO_SERVICO;
 
-  if (resumo.temServico && resumo.subtotal < MINIMO_CARRINHO_SERVICO) {
-    const falta = MINIMO_CARRINHO_SERVICO - resumo.subtotal;
+  if (resumo.temServico && resumo.subtotal < minimo) {
+    const falta = minimo - resumo.subtotal;
     const contexto = resumo.misto
       ? 'Pedidos com serviço e peça'
       : 'Pedidos só com serviço';
     return {
       ok: false as const,
-      mensagem: `${contexto} exigem mínimo de R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}. Faltam R$ ${falta.toFixed(2).replace('.', ',')}.`,
+      mensagem: `${contexto} exigem mínimo de R$ ${minimo.toFixed(2).replace('.', ',')}. Faltam R$ ${falta.toFixed(2).replace('.', ',')}.`,
       ...resumo,
       taxaEntrega: 0,
       taxaEntregaRegiao: undefined,

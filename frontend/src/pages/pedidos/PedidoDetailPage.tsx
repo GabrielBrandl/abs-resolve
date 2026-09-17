@@ -34,6 +34,7 @@ export function PedidoDetailPage() {
   const [pedido, setPedido] = useState<PedidoDetalhe | null>(null);
   const [loading, setLoading] = useState(true);
   const [registrandoPagamento, setRegistrandoPagamento] = useState(false);
+  const [metodoRegistro, setMetodoRegistro] = useState('PIX');
   const { toast } = useToast();
 
   const carregar = () => {
@@ -79,10 +80,15 @@ export function PedidoDetailPage() {
 
   const registrarPagamento = async () => {
     if (!id || !pedido) return;
-    if (!confirm(`Confirmar recebimento de ${formatCurrency(pedido.valor)} deste pedido?`)) return;
+    if (
+      !confirm(
+        `Confirmar recebimento de ${formatCurrency(pedido.valor)} via ${metodoRegistro}?`
+      )
+    )
+      return;
     setRegistrandoPagamento(true);
     try {
-      await pagamentosApi.registrarRecebido({ pedidoId: id, metodo: 'PIX' });
+      await pagamentosApi.registrarRecebido({ pedidoId: id, metodo: metodoRegistro });
       toast('Pagamento registrado! Pedido atualizado.', 'success');
       carregar();
     } catch (e) {
@@ -108,9 +114,22 @@ export function PedidoDetailPage() {
         subtitle={pedido.cliente?.nome}
         action={
           !pago ? (
-            <Button variant="cta" onClick={registrarPagamento} disabled={registrandoPagamento}>
-              {registrandoPagamento ? 'Registrando...' : 'Registrar pagamento'}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={metodoRegistro}
+                onChange={(e) => setMetodoRegistro(e.target.value)}
+                className="rounded-lg border border-slate-200 px-2 py-2 text-sm"
+              >
+                <option value="PIX">PIX</option>
+                <option value="CARTAO">Cartão</option>
+                <option value="DINHEIRO">Dinheiro</option>
+                <option value="TRANSFERENCIA">Transferência</option>
+                <option value="BOLETO">Boleto</option>
+              </select>
+              <Button variant="cta" onClick={registrarPagamento} disabled={registrandoPagamento}>
+                {registrandoPagamento ? 'Registrando...' : 'Registrar pagamento'}
+              </Button>
+            </div>
           ) : undefined
         }
       />

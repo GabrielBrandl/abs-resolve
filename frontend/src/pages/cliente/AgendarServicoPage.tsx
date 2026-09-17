@@ -215,6 +215,7 @@ export function AgendarServicoPage() {
   );
   const [catAtiva, setCatAtiva] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [minimoCarrinhoServico, setMinimoCarrinhoServico] = useState(150);
   const [busca, setBusca] = useState('');
   const [solicitacaoId, setSolicitacaoId] = useState('');
   const [preco, setPreco] = useState(0);
@@ -282,9 +283,10 @@ export function AgendarServicoPage() {
         itensResumo,
         step === 'dados'
           ? { cep: guestForm.cep, cidade: guestForm.cidade, uf: guestForm.uf }
-          : null
+          : null,
+        minimoCarrinhoServico
       ),
-    [itensResumo, step, guestForm.cep, guestForm.cidade, guestForm.uf]
+    [itensResumo, step, guestForm.cep, guestForm.cidade, guestForm.uf, minimoCarrinhoServico]
   );
 
   useEffect(() => {
@@ -301,6 +303,9 @@ export function AgendarServicoPage() {
         }
         if (Number(config.descontoFidelidadePercent) > 0) {
           setDescontoFidelidadePercent(Number(config.descontoFidelidadePercent));
+        }
+        if (Number(config.minimoCarrinhoServico) > 0) {
+          setMinimoCarrinhoServico(Number(config.minimoCarrinhoServico));
         }
       })
       .finally(() => setLoading(false));
@@ -592,7 +597,7 @@ export function AgendarServicoPage() {
       toast('Adicione serviços ou peças ao carrinho', 'error');
       return;
     }
-    const resumo = validarCarrinhoFrontend(itensResumo);
+    const resumo = validarCarrinhoFrontend(itensResumo, null, minimoCarrinhoServico);
     if (!resumo.ok) {
       toast(resumo.mensagem, 'error');
       return;
@@ -622,7 +627,7 @@ export function AgendarServicoPage() {
       cep: guestForm.cep,
       cidade: guestForm.cidade,
       uf: guestForm.uf,
-    });
+    }, minimoCarrinhoServico);
     if (!resumo.ok) {
       toast(resumo.mensagem, 'error');
       return;

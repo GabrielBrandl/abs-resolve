@@ -50,6 +50,16 @@ const PRECO_MINIMO_POR_SLUG = Object.fromEntries(
   SERVICOS_CATALOGO.map((servico) => [servico.slug, servico.precoMinimo ?? 0])
 ) as Record<string, number>;
 
+/** Preço base efetivo: questionário (admin) → catálogo estático. */
+function basePrecoServico(slug: string, fallback: number): number {
+  const cfg = fluxoConfigService.getPrecoConfig(slug);
+  const fromCfg = cfg?.precoBase != null ? Number(cfg.precoBase) : NaN;
+  if (Number.isFinite(fromCfg) && fromCfg > 0) return fromCfg;
+  const fromStatic = PRECO_MINIMO_POR_SLUG[slug];
+  if (Number.isFinite(fromStatic) && fromStatic > 0) return fromStatic;
+  return fallback;
+}
+
 function roundCurrency(valor: number): number {
   return Math.round(valor * 100) / 100;
 }
@@ -683,7 +693,7 @@ function calcularMaterialComposto(
 }
 
 function minimoCatalogo(slug: SlugFluxoServico): number {
-  return PRECO_MINIMO_POR_SLUG[slug] ?? 0;
+  return basePrecoServico(slug, PRECO_MINIMO_POR_SLUG[slug] ?? 0);
 }
 
 function finalizarResultado(
@@ -787,12 +797,12 @@ export function calcularPrecoFluxo(
       const tipo = resposta(respostas, 'tipoTomada') ?? 'simples';
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
       const laborPorTipo: Record<string, number> = {
-        simples: PRECO_MINIMO_POR_SLUG['troca-tomada'] || 149,
-        dupla: 169,
-        'tomada-20a': 189,
-        'dupla-20a': 199,
+        simples: basePrecoServico('troca-tomada', 149),
+        dupla: basePrecoServico('troca-tomada', 149) + 20,
+        'tomada-20a': basePrecoServico('troca-tomada', 149) + 40,
+        'dupla-20a': basePrecoServico('troca-tomada', 149) + 50,
       };
-      const unitario = laborPorTipo[tipo] ?? PRECO_MINIMO_POR_SLUG['troca-tomada'] ?? 149;
+      const unitario = laborPorTipo[tipo] ?? basePrecoServico('troca-tomada', 149);
       const { total: labor, economia } = maoDeObraPorQuantidade(unitario, qtd);
       const pecaSlug = pecaSlugPorTipo('troca-tomada', tipo);
       const peca = pecaSlug ? findPeca(pecaSlug) : null;
@@ -876,13 +886,13 @@ export function calcularPrecoFluxo(
       const tipo = resposta(respostas, 'tipoInterruptor') ?? 'simples';
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
       const baseTipo: Record<string, number> = {
-        simples: PRECO_MINIMO_POR_SLUG['troca-interruptor'] || 149,
-        duplo: 169,
-        triplo: 189,
-        paralelo: 199,
-        intermediario: 219,
+        simples: basePrecoServico('troca-interruptor', 149),
+        duplo: basePrecoServico('troca-interruptor', 149) + 20,
+        triplo: basePrecoServico('troca-interruptor', 149) + 40,
+        paralelo: basePrecoServico('troca-interruptor', 149) + 50,
+        intermediario: basePrecoServico('troca-interruptor', 149) + 70,
       };
-      const unitario = baseTipo[tipo] ?? PRECO_MINIMO_POR_SLUG['troca-interruptor'] ?? 149;
+      const unitario = baseTipo[tipo] ?? basePrecoServico('troca-interruptor', 149);
       const { total: labor, economia } = maoDeObraPorQuantidade(unitario, qtd);
       const pecaSlug = pecaSlugPorTipo('troca-interruptor', tipo);
       const peca = pecaSlug ? findPeca(pecaSlug) : null;
@@ -955,20 +965,21 @@ export function calcularPrecoFluxo(
     case 'instalacao-chuveiro': {
       const tipoServico = resposta(respostas, 'tipoServicoChuveiro') ?? 'instalar-comum';
       const potencia = resposta(respostas, 'potenciaChuveiro');
-      let base = 199;
+      const baseComum = basePrecoServico('instalacao-chuveiro', 199);
+      let base = baseComum;
       let baseLabel = 'Base instalação de chuveiro comum';
 
       if (tipoServico === 'instalar-eletronico') {
-        base = 249;
+        base = baseComum + 50;
         baseLabel = 'Base chuveiro eletrônico';
       } else if (tipoServico === 'trocar-resistencia') {
-        base = 99;
+        base = Math.max(50, baseComum - 100);
         baseLabel = 'Base troca de resistência';
       } else if (tipoServico === 'instalar-com-revisao-eletrica') {
-        base = 299;
+        base = baseComum + 100;
         baseLabel = 'Base instalação com revisão elétrica';
       } else if (potencia === '6801-7500w') {
-        base = 249;
+        base = baseComum + 50;
         baseLabel = 'Migrado para chuveiro eletrônico';
       }
 
@@ -1001,25 +1012,26 @@ export function calcularPrecoFluxo(
     case 'troca-disjuntor': {
       const tipo = resposta(respostas, 'tipoDisjuntor');
       const amperagem = resposta(respostas, 'amperagemDisjuntor');
+      const baseMono = basePrecoServico('troca-disjuntor', 149);
       const tabela: Record<string, number> = {
-        'monopolar:10a': 149,
-        'monopolar:16a': 149,
-        'monopolar:20a': 159,
-        'monopolar:25a': 169,
-        'monopolar:32a': 179,
-        'monopolar:40a': 199,
-        'bipolar:20a': 189,
-        'bipolar:25a': 199,
-        'bipolar:32a': 219,
-        'bipolar:40a': 239,
-        'bipolar:50a': 269,
-        'bipolar:63a': 299,
-        'tripolar:20a': 249,
-        'tripolar:25a': 269,
-        'tripolar:32a': 289,
-        'tripolar:40a': 329,
-        'tripolar:50a': 369,
-        'tripolar:63a': 399,
+        'monopolar:10a': baseMono,
+        'monopolar:16a': baseMono,
+        'monopolar:20a': baseMono + 10,
+        'monopolar:25a': baseMono + 20,
+        'monopolar:32a': baseMono + 30,
+        'monopolar:40a': baseMono + 50,
+        'bipolar:20a': baseMono + 40,
+        'bipolar:25a': baseMono + 50,
+        'bipolar:32a': baseMono + 70,
+        'bipolar:40a': baseMono + 90,
+        'bipolar:50a': baseMono + 120,
+        'bipolar:63a': baseMono + 150,
+        'tripolar:20a': baseMono + 100,
+        'tripolar:25a': baseMono + 120,
+        'tripolar:32a': baseMono + 140,
+        'tripolar:40a': baseMono + 180,
+        'tripolar:50a': baseMono + 220,
+        'tripolar:63a': baseMono + 250,
       };
 
       let base = tabela[`${tipo}:${amperagem}`] ?? minimoCatalogo(slug);
@@ -1062,22 +1074,23 @@ export function calcularPrecoFluxo(
     case 'instalacao-luminaria': {
       const tipo = resposta(respostas, 'tipoLuminaria') ?? 'plafon-led';
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
+      const base = basePrecoServico('instalacao-luminaria', 149);
       const baseTipo: Record<string, number> = {
-        'plafon-led': 149,
-        sobrepor: 149,
-        'painel-led': 149,
-        'spot-individual': 149,
-        'spot-trilho': 189,
-        pendente: 199,
-        'lustre-pequeno': 249,
-        'lustre-medio': 299,
-        'lustre-grande': 299,
+        'plafon-led': base,
+        sobrepor: base,
+        'painel-led': base,
+        'spot-individual': base,
+        'spot-trilho': base + 40,
+        pendente: base + 50,
+        'lustre-pequeno': base + 100,
+        'lustre-medio': base + 150,
+        'lustre-grande': base + 150,
       };
       adicionarValidacao(mensagens, tipo === 'lustre-grande', 'Lustre grande exige análise humana.');
       adicionarItem(
         breakdown,
         `Base instalação de luminária (${qtd} unidade${qtd > 1 ? 's' : ''})`,
-        (baseTipo[tipo] ?? minimoCatalogo(slug)) + deltaPorQuantidade(qtd, { 2: 90, 3: 180 }, { threshold: 3, perUnit: 80 })
+        (baseTipo[tipo] ?? base) + deltaPorQuantidade(qtd, { 2: 90, 3: 180 }, { threshold: 3, perUnit: 80 })
       );
       adicionarItem(breakdown, 'Altura de 3m a 4m', tem(respostas, 'alturaInstalacao', ['3m-4m']) ? 50 : 0);
       adicionarItem(breakdown, 'Altura acima de 4m', tem(respostas, 'alturaInstalacao', ['acima-4m']) ? 100 : 0);
@@ -1100,10 +1113,11 @@ export function calcularPrecoFluxo(
 
     case 'instalacao-ventilador-teto': {
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
+      const base = basePrecoServico('instalacao-ventilador-teto', 299);
       adicionarItem(
         breakdown,
         `Base instalação de ventilador (${qtd} unidade${qtd > 1 ? 's' : ''})`,
-        299 + deltaPorQuantidade(qtd, { 2: 90, 3: 180 }, { threshold: 3, perUnit: 80 })
+        base + deltaPorQuantidade(qtd, { 2: 90, 3: 180 }, { threshold: 3, perUnit: 80 })
       );
       adicionarItem(
         breakdown,
@@ -1134,26 +1148,27 @@ export function calcularPrecoFluxo(
     case 'troca-torneira': {
       const tipo = resposta(respostas, 'tipoTorneira') ?? 'convencional';
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
-      let base = 149;
+      const baseCatalogo = basePrecoServico('troca-torneira', 129);
+      let base = baseCatalogo;
       let baseLabel = 'Base troca de torneira';
 
       if (tipo === 'convencional') {
         const porLocal: Record<string, number> = {
-          banheiro: 129,
-          'area-servico': 139,
-          cozinha: 149,
-          jardim: 159,
+          banheiro: baseCatalogo,
+          'area-servico': baseCatalogo + 10,
+          cozinha: baseCatalogo + 20,
+          jardim: baseCatalogo + 30,
         };
-        base = porLocal[resposta(respostas, 'localInstalacao') ?? 'cozinha'] ?? 149;
+        base = porLocal[resposta(respostas, 'localInstalacao') ?? 'cozinha'] ?? baseCatalogo + 20;
         baseLabel = 'Base torneira convencional';
       } else if (tipo === 'gourmet') {
-        base = 179;
+        base = baseCatalogo + 50;
         baseLabel = 'Base torneira gourmet';
       } else if (tipo === 'monocomando-misturador') {
-        base = 199;
+        base = baseCatalogo + 70;
         baseLabel = 'Base monocomando/misturador';
       } else if (tipo === 'eletrica') {
-        base = 249;
+        base = baseCatalogo + 120;
         baseLabel = 'Base torneira elétrica';
       }
 
@@ -1190,12 +1205,13 @@ export function calcularPrecoFluxo(
     case 'troca-registro': {
       const tipo = resposta(respostas, 'tipoRegistro') ?? 'registro-chuveiro';
       const problema = resposta(respostas, 'problemaRegistro') ?? 'troca-preventiva';
+      const base = basePrecoServico('troca-registro', 149);
       const bases: Record<string, number> = {
-        'registro-chuveiro': 149,
-        'registro-gaveta': 179,
-        'registro-geral': 249,
+        'registro-chuveiro': base,
+        'registro-gaveta': base + 30,
+        'registro-geral': base + 100,
       };
-      adicionarItem(breakdown, 'Base troca de registro', bases[tipo] ?? minimoCatalogo(slug));
+      adicionarItem(breakdown, 'Base troca de registro', bases[tipo] ?? base);
       adicionarItem(breakdown, 'Vazamento', problema === 'vazamento' ? 20 : 0);
       adicionarItem(breakdown, 'Não abre', problema === 'nao-abre' ? 30 : 0);
       adicionarItem(breakdown, 'Não fecha', problema === 'nao-fecha' ? 30 : 0);
@@ -1247,15 +1263,16 @@ export function calcularPrecoFluxo(
     case 'reparo-vazamento': {
       const origem = resposta(respostas, 'origemVazamento') ?? 'torneira';
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
+      const base = basePrecoServico('reparo-vazamento', 129);
       const bases: Record<string, number> = {
-        torneira: 129,
-        registro: 149,
-        sifao: 129,
-        'caixa-acoplada': 149,
-        'parede-tubulacao': 249,
+        torneira: base,
+        registro: base + 20,
+        sifao: base,
+        'caixa-acoplada': base + 20,
+        'parede-tubulacao': base + 120,
       };
 
-      adicionarItem(breakdown, 'Base reparo de vazamento', bases[origem] ?? minimoCatalogo(slug));
+      adicionarItem(breakdown, 'Base reparo de vazamento', bases[origem] ?? base);
       if (origem === 'torneira') {
         adicionarItem(breakdown, '2 torneiras vazando', qtd === 2 ? 80 : 0);
         adicionarItem(breakdown, '3 ou mais torneiras', qtd >= 3 ? 160 : 0);
@@ -1290,10 +1307,11 @@ export function calcularPrecoFluxo(
 
     case 'desentupimento-pia': {
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
+      const base = basePrecoServico('desentupimento-pia', 249);
       adicionarItem(
         breakdown,
         `Base desentupimento de pia (${qtd} unidade${qtd > 1 ? 's' : ''})`,
-        249 + deltaPorQuantidade(qtd, { 2: 100, 3: 180 }, { threshold: 3, perUnit: 80 })
+        base + deltaPorQuantidade(qtd, { 2: 100, 3: 180 }, { threshold: 3, perUnit: 80 })
       );
       adicionarItem(breakdown, 'Sem acesso ao sifão', tem(respostas, 'acessoSifao', ['nao']) ? 30 : 0);
       return finalizarResultado(breakdown, mensagens);
@@ -1301,10 +1319,11 @@ export function calcularPrecoFluxo(
 
     case 'desentupimento-vaso': {
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
+      const base = basePrecoServico('desentupimento-vaso', 299);
       adicionarItem(
         breakdown,
         `Base desentupimento de vaso (${qtd} unidade${qtd > 1 ? 's' : ''})`,
-        299 + deltaPorQuantidade(qtd, { 2: 120, 3: 220 }, { threshold: 3, perUnit: 100 })
+        base + deltaPorQuantidade(qtd, { 2: 120, 3: 220 }, { threshold: 3, perUnit: 100 })
       );
       adicionarItem(
         breakdown,
@@ -1317,9 +1336,10 @@ export function calcularPrecoFluxo(
 
     case 'instalacao-suporte-tv': {
       const tipo = resposta(respostas, 'tipoSuporteTv') ?? 'fixo';
-      const baseTipo: Record<string, number> = { fixo: 149, inclinavel: 179, articulado: 249 };
+      const base = basePrecoServico('instalacao-suporte-tv', 149);
+      const baseTipo: Record<string, number> = { fixo: base, inclinavel: base + 30, articulado: base + 100 };
       const tamanho = resposta(respostas, 'tamanhoTv') ?? 'ate-32';
-      adicionarItem(breakdown, 'Base instalação de suporte de TV', baseTipo[tipo] ?? minimoCatalogo(slug));
+      adicionarItem(breakdown, 'Base instalação de suporte de TV', baseTipo[tipo] ?? base);
 
       if (tamanho === '51-65') {
         adicionarItem(breakdown, 'TV de 51" a 65"', tipo === 'articulado' ? 30 : 20);
@@ -1370,10 +1390,11 @@ export function calcularPrecoFluxo(
 
     case 'instalacao-prateleira': {
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
+      const base = basePrecoServico('instalacao-prateleira', 129);
       adicionarItem(
         breakdown,
         `Base instalação de prateleira (${qtd} unidade${qtd > 1 ? 's' : ''})`,
-        129 + deltaPorQuantidade(qtd, { 2: 60, 3: 120 }, { threshold: 3, perUnit: 50 })
+        base + deltaPorQuantidade(qtd, { 2: 60, 3: 120 }, { threshold: 3, perUnit: 50 })
       );
       adicionarItem(
         breakdown,
@@ -1412,8 +1433,9 @@ export function calcularPrecoFluxo(
 
     case 'limpeza-ar-split': {
       const qtd = resolverQuantidade(quantidade, resposta(respostas, 'quantidade'));
+      const unit = basePrecoServico('limpeza-ar-split', 149);
       const baseQuantidade =
-        qtd === 1 ? 149 : qtd === 2 ? 278 : qtd === 3 ? 399 : qtd * 129;
+        qtd === 1 ? unit : qtd === 2 ? Math.round(unit * 1.866) : qtd === 3 ? Math.round(unit * 2.678) : qtd * Math.round(unit * 0.866);
       adicionarItem(breakdown, `Base limpeza de ${qtd} aparelho(s)`, baseQuantidade);
       adicionarItem(
         breakdown,

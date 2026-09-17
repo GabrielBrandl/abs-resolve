@@ -8,6 +8,7 @@ export type StoreConfig = {
   garantiaPadraoDias: number;
   expressValor: number;
   descontoNovoClientePercent: number;
+  minimoCarrinhoServico: number;
 };
 
 const DEFAULT: StoreConfig = {
@@ -16,6 +17,7 @@ const DEFAULT: StoreConfig = {
   garantiaPadraoDias: 90,
   expressValor: 29,
   descontoNovoClientePercent: 0.1,
+  minimoCarrinhoServico: 150,
 };
 
 let cached: StoreConfig | null = null;
@@ -43,6 +45,8 @@ export function useStoreConfig() {
           expressValor: Number(d.expressValor) > 0 ? Number(d.expressValor) : 29,
           descontoNovoClientePercent:
             Number(d.descontoNovoClientePercent) > 0 ? Number(d.descontoNovoClientePercent) : 0.1,
+          minimoCarrinhoServico:
+            Number(d.minimoCarrinhoServico) > 0 ? Number(d.minimoCarrinhoServico) : 150,
         };
         cached = next;
         setConfig(next);

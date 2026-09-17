@@ -144,17 +144,19 @@ export function calcularTaxaEntrega(endereco: EnderecoEntrega): { taxa: number; 
 export function aplicarRegrasCarrinho(
   itens: ItemCarrinhoInput[],
   endereco: EnderecoEntrega | null | undefined,
-  resolverPreco?: (item: ItemCarrinhoInput) => number
+  resolverPreco?: (item: ItemCarrinhoInput) => number,
+  minimoServico = MINIMO_CARRINHO_SERVICO
 ) {
   const resumo = analisarItensCarrinho(itens, resolverPreco);
+  const minimo = Number.isFinite(minimoServico) && minimoServico >= 0 ? minimoServico : MINIMO_CARRINHO_SERVICO;
 
-  if (resumo.temServico && resumo.subtotal < MINIMO_CARRINHO_SERVICO) {
-    const falta = MINIMO_CARRINHO_SERVICO - resumo.subtotal;
+  if (resumo.temServico && resumo.subtotal < minimo) {
+    const falta = minimo - resumo.subtotal;
     const contexto = resumo.misto
       ? 'Pedidos com serviço e peça'
       : 'Pedidos só com serviço';
     throw new Error(
-      `${contexto} exigem valor mínimo de R$ ${MINIMO_CARRINHO_SERVICO.toFixed(2).replace('.', ',')}. ` +
+      `${contexto} exigem valor mínimo de R$ ${minimo.toFixed(2).replace('.', ',')}. ` +
         `Faltam R$ ${falta.toFixed(2).replace('.', ',')}. Adicione mais itens.`
     );
   }
@@ -166,7 +168,7 @@ export function aplicarRegrasCarrinho(
   if (resumo.somentePecas && resumo.subtotal < MINIMO_PECAS_ISENTO_ENTREGA) {
     if (!endereco?.cep && !endereco?.cidade) {
       throw new Error(
-        'Informe CEP e cidade para calcular a taxa de entrega das peças avulsas (pedidos abaixo de R$ 150,00).'
+        `Informe CEP e cidade para calcular a taxa de entrega das peças avulsas (pedidos abaixo de R$ ${MINIMO_PECAS_ISENTO_ENTREGA.toFixed(2).replace('.', ',')}).`
       );
     }
     const entrega = calcularTaxaEntrega(endereco);

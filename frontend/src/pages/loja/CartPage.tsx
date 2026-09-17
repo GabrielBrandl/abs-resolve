@@ -12,6 +12,7 @@ import { IconLock, IconShield, IconVerified } from '../../components/loja/icons'
 import { useToast } from '../../components/Toast';
 import { validarCarrinhoFrontend, MINIMO_CARRINHO_SERVICO } from '../../utils/carrinho-regras';
 import { totalComDescontoAPartirDaSegunda, DESCONTO_SEGUNDA_UNIDADE_PERCENT } from '../../utils/desconto-quantidade';
+import { useStoreConfig } from '../../hooks/useStoreConfig';
 
 function lineTotal(item: { tipo?: string; precoMinimo: number | null; quantidade: number }) {
   const unit = Number(item.precoMinimo) || 0;
@@ -27,6 +28,8 @@ export function CartPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { categorias } = useCatalog();
+  const { minimoCarrinhoServico } = useStoreConfig();
+  const minimo = minimoCarrinhoServico || MINIMO_CARRINHO_SERVICO;
   const resumo = useMemo(
     () =>
       validarCarrinhoFrontend(
@@ -35,17 +38,17 @@ export function CartPage() {
           quantidade: i.quantidade,
           tipo: i.tipo,
           precoMinimo: i.precoMinimo,
-        }))
+        })),
+        null,
+        minimo
       ),
-    [items]
+    [items, minimo]
   );
   const total = resumo.subtotal;
   const related = relatedForCart(categorias, items.map((i) => i.slug), 4);
   const logadoCliente = Boolean(user && isClienteRole(user.role));
   const faltaMinimo =
-    !resumo.ok && resumo.subtotal < MINIMO_CARRINHO_SERVICO
-      ? Math.max(0, MINIMO_CARRINHO_SERVICO - resumo.subtotal)
-      : 0;
+    !resumo.ok && resumo.subtotal < minimo ? Math.max(0, minimo - resumo.subtotal) : 0;
 
   const checkout = () => {
     if (!resumo.ok) {
@@ -228,7 +231,7 @@ export function CartPage() {
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
             <p className="truncate text-xl font-black tabular-nums text-[#002d62]">{money(resumo.total)}</p>
             {!resumo.ok && faltaMinimo > 0 && (
-              <p className="truncate text-[11px] font-semibold text-red-600">Mín. {money(MINIMO_CARRINHO_SERVICO)}</p>
+              <p className="truncate text-[11px] font-semibold text-red-600">Mín. {money(minimo)}</p>
             )}
           </div>
           <YellowButton className="shrink-0 !px-4 !text-[#001a3d]" onClick={ctaAction}>

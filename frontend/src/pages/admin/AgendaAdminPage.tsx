@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { catalogoAdminApi, adminApi, tecnicoApi } from '../../services/modules.service';
 import { formatDate, formatEndereco, mapsLink } from '../../types';
 import { PageHeader, Loading, Button } from '../../components/ui';
@@ -172,6 +173,7 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
   const [novoOpen, setNovoOpen] = useState(false);
   const [prefill, setPrefill] = useState<PrefillSlot | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editandoDetalhes, setEditandoDetalhes] = useState(false);
   const [detalheForm, setDetalheForm] = useState({
     oQueFazer: '',
@@ -234,6 +236,39 @@ export function AgendaVirtualPage({ modo = 'gestao' }: Props) {
     const id = window.setInterval(() => carregar(true), 60000);
     return () => window.clearInterval(id);
   }, [carregar]);
+
+  useEffect(() => {
+    if (searchParams.get('novo') !== '1') return;
+    const pedidoId = searchParams.get('pedidoId') || undefined;
+    const clienteId = searchParams.get('clienteId') || undefined;
+    const clienteNome = searchParams.get('clienteNome') || undefined;
+    const valor = searchParams.get('valor') || undefined;
+    const oQueFazer = searchParams.get('oQueFazer') || undefined;
+    const servicoSlug = searchParams.get('servicoSlug') || undefined;
+
+    const openPrefill = async () => {
+      let catalogoServicoId: string | undefined;
+      if (servicoSlug) {
+        try {
+          const lista = await catalogoAdminApi.servicos();
+          catalogoServicoId = lista.find((s) => s.slug === servicoSlug)?.id;
+        } catch {
+          /* ignore */
+        }
+      }
+      setPrefill({
+        pedidoId,
+        clienteId,
+        clienteNome,
+        valor,
+        oQueFazer,
+        catalogoServicoId,
+      });
+      setNovoOpen(true);
+      setSearchParams({}, { replace: true });
+    };
+    void openPrefill();
+  }, [searchParams, setSearchParams]);
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();

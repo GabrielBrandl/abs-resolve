@@ -270,7 +270,7 @@ export class PagamentosService {
   /** Admin/comercial: registra pagamento recebido (PIX externo, dinheiro, etc.) e avança o pedido */
   async registrarRecebido(data: {
     pedidoId: string;
-    metodo?: 'PIX' | 'BOLETO' | 'CARTAO' | 'DINHEIRO';
+    metodo?: 'PIX' | 'BOLETO' | 'CARTAO' | 'DINHEIRO' | 'TRANSFERENCIA';
     valor?: number;
   }) {
     const pedido = await prisma.pedido.findUnique({

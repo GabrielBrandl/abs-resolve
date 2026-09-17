@@ -69,11 +69,15 @@ export class ClientePortalService {
   async configPublica() {
     const config = await getConfigPrecificacao();
     const { configParcelamentoPublica } = await import('../config/parcelamento.js');
+    const minimo =
+      Number(config.minimoCarrinhoServico) > 0
+        ? Number(config.minimoCarrinhoServico)
+        : MINIMO_CARRINHO_SERVICO;
     return {
       expressValor: toNumber(config.expressValor),
       taxaCancelamento: toNumber(config.taxaCancelamento),
       taxaAusencia: toNumber(config.taxaAusencia),
-      minimoCarrinhoServico: MINIMO_CARRINHO_SERVICO,
+      minimoCarrinhoServico: minimo,
       minimoPecasIsentoEntrega: MINIMO_PECAS_ISENTO_ENTREGA,
       descontoFidelidadePercent: DESCONTO_FIDELIDADE_PERCENT,
       cashbackPercent: toNumber(config.cashbackPercent) || 0.1,

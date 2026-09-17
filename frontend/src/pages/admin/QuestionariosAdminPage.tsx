@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { fluxoAdminApi } from '../../services/modules.service';
 import type { FluxoConfigAdmin, FluxoPerguntaConfig, PrecoCompostoConfig } from '../../types';
 import { PageHeader, Loading, Card, Button } from '../../components/ui';
@@ -135,11 +135,28 @@ function sincronizarFaixas(
 export function QuestionariosAdminPage() {
   const { toast } = useToast();
   const [lista, setLista] = useState<Array<{ slug: string; nome: string; totalPerguntas: number; modoPreco: string }>>([]);
+  const [busca, setBusca] = useState('');
   const [slugAtivo, setSlugAtivo] = useState('');
   const [config, setConfig] = useState<FluxoConfigAdmin | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [uploadOpcaoKey, setUploadOpcaoKey] = useState<string | null>(null);
+
+  const listaFiltrada = useMemo(() => {
+    const q = busca
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+    if (!q) return lista;
+    return lista.filter((item) => {
+      const hay = `${item.nome} ${item.slug}`
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+      return hay.includes(q) || q.split(/\s+/).every((t) => hay.includes(t));
+    });
+  }, [lista, busca]);
 
   const carregarLista = () => {
     setLoading(true);
@@ -263,9 +280,18 @@ export function QuestionariosAdminPage() {
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <Card className="h-fit p-0">
-          <p className="border-b px-4 py-3 text-sm font-semibold text-primary-800">Serviços</p>
+          <div className="border-b px-4 py-3">
+            <p className="text-sm font-semibold text-primary-800">Serviços</p>
+            <input
+              type="search"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar (ex: chuveiro elétrico)"
+              className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-primary-500"
+            />
+          </div>
           <ul className="max-h-[70vh] overflow-y-auto">
-            {lista.map((item) => (
+            {listaFiltrada.map((item) => (
               <li key={item.slug}>
                 <button
                   type="button"
@@ -281,6 +307,9 @@ export function QuestionariosAdminPage() {
                 </button>
               </li>
             ))}
+            {!listaFiltrada.length && (
+              <li className="px-4 py-6 text-center text-sm text-slate-400">Nenhum questionário encontrado</li>
+            )}
           </ul>
         </Card>
 

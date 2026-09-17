@@ -43,10 +43,16 @@ export type VendaAssistidaInput = {
   /** Motivo do ajuste/desconto (auditoria). */
   motivoAjuste?: string | null;
   observacoes?: string | null;
+  /** Método de pagamento da venda direta. */
+  metodoPagamento?: 'PIX' | 'BOLETO' | 'CARTAO' | 'DINHEIRO' | 'TRANSFERENCIA' | null;
+  /** Se true, registra pagamento como RECEIVED. */
+  pagoCompleto?: boolean | null;
   usuarioId: string;
   isAdmin: boolean;
   ip?: string;
 };
+
+const METODOS_PAGAMENTO = ['PIX', 'BOLETO', 'CARTAO', 'DINHEIRO', 'TRANSFERENCIA'] as const;
 
 function mapCanal(canal: string): string {
   const c = (canal || '').toLowerCase().trim();
@@ -250,6 +256,14 @@ export class VendaAssistidaService {
 
     if (precoFinal <= 0) throw new Error('Valor do pedido inválido');
 
+    const metodoRaw = String(input.metodoPagamento || '').toUpperCase().trim();
+    const metodo = METODOS_PAGAMENTO.includes(metodoRaw as (typeof METODOS_PAGAMENTO)[number])
+      ? (metodoRaw as (typeof METODOS_PAGAMENTO)[number])
+      : null;
+    const pagoCompleto = Boolean(input.pagoCompleto);
+
+    if (!metodo) throw new Error('Informe o método de pagamento');
+
     // Criar pedido (mesma estrutura do checkout do site)
     const numero = await gerarNumeroPedido();
     const pedido = await prisma.pedido.create({
@@ -300,17 +314,52 @@ export class VendaAssistidaService {
         solicitacaoId: sol.id,
         precoFinal,
         origem: 'venda_assistida',
+        metodoPagamento: metodo,
+        pagoCompleto,
       },
       input.ip
     );
+
+    let pagamento = null;
+    if (metodo) {
+      if (pagoCompleto) {
+        pagamento = await prisma.pagamento.create({
+          data: {
+            clienteId: input.clienteId,
+            pedidoId: pedido.id,
+            valor: precoFinal,
+            metodo,
+            status: 'RECEIVED',
+            dueDate: new Date(),
+            paymentDate: new Date(),
+          },
+        });
+        const { confirmarPagamentoRecebido } = await import('./pagamento-confirmacao.service.js');
+        await confirmarPagamentoRecebido(pagamento.id);
+      } else {
+        pagamento = await prisma.pagamento.create({
+          data: {
+            clienteId: input.clienteId,
+            pedidoId: pedido.id,
+            valor: precoFinal,
+            metodo,
+            status: 'PENDING',
+            dueDate: new Date(),
+          },
+        });
+      }
+    }
 
     return {
       tipo: 'pedido' as const,
       solicitacao: { ...sol, pedidoId: pedido.id },
       pedido,
+      pagamento,
       precoFinal,
       subtotal,
       desconto: descontoAplicado,
+      metodoPagamento: metodo,
+      pagoCompleto,
     };
   }
 
