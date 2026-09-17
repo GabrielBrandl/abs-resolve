@@ -193,7 +193,8 @@ export function FinanceiroPage() {
     const taxa = Number(formBaixa.taxa) || 0;
     const liquido = principal + juros + multa - desconto - taxa;
     try {
-      await financeiroApi.baixarLancamento(lancBaixa.id, {
+      const lancId = lancBaixa.id;
+      await financeiroApi.baixarLancamento(lancId, {
         dataMovimento: formBaixa.dataMovimento,
         valorPrincipal: principal,
         juros,
@@ -214,7 +215,7 @@ export function FinanceiroPage() {
       setLancamentos((await financeiroApi.lancamentos({ ...filtros, periodo })).items);
       carregarBase();
       if (modalDetalhe) {
-        setLancDetalhe(await financeiroApi.obterLancamento(lancBaixa.id));
+        setLancDetalhe(await financeiroApi.obterLancamento(lancId));
       }
     } catch (e) {
       erro(e);
