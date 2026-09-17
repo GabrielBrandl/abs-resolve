@@ -233,6 +233,7 @@ export const financeiroApi = {
   obterLancamento: (id: string) => get<FinLancamento & { baixas?: unknown[]; historico?: unknown[] }>(`/financeiro/lancamentos/${id}`),
   criarLancamento: (body: unknown) => post('/financeiro/lancamentos', body),
   atualizarLancamento: (id: string, body: unknown) => put(`/financeiro/lancamentos/${id}`, body),
+  excluirLancamento: (id: string) => del<{ id: string; deleted: boolean }>(`/financeiro/lancamentos/${id}`),
   baixarLancamento: (id: string, body?: unknown) => post(`/financeiro/lancamentos/${id}/baixar`, body || {}),
   listarBaixas: (id: string) => get<unknown[]>(`/financeiro/lancamentos/${id}/baixas`),
   estornarBaixa: (id: string, body?: unknown) => post(`/financeiro/baixas/${id}/estornar`, body || {}),

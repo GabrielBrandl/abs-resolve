@@ -134,6 +134,17 @@ export class FinanceiroController {
     }
   }
 
+  async excluirLancamento(req: Request, res: Response) {
+    try {
+      return success(
+        res,
+        await financeiroService.excluirLancamento(req.params.id as string, req.user?.userId)
+      );
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async baixarLancamento(req: Request, res: Response) {
     try {
       return success(

@@ -27,6 +27,7 @@ router.get('/lancamentos', (req, res) => financeiroController.lancamentos(req, r
 router.post('/lancamentos', (req, res) => financeiroController.criarLancamento(req, res));
 router.get('/lancamentos/:id', (req, res) => financeiroController.obterLancamento(req, res));
 router.put('/lancamentos/:id', (req, res) => financeiroController.atualizarLancamento(req, res));
+router.delete('/lancamentos/:id', (req, res) => financeiroController.excluirLancamento(req, res));
 router.post('/lancamentos/:id/baixar', (req, res) => financeiroController.baixarLancamento(req, res));
 router.get('/lancamentos/:id/baixas', (req, res) => financeiroController.listarBaixas(req, res));
 router.post('/baixas/:id/estornar', (req, res) => financeiroController.estornarBaixa(req, res));

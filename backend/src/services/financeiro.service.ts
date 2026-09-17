@@ -707,6 +707,24 @@ export class FinanceiroService {
     });
   }
 
+  /** Remove o lançamento e suas baixas (cascade). Ajusta o saldo das contas automaticamente. */
+  async excluirLancamento(id: string, usuarioId?: string) {
+    const l = await prisma.finLancamento.findUnique({
+      where: { id },
+      include: { baixas: true },
+    });
+    if (!l) throw new Error('Lançamento não encontrado');
+
+    await prisma.finLancamento.delete({ where: { id } });
+    return {
+      id,
+      deleted: true,
+      descricao: l.descricao,
+      baixasRemovidas: l.baixas.length,
+      usuarioId: usuarioId || null,
+    };
+  }
+
   async obterLancamento(id: string) {
     const l = await prisma.finLancamento.findUnique({
       where: { id },
