@@ -212,8 +212,11 @@ export class FinanceiroService {
     const baixas = await prisma.finBaixa.findMany({
       where: {
         contaId,
+        // Apenas baixas ativas: estorno marca a original como estornada e ela sai do saldo.
+        // Não somar tipo=estorno (senão o valor seria removido duas vezes).
+        tipo: 'baixa',
         estornado: false,
-        tipo: { in: ['baixa', 'estorno'] },
+        lancamento: { status: { notIn: ['cancelada', 'estornada'] } },
         ...(ateFiltro ? { dataMovimento: ateFiltro } : {}),
       },
       include: { lancamento: { select: { natureza: true } } },
@@ -223,15 +226,8 @@ export class FinanceiroService {
     for (const b of baixas) {
       const v = toNumber(b.valorLiquido);
       const nat = b.lancamento.natureza;
-      if (b.tipo === 'estorno') {
-        // estorno already has opposite sign via valorLiquido negative? We'll store positive and reverse by tipo
-        if (nat === 'receita') saldo -= v;
-        else if (nat === 'despesa') saldo += v;
-      } else if (nat === 'receita') {
-        saldo += v;
-      } else if (nat === 'despesa') {
-        saldo -= v;
-      }
+      if (nat === 'receita') saldo += v;
+      else if (nat === 'despesa') saldo -= v;
     }
 
     const transferencias = await prisma.finLancamento.findMany({
@@ -309,6 +305,9 @@ export class FinanceiroService {
     const baixas = await prisma.finBaixa.findMany({
       where: {
         contaId,
+        // Inclui baixas estornadas + registros de estorno para o extrato fechar (entrada + estorno = 0)
+        tipo: { in: ['baixa', 'estorno'] },
+        lancamento: { status: { notIn: ['cancelada', 'estornada'] } },
         dataMovimento: { gte: inicio, lte: fim },
       },
       include: {
@@ -317,7 +316,6 @@ export class FinanceiroService {
       orderBy: { dataMovimento: 'asc' },
     });
     for (const b of baixas) {
-      if (b.estornado && b.tipo === 'baixa') continue;
       const nat = b.lancamento.natureza;
       let sinal = 0;
       if (b.tipo === 'estorno') {
@@ -326,14 +324,17 @@ export class FinanceiroService {
         sinal = nat === 'receita' ? 1 : nat === 'despesa' ? -1 : 0;
       }
       if (!sinal) continue;
+      const baseDesc =
+        b.tipo === 'estorno'
+          ? `Estorno: ${b.lancamento.descricao}`
+          : b.estornado
+            ? `${b.lancamento.descricao} (estornada)`
+            : b.lancamento.descricao;
       movs.push({
         id: `baixa-${b.id}`,
         data: ymdBrasil(b.dataMovimento),
         tipo: b.tipo === 'estorno' ? 'estorno' : nat === 'receita' ? 'entrada' : 'saida',
-        descricao:
-          b.tipo === 'estorno'
-            ? `Estorno: ${b.lancamento.descricao}`
-            : b.lancamento.descricao,
+        descricao: baseDesc,
         valor: round2(sinal * toNumber(b.valorLiquido)),
         lancamentoId: b.lancamentoId,
         baixaId: b.id,
@@ -359,7 +360,7 @@ export class FinanceiroService {
           id: `tr-out-${t.id}`,
           data: ymdBrasil(t.dataMovimento || t.dataCompetencia),
           tipo: 'transferencia_saida',
-          descricao: `Transferência para ${t.contaDestino?.nome || 'conta'}`,
+          descricao: `${t.descricao} → ${t.contaDestino?.nome || 'conta'}`,
           valor: round2(-v),
           lancamentoId: t.id,
           formaPagamento: t.formaPagamento,
@@ -371,7 +372,7 @@ export class FinanceiroService {
           id: `tr-in-${t.id}`,
           data: ymdBrasil(t.dataMovimento || t.dataCompetencia),
           tipo: 'transferencia_entrada',
-          descricao: `Transferência de ${t.conta?.nome || 'conta'}`,
+          descricao: `${t.descricao} ← ${t.conta?.nome || 'conta'}`,
           valor: round2(v),
           lancamentoId: t.id,
           formaPagamento: t.formaPagamento,
@@ -1159,6 +1160,7 @@ export class FinanceiroService {
         estornado: false,
         tipo: 'baixa',
         dataMovimento: { lt: inicio },
+        lancamento: { status: { notIn: ['cancelada', 'estornada'] } },
       },
       include: { lancamento: { select: { natureza: true } } },
     });
@@ -1174,6 +1176,7 @@ export class FinanceiroService {
         estornado: false,
         tipo: 'baixa',
         dataMovimento: { gte: inicio, lte: fim },
+        lancamento: { status: { notIn: ['cancelada', 'estornada'] } },
       },
       include: { lancamento: { select: { natureza: true } } },
     });
