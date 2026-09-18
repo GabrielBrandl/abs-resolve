@@ -124,19 +124,21 @@ export class LeadsService {
   async capturarConsultor(data: {
     nome: string;
     telefone: string;
-    email: string;
+    email?: string;
     problema: string;
     servico?: string;
     consentimento: boolean;
   }) {
     const nome = data.nome.trim();
     const telefone = data.telefone.replace(/\D/g, '');
-    const email = data.email.trim().toLowerCase();
+    const emailRaw = String(data.email || '').trim().toLowerCase();
+    const email =
+      emailRaw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw) ? emailRaw : '';
     const problema = data.problema.trim();
 
     if (nome.length < 2) throw new Error('Informe seu nome');
     if (telefone.length < 10 || telefone.length > 13) throw new Error('Informe um telefone válido');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Informe um e-mail válido');
+    if (emailRaw && !email) throw new Error('Informe um e-mail válido');
     if (data.consentimento !== true) throw new Error('Autorize o contato para continuar');
     if (problema.length < 5 || problema.length > 500) {
       throw new Error('Descreva brevemente o problema');
@@ -145,7 +147,7 @@ export class LeadsService {
     const existente = await prisma.lead.findFirst({
       where: {
         origem: 'consultor_site',
-        OR: [{ email }, { telefone }],
+        OR: [...(email ? [{ email }] : []), { telefone }],
         createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       },
       orderBy: { createdAt: 'desc' },

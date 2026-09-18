@@ -39,8 +39,12 @@ export function CadastroPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!cpf.isValid(form.cpf.replace(/\D/g, ''))) {
+    if (form.cpf.replace(/\D/g, '') && !cpf.isValid(form.cpf.replace(/\D/g, ''))) {
       setError('CPF inválido');
+      return;
+    }
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setError('E-mail inválido');
       return;
     }
     if (form.senha !== form.confirmar) {
@@ -110,8 +114,8 @@ export function CadastroPage() {
 
           <form onSubmit={handleSubmit}>
             <Input label="Nome completo" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required />
-            <Input label="CPF" value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} required />
-            <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            <Input label="CPF (opcional)" value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} />
+            <Input label="Email (opcional)" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <Input label="Telefone / WhatsApp" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} required />
             <Input label="Senha" type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} required />
             <Input label="Confirmar senha" type="password" value={form.confirmar} onChange={(e) => setForm({ ...form, confirmar: e.target.value })} required />

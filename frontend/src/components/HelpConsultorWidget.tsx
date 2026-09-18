@@ -173,16 +173,18 @@ export function HelpConsultorWidget() {
       adicionarMensagem('cliente', valor);
       setEntrada('');
       setEtapa('email');
-      setTimeout(() => adicionarMensagem('abs', `Prazer, ${valor}! Qual é o seu e-mail?`), 200);
+      setTimeout(() => adicionarMensagem('abs', `Prazer, ${valor}! Qual é o seu e-mail? (opcional — digite pular para seguir)`), 200);
       return;
     }
 
     if (etapa === 'email') {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)) {
-        adicionarMensagem('abs', 'Digite um e-mail válido, por exemplo: nome@gmail.com.');
+      const raw = valor.toLowerCase();
+      const pular = raw === 'pular' || raw === 'skip' || raw === '-';
+      if (!pular && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)) {
+        adicionarMensagem('abs', 'Digite um e-mail válido (ou "pular" para seguir sem e-mail).');
         return;
       }
-      setContato((atual) => ({ ...atual, email: valor.toLowerCase() }));
+      setContato((atual) => ({ ...atual, email: pular ? '' : valor.toLowerCase() }));
       adicionarMensagem('cliente', valor);
       setEntrada('');
       setEtapa('telefone');
@@ -418,7 +420,7 @@ export function HelpConsultorWidget() {
   const etapaComTexto = ['nome', 'email', 'telefone', 'problema', 'perguntas'].includes(etapa);
   const placeholder: Record<string, string> = {
     nome: 'Digite seu nome',
-    email: 'Digite seu e-mail',
+    email: 'E-mail (opcional) ou "pular"',
     telefone: '(11) 99999-9999',
     problema: 'Ex.: Minha tomada está esquentando...',
     perguntas: 'Ou escreva sua resposta...',

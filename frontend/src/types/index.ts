@@ -340,6 +340,106 @@ export interface FinLancamento {
   centroCusto?: { id: string; nome: string } | null;
 }
 
+export type DreDimensao = 'consolidado' | 'categoria' | 'servico' | 'prestador' | 'cliente' | 'canal';
+
+export interface DreCardMetric {
+  valor: number;
+  anterior: number;
+  variacaoPct: number | null;
+  variacaoPp?: number | null;
+}
+
+export interface DreLinha {
+  id: string;
+  tipo: 'grupo' | 'sub' | 'total';
+  label: string;
+  valor: number;
+  pctSobreReceitaLiquida?: number | null;
+  sinal?: 'mais' | 'menos' | 'resultado';
+  drillKey: string;
+  filhos?: DreLinha[];
+}
+
+export interface DreGerencial {
+  periodo: { inicioYmd: string; fimYmd: string; label: string };
+  periodoAnterior?: { inicioYmd: string; fimYmd: string };
+  temDadosReais: boolean;
+  receitaBruta: number;
+  deducoes: number;
+  receitaLiquida: number;
+  custosDiretos: number;
+  custosVariaveis: number;
+  margemContribuicao: number;
+  margemContribuicaoPct: number;
+  despesasComerciais: number;
+  despesasAdministrativas: number;
+  despesasFinanceiras: number;
+  resultadoOperacional: number;
+  margemOperacionalPct: number;
+  resultadoAposAquisicao?: number;
+  cards: {
+    receitaBruta: DreCardMetric;
+    receitaLiquida: DreCardMetric;
+    custosVariaveis: DreCardMetric;
+    margemContribuicao: DreCardMetric;
+    margemContribuicaoPct: DreCardMetric;
+    despesasComerciais: DreCardMetric;
+    resultadoOperacional: DreCardMetric;
+    margemOperacionalPct: DreCardMetric;
+  };
+  linhas: DreLinha[];
+  marketing?: {
+    investimento: number;
+    clientesAdquiridos: number;
+    receitaAtribuida: number;
+    cac: number | null;
+    roas: number | null;
+    margemAposMidia: number;
+    margemAposMidiaPct: number | null;
+    nota?: string;
+  };
+  dimensoes?: Array<{
+    chave: string;
+    label: string;
+    receitaBruta: number;
+    receitaLiquida: number;
+    custosVariaveis: number;
+    margemContribuicao: number;
+    margemPct: number;
+    despesasComerciais: number;
+    resultadoOperacional: number;
+    margemOperacionalPct: number;
+  }>;
+  dimensao?: DreDimensao;
+}
+
+export interface DreDrilldownItem {
+  id: string;
+  descricao: string;
+  valor: number;
+  natureza: string;
+  status: string;
+  dataCompetencia: string;
+  categoria: string;
+  subcategoria: string;
+  linha: string;
+  clienteId: string | null;
+  clienteNome: string | null;
+  pedidoId: string | null;
+  pedidoNumero: string | null;
+  ordemServicoId: string | null;
+  prestadorNome: string | null;
+  servicoNome: string | null;
+  canal: string;
+}
+
+export interface DreDrilldown {
+  drillKey: string;
+  periodo: { inicioYmd: string; fimYmd: string; label: string };
+  total: number;
+  items: DreDrilldownItem[];
+}
+
 export interface DashboardGerencial {
   periodo: { inicioYmd: string; fimYmd: string; label: string };
   cards: {

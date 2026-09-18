@@ -20,7 +20,7 @@ interface CreateClienteData {
   nomeFantasia?: string;
   cnpj?: string;
   responsavel?: string;
-  email: string;
+  email?: string;
   telefone: string;
   whatsapp?: string;
   endereco?: object;
@@ -220,8 +220,6 @@ export class ClientesService {
         const cpfLimpo = formatarDocumento(data.cpf);
         if (!validarCpf(cpfLimpo)) throw new Error('CPF inválido');
         data.cpf = cpfLimpo;
-      } else if (!data.cadastroSimplificado) {
-        throw new Error('CPF é obrigatório para PF');
       }
     } else {
       if (!data.cnpj) throw new Error('CNPJ é obrigatório para PJ');
@@ -234,10 +232,11 @@ export class ClientesService {
       const tel = soDigitos(data.telefone || data.whatsapp || '');
       data.email = tel ? `${tel}@venda.absresolve.local` : `cliente-${Date.now()}@venda.absresolve.local`;
     }
+    const emailFinal = data.email.trim().toLowerCase();
 
     const dups = await this.buscarDuplicados({
       telefone: data.telefone,
-      email: data.email,
+      email: emailFinal,
       cpf: data.cpf,
       cnpj: data.cnpj,
     });
@@ -258,7 +257,7 @@ export class ClientesService {
         nomeFantasia: rest.nomeFantasia,
         cnpj: rest.cnpj,
         responsavel: rest.responsavel,
-        email: rest.email,
+        email: emailFinal,
         telefone: soDigitos(rest.telefone),
         whatsapp: rest.whatsapp ? soDigitos(rest.whatsapp) : soDigitos(rest.telefone),
         endereco: rest.endereco || {},
@@ -273,7 +272,7 @@ export class ClientesService {
       await prisma.user.create({
         data: {
           nome: data.nome,
-          email: data.email,
+          email: emailFinal,
           senhaHash,
           role: 'cliente',
           clienteId: cliente.id,

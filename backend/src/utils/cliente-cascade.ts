@@ -62,10 +62,15 @@ export async function apagarClienteCascade(clienteId: string) {
  * por um resíduo antigo.
  */
 export async function limparClienteOrfaoPorDocumento(doc: string, email: string) {
+  const or: Array<{ cpf?: string; cnpj?: string; email?: string }> = [];
+  if (doc) {
+    or.push({ cpf: doc }, { cnpj: doc });
+  }
+  if (email) or.push({ email });
+  if (!or.length) return;
+
   const candidatos = await prisma.cliente.findMany({
-    where: {
-      OR: [{ cpf: doc }, { cnpj: doc }, { email }],
-    },
+    where: { OR: or },
     include: { user: true, _count: { select: { pedidos: true } } },
   });
 

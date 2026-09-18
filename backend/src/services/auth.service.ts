@@ -209,7 +209,7 @@ export class AuthService {
     nome: string;
     cpf?: string;
     cnpj?: string;
-    email: string;
+    email?: string;
     telefone: string;
     whatsapp?: string;
     senha: string;
@@ -221,20 +221,33 @@ export class AuthService {
       throw new Error('É necessário aceitar os termos LGPD');
     }
 
+    const telefone = String(data.telefone || '').replace(/\D/g, '');
+    if (telefone.length < 10) throw new Error('Informe um telefone válido com DDD');
+
+    let email = String(data.email || '').trim().toLowerCase();
+    if (email && !email.includes('@')) throw new Error('Informe um e-mail válido');
+    if (!email) {
+      email = `${telefone}@cadastro.absresolve.local`;
+    }
+
     const doc = (data.cpf || data.cnpj || '').replace(/\D/g, '');
+    if (data.tipo === 'PF' && doc && !validarCpf(doc)) throw new Error('CPF inválido');
+    if (data.tipo === 'PJ' && !doc) throw new Error('CNPJ é obrigatório para PJ');
 
     // Remove cadastros órfãos (sem acesso e sem pedidos) que travariam o recadastro
-    await limparClienteOrfaoPorDocumento(doc, data.email);
+    await limparClienteOrfaoPorDocumento(doc, email);
 
-    const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) throw new Error('Email já cadastrado');
 
-    if (data.tipo === 'PF') {
-      const exists = await prisma.cliente.findUnique({ where: { cpf: doc } });
-      if (exists) throw new Error('CPF já cadastrado');
-    } else {
-      const exists = await prisma.cliente.findUnique({ where: { cnpj: doc } });
-      if (exists) throw new Error('CNPJ já cadastrado');
+    if (doc) {
+      if (data.tipo === 'PF') {
+        const exists = await prisma.cliente.findUnique({ where: { cpf: doc } });
+        if (exists) throw new Error('CPF já cadastrado');
+      } else {
+        const exists = await prisma.cliente.findUnique({ where: { cnpj: doc } });
+        if (exists) throw new Error('CNPJ já cadastrado');
+      }
     }
 
     // Indicação por parceiro (código de referência)
@@ -252,9 +265,9 @@ export class AuthService {
       data: {
         tipo: data.tipo,
         nome: data.nome,
-        cpf: data.tipo === 'PF' ? doc : undefined,
-        cnpj: data.tipo === 'PJ' ? doc : undefined,
-        email: data.email,
+        cpf: data.tipo === 'PF' && doc ? doc : undefined,
+        cnpj: data.tipo === 'PJ' && doc ? doc : undefined,
+        email,
         telefone: data.telefone,
         whatsapp: data.whatsapp || data.telefone,
         endereco: data.endereco || {},
@@ -267,14 +280,14 @@ export class AuthService {
     await prisma.user.create({
       data: {
         nome: data.nome,
-        email: data.email,
+        email,
         senhaHash,
         role: 'cliente',
         clienteId: cliente.id,
       },
     });
 
-    const user = await prisma.user.findUnique({ where: { email: data.email } });
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new Error('Erro ao criar conta');
 
     return this.issueSession(user);
@@ -286,8 +299,8 @@ export class AuthService {
    */
   async checkoutConvidado(data: {
     nome: string;
-    cpf: string;
-    email: string;
+    cpf?: string;
+    email?: string;
     telefone: string;
     endereco: {
       rua?: string;
@@ -306,14 +319,17 @@ export class AuthService {
     }
 
     const nome = String(data.nome || '').trim();
-    const email = String(data.email || '').trim().toLowerCase();
     const telefone = String(data.telefone || '').replace(/\D/g, '');
     const doc = String(data.cpf || '').replace(/\D/g, '');
+    let email = String(data.email || '').trim().toLowerCase();
 
     if (!nome || nome.length < 3) throw new Error('Informe o nome completo');
-    if (!email || !email.includes('@')) throw new Error('Informe um e-mail válido');
     if (telefone.length < 10) throw new Error('Informe um telefone válido com DDD');
-    if (!validarCpf(doc)) throw new Error('CPF inválido');
+    if (email && !email.includes('@')) throw new Error('Informe um e-mail válido');
+    if (!email) {
+      email = `${telefone}@checkout.absresolve.local`;
+    }
+    if (doc && !validarCpf(doc)) throw new Error('CPF inválido');
 
     const endereco = data.endereco || {};
     if (!String(endereco.cep || '').replace(/\D/g, '') || !endereco.rua || !endereco.numero || !endereco.bairro || !endereco.cidade || !endereco.uf) {
@@ -332,22 +348,83 @@ export class AuthService {
 
     const retomarPayload = { nome, email, telefone, endereco, parceiroId };
 
-    const existingByCpf = await buscarClientePorDocumento(doc);
-    if (existingByCpf?.user) {
-      const emailConta = existingByCpf.user.email.trim().toLowerCase();
-      if (emailConta === email) {
-        return this.retomarCheckoutConvidado(existingByCpf.user, retomarPayload);
+    if (doc) {
+      const existingByCpf = await buscarClientePorDocumento(doc);
+      if (existingByCpf?.user) {
+        const emailConta = existingByCpf.user.email.trim().toLowerCase();
+        if (emailConta === email) {
+          return this.retomarCheckoutConvidado(existingByCpf.user, retomarPayload);
+        }
+        throw new Error('Este CPF já tem conta. Entre com login ou use "Esqueci a senha".');
       }
-      throw new Error('Este CPF já tem conta. Entre com login ou use "Esqueci a senha".');
+
+      const existingUser = await prisma.user.findFirst({
+        where: { email: { equals: email, mode: 'insensitive' } },
+        include: { cliente: true },
+      });
+      if (existingUser) {
+        const cpfConta = (existingUser.cliente?.cpf || existingUser.cliente?.cnpj || '').replace(/\D/g, '');
+        if (existingUser.role === 'cliente' && cpfConta === doc) {
+          return this.retomarCheckoutConvidado(existingUser, retomarPayload);
+        }
+        throw new Error('Este e-mail já tem conta. Entre com login ou use "Esqueci a senha".');
+      }
+
+      const senhaAleatoria = randomBytes(32).toString('hex');
+      const senhaHash = await bcrypt.hash(senhaAleatoria, 12);
+
+      const cliente = existingByCpf
+        ? await prisma.cliente.update({
+            where: { id: existingByCpf.id },
+            data: {
+              nome,
+              email,
+              telefone,
+              whatsapp: telefone,
+              endereco,
+              consentimentoLgpd: true,
+              dataAceite: new Date(),
+              ...(parceiroId ? { parceiroId } : {}),
+            },
+          })
+        : await prisma.cliente.create({
+            data: {
+              tipo: 'PF',
+              nome,
+              cpf: doc,
+              email,
+              telefone,
+              whatsapp: telefone,
+              endereco,
+              consentimentoLgpd: true,
+              dataAceite: new Date(),
+              parceiroId,
+            },
+          });
+
+      await prisma.user.create({
+        data: {
+          nome,
+          email,
+          senhaHash,
+          role: 'cliente',
+          clienteId: cliente.id,
+        },
+      });
+
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user) throw new Error('Erro ao iniciar checkout');
+
+      return this.issueSession(user);
     }
 
+    // Sem CPF: só conflita por e-mail
     const existingUser = await prisma.user.findFirst({
       where: { email: { equals: email, mode: 'insensitive' } },
       include: { cliente: true },
     });
     if (existingUser) {
-      const cpfConta = (existingUser.cliente?.cpf || existingUser.cliente?.cnpj || '').replace(/\D/g, '');
-      if (existingUser.role === 'cliente' && cpfConta === doc) {
+      if (existingUser.role === 'cliente') {
         return this.retomarCheckoutConvidado(existingUser, retomarPayload);
       }
       throw new Error('Este e-mail já tem conta. Entre com login ou use "Esqueci a senha".');
@@ -356,34 +433,19 @@ export class AuthService {
     const senhaAleatoria = randomBytes(32).toString('hex');
     const senhaHash = await bcrypt.hash(senhaAleatoria, 12);
 
-    const cliente = existingByCpf
-      ? await prisma.cliente.update({
-          where: { id: existingByCpf.id },
-          data: {
-            nome,
-            email,
-            telefone,
-            whatsapp: telefone,
-            endereco,
-            consentimentoLgpd: true,
-            dataAceite: new Date(),
-            ...(parceiroId ? { parceiroId } : {}),
-          },
-        })
-      : await prisma.cliente.create({
-          data: {
-            tipo: 'PF',
-            nome,
-            cpf: doc,
-            email,
-            telefone,
-            whatsapp: telefone,
-            endereco,
-            consentimentoLgpd: true,
-            dataAceite: new Date(),
-            parceiroId,
-          },
-        });
+    const cliente = await prisma.cliente.create({
+      data: {
+        tipo: 'PF',
+        nome,
+        email,
+        telefone,
+        whatsapp: telefone,
+        endereco,
+        consentimentoLgpd: true,
+        dataAceite: new Date(),
+        parceiroId,
+      },
+    });
 
     await prisma.user.create({
       data: {

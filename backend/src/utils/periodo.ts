@@ -1,6 +1,15 @@
 /** Helpers de período e status do módulo financeiro / dashboard. */
 
-export type PeriodoPreset = 'hoje' | '7d' | '30d' | 'mes' | 'mes_passado' | 'ano' | 'personalizado';
+export type PeriodoPreset =
+  | 'hoje'
+  | 'ontem'
+  | 'semana'
+  | '7d'
+  | '30d'
+  | 'mes'
+  | 'mes_passado'
+  | 'ano'
+  | 'personalizado';
 
 export function ymdBrasil(ref = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -35,6 +44,15 @@ export function addMesesYmd(ymd: string, meses: number): string {
   return ymdBrasil(new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), dia, 15, 0, 0)));
 }
 
+/** Segunda-feira da semana (America/Sao_Paulo) a partir de um YMD. */
+export function inicioSemanaYmd(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, 15, 0, 0));
+  const dow = dt.getUTCDay(); // 0=dom
+  const delta = dow === 0 ? -6 : 1 - dow;
+  return addDiasYmd(ymd, delta);
+}
+
 export function resolverPeriodo(params: {
   periodo?: string;
   de?: string;
@@ -54,17 +72,26 @@ export function resolverPeriodo(params: {
     case 'hoje':
       label = 'Hoje';
       break;
+    case 'ontem':
+      inicioYmd = addDiasYmd(hoje, -1);
+      fimYmd = inicioYmd;
+      label = 'Ontem';
+      break;
+    case 'semana':
+      inicioYmd = inicioSemanaYmd(hoje);
+      label = 'Esta semana';
+      break;
     case '7d':
       inicioYmd = addDiasYmd(hoje, -6);
       label = '7 dias';
       break;
     case '30d':
       inicioYmd = addDiasYmd(hoje, -29);
-      label = '30 dias';
+      label = 'Últimos 30 dias';
       break;
     case 'mes':
       inicioYmd = `${y}-${String(m).padStart(2, '0')}-01`;
-      label = 'Este mês';
+      label = 'Mês atual';
       break;
     case 'mes_passado': {
       const pm = m === 1 ? 12 : m - 1;
@@ -72,7 +99,7 @@ export function resolverPeriodo(params: {
       inicioYmd = `${py}-${String(pm).padStart(2, '0')}-01`;
       const ultimoDia = new Date(Date.UTC(py, pm, 0, 15)).getUTCDate();
       fimYmd = `${py}-${String(pm).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
-      label = 'Mês passado';
+      label = 'Mês anterior';
       break;
     }
     case 'ano':
@@ -86,7 +113,7 @@ export function resolverPeriodo(params: {
       break;
     default:
       inicioYmd = `${y}-${String(m).padStart(2, '0')}-01`;
-      label = 'Este mês';
+      label = 'Mês atual';
   }
 
   return {

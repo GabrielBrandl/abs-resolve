@@ -385,8 +385,8 @@ export function AdminPage() {
 
       <Modal open={modalCliente} onClose={() => setModalCliente(false)} title="Novo Cliente">
         <Input label="Nome" value={clienteForm.nome} onChange={(e) => setClienteForm({ ...clienteForm, nome: e.target.value })} />
-        <Input label="CPF" value={clienteForm.cpf} onChange={(e) => setClienteForm({ ...clienteForm, cpf: e.target.value })} placeholder="000.000.000-00" />
-        <Input label="Email" value={clienteForm.email} onChange={(e) => setClienteForm({ ...clienteForm, email: e.target.value })} />
+        <Input label="CPF (opcional)" value={clienteForm.cpf} onChange={(e) => setClienteForm({ ...clienteForm, cpf: e.target.value })} placeholder="000.000.000-00" />
+        <Input label="Email (opcional)" value={clienteForm.email} onChange={(e) => setClienteForm({ ...clienteForm, email: e.target.value })} />
         <Input label="Telefone" value={clienteForm.telefone} onChange={(e) => setClienteForm({ ...clienteForm, telefone: e.target.value })} />
         <Input label="Senha portal" type="password" value={clienteForm.senha} onChange={(e) => setClienteForm({ ...clienteForm, senha: e.target.value })} />
         <p className="mb-2 text-xs font-medium text-slate-500">Endereço (opcional)</p>

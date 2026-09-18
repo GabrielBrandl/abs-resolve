@@ -40,6 +40,7 @@ router.post('/recorrencias/processar', (req, res) => financeiroController.proces
 
 router.get('/fluxo-caixa', (req, res) => financeiroController.fluxo(req, res));
 router.get('/dre', (req, res) => financeiroController.dre(req, res));
+router.get('/dre/drilldown', (req, res) => financeiroController.dreDrilldown(req, res));
 router.get('/resumo', (req, res) => financeiroController.resumo(req, res));
 
 export default router;

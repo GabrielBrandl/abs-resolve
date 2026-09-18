@@ -12,6 +12,7 @@ import {
   statusReceitaEfetivo,
   ymdBrasil,
 } from '../utils/periodo.js';
+import { calcularDreGerencial, dreDrilldown } from './dre-gerencial.js';
 
 const SEED_CATEGORIAS: Array<{
   tipo: string;
@@ -19,15 +20,69 @@ const SEED_CATEGORIAS: Array<{
   grupoDre: string;
   subs: string[];
 }> = [
-  { tipo: 'receita', nome: 'Serviços', grupoDre: 'receita_bruta', subs: ['Elétrica', 'Hidráulica', 'Climatização', 'Outros'] },
-  { tipo: 'receita', nome: 'Deduções', grupoDre: 'deducoes', subs: ['Estornos', 'Descontos'] },
-  { tipo: 'custo_direto', nome: 'Prestadores', grupoDre: 'custo_direto', subs: ['Repasse'] },
-  { tipo: 'custo_direto', nome: 'Materiais', grupoDre: 'custo_direto', subs: ['Material de serviço'] },
-  { tipo: 'despesa_operacional', nome: 'Marketing', grupoDre: 'despesa_comercial', subs: ['Meta Ads', 'Google Ads', 'Outros'] },
-  { tipo: 'despesa_operacional', nome: 'Comissões', grupoDre: 'despesa_comercial', subs: ['Parceiros', 'Equipe'] },
-  { tipo: 'despesa_operacional', nome: 'Sistemas', grupoDre: 'despesa_administrativa', subs: ['Softwares'] },
-  { tipo: 'despesa_operacional', nome: 'Administrativo', grupoDre: 'despesa_administrativa', subs: ['Contabilidade', 'Equipe', 'Estrutura'] },
-  { tipo: 'despesa_financeira', nome: 'Financeiro', grupoDre: 'despesa_financeira', subs: ['Juros', 'Tarifas', 'Outros'] },
+  {
+    tipo: 'receita',
+    nome: 'Serviços',
+    grupoDre: 'receita_bruta',
+    subs: ['Elétrica', 'Hidráulica', 'Climatização', 'Materiais', 'Outros'],
+  },
+  {
+    tipo: 'receita',
+    nome: 'Deduções',
+    grupoDre: 'deducoes',
+    subs: ['Impostos sobre faturamento', 'Cashback', 'Descontos', 'Estornos', 'Outras deduções'],
+  },
+  {
+    tipo: 'custo_direto',
+    nome: 'Prestadores',
+    grupoDre: 'custo_direto',
+    subs: ['Repasse', 'Logística', 'Taxas de execução', 'Outros custos variáveis'],
+  },
+  {
+    tipo: 'custo_direto',
+    nome: 'Materiais',
+    grupoDre: 'custo_direto',
+    subs: ['Material de serviço'],
+  },
+  {
+    tipo: 'despesa_operacional',
+    nome: 'Marketing',
+    grupoDre: 'despesa_comercial',
+    subs: ['Google Ads', 'Meta Ads', 'Outras mídias', 'Ferramentas comerciais', 'Outras despesas comerciais'],
+  },
+  {
+    tipo: 'despesa_operacional',
+    nome: 'Comissões',
+    grupoDre: 'despesa_comercial',
+    subs: ['Parceiros', 'Equipe', 'Comissões comerciais'],
+  },
+  {
+    tipo: 'despesa_operacional',
+    nome: 'Sistemas',
+    grupoDre: 'despesa_administrativa',
+    subs: ['Softwares', 'Telefonia/internet'],
+  },
+  {
+    tipo: 'despesa_operacional',
+    nome: 'Administrativo',
+    grupoDre: 'despesa_administrativa',
+    subs: [
+      'Pró-labore',
+      'Salários administrativos',
+      'Contabilidade',
+      'Jurídico',
+      'Aluguel',
+      'Equipe',
+      'Estrutura',
+      'Outras despesas administrativas',
+    ],
+  },
+  {
+    tipo: 'despesa_financeira',
+    nome: 'Financeiro',
+    grupoDre: 'despesa_financeira',
+    subs: ['Taxas de cartão', 'Taxas de gateway', 'Tarifas bancárias', 'Juros', 'Outras despesas financeiras'],
+  },
   { tipo: 'investimento', nome: 'Investimentos', grupoDre: 'investimento', subs: ['Equipamentos', 'Outros'] },
   { tipo: 'transferencia', nome: 'Transferências', grupoDre: 'transferencia', subs: ['Entre contas'] },
 ];
@@ -1281,71 +1336,17 @@ export class FinanceiroService {
   }
 
   // ── DRE gerencial (regime competência) ────────────────────────────────────
-  async dre(params: { periodo?: string; de?: string; ate?: string }) {
-    const { inicio, fim, inicioYmd, fimYmd, label } = resolverPeriodo(params);
-    const lancs = await prisma.finLancamento.findMany({
-      where: {
-        natureza: { in: ['receita', 'despesa'] },
-        status: { notIn: ['cancelada'] },
-        dataCompetencia: { gte: inicio, lte: fim },
-      },
-      include: { categoria: true, subcategoria: true },
-    });
+  async dre(params: { periodo?: string; de?: string; ate?: string; dimensao?: string }) {
+    return calcularDreGerencial(params);
+  }
 
-    const sumGrupo = (grupo: string, natureza?: string) =>
-      lancs
-        .filter((l) => {
-          if (natureza && l.natureza !== natureza) return false;
-          if (l.status === 'estornada' && grupo !== 'deducoes') return false;
-          return (l.categoria?.grupoDre || '') === grupo;
-        })
-        .reduce((s, l) => s + toNumber(l.valor), 0);
-
-    const receitaBruta = sumGrupo('receita_bruta', 'receita');
-    const deducoes =
-      sumGrupo('deducoes') +
-      lancs
-        .filter((l) => l.natureza === 'receita' && l.status === 'estornada')
-        .reduce((s, l) => s + toNumber(l.valor), 0);
-    const receitaLiquida = receitaBruta - deducoes;
-    const custosDiretos = sumGrupo('custo_direto', 'despesa');
-    const margemContribuicao = receitaLiquida - custosDiretos;
-    const despesasComerciais = sumGrupo('despesa_comercial', 'despesa');
-    const despesasAdmin = sumGrupo('despesa_administrativa', 'despesa');
-    const despesasFinanceiras = sumGrupo('despesa_financeira', 'despesa');
-    const resultadoOperacional =
-      margemContribuicao - despesasComerciais - despesasAdmin - despesasFinanceiras;
-
-    const detalhePorCategoria = (grupo: string) => {
-      const map = new Map<string, number>();
-      for (const l of lancs) {
-        if ((l.categoria?.grupoDre || '') !== grupo) continue;
-        if (l.status === 'cancelada') continue;
-        const nome = l.subcategoria?.nome || l.categoria?.nome || 'Outros';
-        map.set(nome, (map.get(nome) || 0) + toNumber(l.valor));
-      }
-      return [...map.entries()].map(([nome, valor]) => ({ nome, valor: round2(valor) }));
-    };
-
-    const temLancamentos = lancs.length > 0;
-
-    return {
-      periodo: { inicioYmd, fimYmd, label },
-      temDadosReais: temLancamentos,
-      receitaBruta: round2(receitaBruta),
-      deducoes: round2(deducoes),
-      receitaLiquida: round2(receitaLiquida),
-      custosDiretos: round2(custosDiretos),
-      custosDiretosDetalhe: detalhePorCategoria('custo_direto'),
-      margemContribuicao: round2(margemContribuicao),
-      margemContribuicaoPct: receitaLiquida > 0 ? round2((margemContribuicao / receitaLiquida) * 100) : 0,
-      despesasComerciais: round2(despesasComerciais),
-      despesasComerciaisDetalhe: detalhePorCategoria('despesa_comercial'),
-      despesasAdministrativas: round2(despesasAdmin),
-      despesasAdministrativasDetalhe: detalhePorCategoria('despesa_administrativa'),
-      despesasFinanceiras: round2(despesasFinanceiras),
-      resultadoOperacional: round2(resultadoOperacional),
-    };
+  async dreDrilldown(params: {
+    drillKey: string;
+    periodo?: string;
+    de?: string;
+    ate?: string;
+  }) {
+    return dreDrilldown(params);
   }
 
   async resumoDashboardFinanceiro(params: { periodo?: string; de?: string; ate?: string }) {

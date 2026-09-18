@@ -90,7 +90,7 @@ export function ClienteFormPage() {
         <form onSubmit={handleSubmit}>
           <Input label="Nome" value={form.nome} onChange={(e) => set('nome', e.target.value)} required />
           {tipo === 'PF' ? (
-            <Input label="CPF" value={form.cpf} onChange={(e) => set('cpf', e.target.value)} required={!isEdit} />
+            <Input label="CPF (opcional)" value={form.cpf} onChange={(e) => set('cpf', e.target.value)} />
           ) : (
             <>
               <Input label="CNPJ" value={form.cnpj} onChange={(e) => set('cnpj', e.target.value)} required={!isEdit} />
@@ -98,7 +98,7 @@ export function ClienteFormPage() {
               <Input label="Nome Fantasia" value={form.nomeFantasia} onChange={(e) => set('nomeFantasia', e.target.value)} />
             </>
           )}
-          <Input label="Email" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} required />
+          <Input label="Email (opcional)" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
           <Input label="Telefone" value={form.telefone} onChange={(e) => set('telefone', e.target.value)} required />
           <Input label="WhatsApp" value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} />
           <p className="mb-2 text-sm font-medium text-slate-700">Endereço</p>

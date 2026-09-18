@@ -615,8 +615,12 @@ export function AgendarServicoPage() {
       toast('Informe o nome completo', 'error');
       return;
     }
-    if (!cpf.isValid(guestForm.cpf.replace(/\D/g, ''))) {
+    if (guestForm.cpf.replace(/\D/g, '') && !cpf.isValid(guestForm.cpf.replace(/\D/g, ''))) {
       toast('CPF inválido', 'error');
+      return;
+    }
+    if (guestForm.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestForm.email.trim())) {
+      toast('E-mail inválido', 'error');
       return;
     }
     if (!guestForm.consentimentoLgpd) {
@@ -1085,18 +1089,16 @@ export function AgendarServicoPage() {
               required
             />
             <Input
-              label="CPF"
+              label="CPF (opcional)"
               value={guestForm.cpf}
               onChange={(e) => setGuestForm({ ...guestForm, cpf: e.target.value })}
-              required
             />
-            <p className="-mt-2 mb-3 text-xs text-slate-500">Necessário para pagamento e nota fiscal.</p>
+            <p className="-mt-2 mb-3 text-xs text-slate-500">Útil para pagamento com cartão e nota fiscal.</p>
             <Input
-              label="E-mail"
+              label="E-mail (opcional)"
               type="email"
               value={guestForm.email}
               onChange={(e) => setGuestForm({ ...guestForm, email: e.target.value })}
-              required
             />
             <Input
               label="Telefone / WhatsApp"

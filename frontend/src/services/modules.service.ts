@@ -5,7 +5,7 @@ import type {
   PedidoTimeline, Garantia, SolicitacaoMinha, SolicitacaoStatus, SolicitacaoConfig, AvaliacaoPendente,
   EnderecoCliente, CatalogoServicoAdmin, ProdutoEstoque, EstoqueDashboard, MovimentacaoEstoque, TecnicoOs, AgendamentoTecnico, FluxoConfigAdmin, IaConhecimento,
   ParceiroAdmin, ParceiroDetalhe, DashboardGerencial, FinLancamento, CrmIndicadores, LeadTimelineItem,
-  ReceitaTecnica, ReceitaMaterial, OsMaterial, OsPendenciaTecnica,
+  ReceitaTecnica, ReceitaMaterial, OsMaterial, OsPendenciaTecnica, DreGerencial, DreDrilldown,
 } from '../types';
 
 async function get<T>(url: string) {
@@ -79,7 +79,7 @@ export const clientesApi = {
 export const leadsApi = {
   capturarConsultor: (body: {
     nome: string;
-    email: string;
+    email?: string;
     telefone: string;
     problema: string;
     servico?: string;
@@ -250,7 +250,10 @@ export const financeiroApi = {
   salvarRecorrencia: (body: unknown) => post('/financeiro/recorrencias', body),
   processarRecorrencias: () => post('/financeiro/recorrencias/processar', {}),
   fluxo: (params?: Record<string, string>) => get<Record<string, unknown>>(`/financeiro/fluxo-caixa?${new URLSearchParams(params)}`),
-  dre: (params?: Record<string, string>) => get<Record<string, unknown>>(`/financeiro/dre?${new URLSearchParams(params)}`),
+  dre: (params?: Record<string, string>) =>
+    get<DreGerencial>(`/financeiro/dre?${new URLSearchParams(params)}`),
+  dreDrilldown: (params: Record<string, string>) =>
+    get<DreDrilldown>(`/financeiro/dre/drilldown?${new URLSearchParams(params)}`),
   resumo: (params?: Record<string, string>) => get<Record<string, unknown>>(`/financeiro/resumo?${new URLSearchParams(params)}`),
   exportar: (params?: Record<string, string>) =>
     api.get(`/financeiro/export?${new URLSearchParams(params)}`, { responseType: 'blob' }),

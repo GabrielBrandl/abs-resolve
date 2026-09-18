@@ -235,6 +235,23 @@ export class FinanceiroController {
     }
   }
 
+  async dreDrilldown(req: Request, res: Response) {
+    try {
+      const q = req.query as Record<string, string>;
+      return success(
+        res,
+        await financeiroService.dreDrilldown({
+          drillKey: q.drillKey || '',
+          periodo: q.periodo,
+          de: q.de,
+          ate: q.ate,
+        })
+      );
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 400);
+    }
+  }
+
   async resumo(req: Request, res: Response) {
     try {
       const q = req.query as Record<string, string>;
