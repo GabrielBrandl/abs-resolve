@@ -30,6 +30,7 @@ const formLancVazio = {
   categoriaId: '',
   contaId: '',
   contaDestinoId: '',
+  clienteId: '',
   fornecedorNome: '',
   formaPagamento: '',
   observacoes: '',
@@ -145,7 +146,8 @@ export function FinanceiroPage() {
         categoriaId: formLanc.categoriaId || null,
         contaId: formLanc.contaId || null,
         contaDestinoId: formLanc.contaDestinoId || null,
-        fornecedorNome: formLanc.fornecedorNome || null,
+        clienteId: formLanc.natureza === 'receita' ? formLanc.clienteId || null : null,
+        fornecedorNome: formLanc.natureza === 'despesa' ? formLanc.fornecedorNome || null : null,
         formaPagamento: formLanc.formaPagamento || null,
         observacoes: formLanc.observacoes || null,
         anexoUrl: formLanc.anexoUrl || null,
@@ -165,6 +167,18 @@ export function FinanceiroPage() {
       carregarBase();
     } catch (e) {
       erro(e);
+    }
+  };
+  const abrirNovoLancamento = async (natureza: 'despesa' | 'receita' | 'transferencia' = 'despesa') => {
+    setFormLanc({ ...formLancVazio, natureza });
+    setModalLancamento(true);
+    if (natureza === 'receita' || !clientes.length) {
+      try {
+        const r = await clientesApi.listar({ status: 'ativo', limit: '500' });
+        setClientes(r.clientes);
+      } catch {
+        /* lista de clientes opcional no formulário */
+      }
     }
   };
   const abrirBaixa = (l: FinLancamento) => {
@@ -293,13 +307,13 @@ export function FinanceiroPage() {
     <PageHeader title="Financeiro" subtitle="Controle financeiro e cobranças" />
     <Tabs tabs={TABS} active={tab} onChange={setTab} />
     {tab === 'dashboard' && <>{filtroPeriodo}{loading ? <Loading /> : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[['Saldo disponível', resumo.saldoDisponivel], ['A receber', resumo.aReceber], ['A pagar', resumo.aPagar], ['Vencidos', resumo.vencidos], ['Receitas realizadas', resumo.receitasRealizadas], ['Despesas realizadas', resumo.despesasRealizadas]].map(([l, v]) => <Card key={String(l)}><p className="text-sm text-slate-500">{l}</p><p className="text-2xl font-bold text-primary-700">{formatCurrency(Number(v || 0))}</p></Card>)}</div>}</>}
-    {tab === 'lancamentos' && <><div className="mb-4 flex flex-wrap items-end gap-2">{filtroPeriodo}<Select label="Natureza" value={filtros.natureza} onChange={(e) => setFiltros({ ...filtros, natureza: e.target.value })}><option value="">Todas</option><option value="receita">A receber / Receitas</option><option value="despesa">A pagar / Despesas</option><option value="transferencia">Transferência</option></Select><Select label="Status" value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}><option value="">Todos</option><option value="a_receber">A receber</option><option value="a_pagar">A pagar</option><option value="parcial">Parcial</option><option value="recebida">Recebida</option><option value="paga">Paga</option><option value="vencida">Vencida</option></Select><Input label="Buscar" value={filtros.busca} onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })} /><Button variant="secondary" onClick={exportar}>Exportar CSV</Button><Button onClick={() => { setFormLanc(formLancVazio); setModalLancamento(true); }}>Nova conta a pagar</Button></div>
+    {tab === 'lancamentos' && <><div className="mb-4 flex flex-wrap items-end gap-2">{filtroPeriodo}<Select label="Natureza" value={filtros.natureza} onChange={(e) => setFiltros({ ...filtros, natureza: e.target.value })}><option value="">Todas</option><option value="receita">A receber / Receitas</option><option value="despesa">A pagar / Despesas</option><option value="transferencia">Transferência</option></Select><Select label="Status" value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}><option value="">Todos</option><option value="a_receber">A receber</option><option value="a_pagar">A pagar</option><option value="parcial">Parcial</option><option value="recebida">Recebida</option><option value="paga">Paga</option><option value="vencida">Vencida</option></Select><Input label="Buscar" value={filtros.busca} onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })} /><Button variant="secondary" onClick={exportar}>Exportar CSV</Button><Button variant="secondary" onClick={() => abrirNovoLancamento('receita')}>Nova conta a receber</Button><Button onClick={() => abrirNovoLancamento('despesa')}>Nova conta a pagar</Button></div>
       {loading ? <Loading /> : <TableWrapper><table className="w-full min-w-[1100px] text-sm"><thead className="bg-slate-50 text-left"><tr><th className="p-3">Descrição</th><th className="p-3">Fornecedor/Cliente</th><th className="p-3">Categoria</th><th className="p-3">Vencimento</th><th className="p-3">Valor</th><th className="p-3">Pago/Recebido</th><th className="p-3">Saldo</th><th className="p-3">Status</th><th className="p-3">Pagamento</th><th className="p-3">Conta</th><th className="p-3"></th></tr></thead><tbody>{lancamentos.map((l) => {
         const pago = Number((l as { valorPago?: number }).valorPago || (['recebida','paga'].includes(l.status) ? l.valor : 0));
         const saldo = Number((l as { saldo?: number }).saldo ?? Math.max(0, Number(l.valor) - pago));
         return <tr key={l.id} className="border-t"><td className="p-3 font-medium">{l.descricao}{l.parcelaTotal ? <span className="ml-1 text-xs text-slate-400">{l.parcelaNumero}/{l.parcelaTotal}</span> : null}</td><td className="p-3">{l.fornecedorNome || l.cliente?.nome || '—'}</td><td className="p-3">{l.categoria?.nome || '—'}</td><td className="p-3">{l.dataVencimento ? formatDate(l.dataVencimento) : '—'}</td><td className="p-3">{formatCurrency(l.valor)}</td><td className="p-3">{formatCurrency(pago)}</td><td className="p-3">{formatCurrency(saldo)}</td><td className="p-3"><Badge>{l.statusEfetivo || l.status}</Badge></td><td className="p-3">{l.dataMovimento ? formatDate(l.dataMovimento) : '—'}</td><td className="p-3">{l.conta?.nome || '—'}</td><td className="p-3"><div className="flex flex-wrap gap-1"><Button variant="secondary" onClick={() => abrirDetalhe(l.id)}>Detalhes</Button>{!['recebida', 'paga', 'cancelada', 'estornada'].includes(l.status) && <Button variant="secondary" onClick={() => abrirBaixa(l)}>Registrar pagamento</Button>}<Button variant="danger" onClick={() => excluirLancamento(l)}>Apagar</Button></div></td></tr>;
       })}</tbody></table></TableWrapper>}</>}
-    {tab === 'contas' && <><div className="mb-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => { setFormLanc({ ...formLancVazio, natureza: 'transferencia', dataVencimento: '' }); setModalLancamento(true); }}>Transferir</Button><Button onClick={() => setModalConta(true)}>Nova conta</Button></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{contas.map((c) => <Card key={c.id}><div className="flex justify-between"><h3 className="font-semibold">{c.nome}</h3><Badge color={c.ativo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}>{c.ativo ? 'Ativa' : 'Inativa'}</Badge></div><p className="text-sm capitalize text-slate-500">{c.tipo}</p><p className="mt-1 text-xs text-slate-400">Saldo inicial {formatCurrency(c.saldoInicial)}</p><p className="mt-2 text-xl font-bold text-primary-700">{formatCurrency(c.saldoAtual ?? c.saldoInicial)}</p><Button className="mt-3" variant="secondary" onClick={() => abrirExtrato(c.id)}>Ver extrato</Button></Card>)}</div></>}
+    {tab === 'contas' && <><div className="mb-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => abrirNovoLancamento('transferencia')}>Transferir</Button><Button onClick={() => setModalConta(true)}>Nova conta</Button></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{contas.map((c) => <Card key={c.id}><div className="flex justify-between"><h3 className="font-semibold">{c.nome}</h3><Badge color={c.ativo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}>{c.ativo ? 'Ativa' : 'Inativa'}</Badge></div><p className="text-sm capitalize text-slate-500">{c.tipo}</p><p className="mt-1 text-xs text-slate-400">Saldo inicial {formatCurrency(c.saldoInicial)}</p><p className="mt-2 text-xl font-bold text-primary-700">{formatCurrency(c.saldoAtual ?? c.saldoInicial)}</p><Button className="mt-3" variant="secondary" onClick={() => abrirExtrato(c.id)}>Ver extrato</Button></Card>)}</div></>}
     {tab === 'categorias' && <><div className="mb-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => setModalSubcategoria(true)}>Nova subcategoria</Button><Button onClick={() => { setCategoriaEditando(null); setFormCategoria({ nome: '', tipo: 'despesa_operacional', grupoDre: 'despesa_administrativa', ativo: true }); setModalCategoria(true); }}>Nova categoria</Button></div><div className="space-y-3">{categorias.map((c) => <Card key={c.id}><div className="flex items-center justify-between"><div><h3 className="font-semibold">{c.nome} <Badge>{c.tipo}</Badge></h3><p className="text-xs text-slate-500">{c.grupoDre || 'Sem grupo DRE'}</p></div><div className="flex gap-2"><Badge color={c.ativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>{c.ativo ? 'Ativa' : 'Inativa'}</Badge><Button variant="secondary" onClick={() => editarCategoria(c)}>Editar</Button></div></div>{c.subcategorias?.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{c.subcategorias.map((s) => <Badge key={s.id}>{s.nome}</Badge>)}</div>}</Card>)}</div></>}
     {tab === 'recorrencias' && <><div className="mb-4 flex flex-wrap justify-end gap-2"><Button variant="secondary" onClick={async () => { try { const r = await financeiroApi.processarRecorrencias(); toast(`${(r as { gerados?: number }).gerados || 0} lançamentos gerados`, 'success'); } catch (e) { erro(e); } }}>Gerar competências</Button><Button onClick={() => setModalRec(true)}>Nova recorrência</Button></div><TableWrapper><table className="w-full text-sm"><thead className="bg-slate-50 text-left"><tr><th className="p-3">Descrição</th><th className="p-3">Dia</th><th className="p-3">Valor</th><th className="p-3">Categoria</th><th className="p-3">Status</th></tr></thead><tbody>{recorrencias.map((r) => <tr key={r.id} className="border-t"><td className="p-3">{r.descricao}</td><td className="p-3">Todo dia {r.diaDoMes}</td><td className="p-3">{formatCurrency(Number(r.valor))}</td><td className="p-3">{r.categoria?.nome || '—'}</td><td className="p-3"><Badge>{r.ativo ? 'Ativa' : 'Inativa'}</Badge></td></tr>)}</tbody></table></TableWrapper></>}
     {tab === 'fluxo' && <>{filtroPeriodo}<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[['Saldo inicial', fluxo.saldoInicial], ['Entradas', fluxo.entradas], ['Saídas', fluxo.saidas], ['Saldo atual', fluxo.saldoAtual], ['A receber', fluxo.projecaoReceber], ['A pagar', fluxo.projecaoPagar], ['Saldo projetado', fluxo.saldoProjetado]].map(([l, v]) => <Card key={String(l)}><p className="text-sm text-slate-500">{l}</p><p className="text-xl font-bold text-primary-700">{formatCurrency(Number(v || 0))}</p></Card>)}</div></>}
@@ -308,12 +322,45 @@ export function FinanceiroPage() {
 
     <Modal open={modalLancamento} onClose={() => setModalLancamento(false)} title="Novo lançamento">
       <div className="grid max-h-[70vh] gap-3 overflow-y-auto pr-1">
-        <Select label="Natureza" value={formLanc.natureza} onChange={(e) => setFormLanc({ ...formLanc, natureza: e.target.value, categoriaId: '' })}>
+        <Select
+          label="Natureza"
+          value={formLanc.natureza}
+          onChange={async (e) => {
+            const natureza = e.target.value;
+            setFormLanc({
+              ...formLanc,
+              natureza,
+              categoriaId: '',
+              clienteId: natureza === 'receita' ? formLanc.clienteId : '',
+              fornecedorNome: natureza === 'despesa' ? formLanc.fornecedorNome : '',
+            });
+            if (natureza === 'receita' && !clientes.length) {
+              try {
+                const r = await clientesApi.listar({ status: 'ativo', limit: '500' });
+                setClientes(r.clientes);
+              } catch { /* ignore */ }
+            }
+          }}
+        >
           <option value="despesa">Conta a pagar (despesa)</option>
           <option value="receita">Conta a receber (receita)</option>
           <option value="transferencia">Transferência</option>
         </Select>
         <Input label="Descrição" value={formLanc.descricao} onChange={(e) => setFormLanc({ ...formLanc, descricao: e.target.value })} />
+        {formLanc.natureza === 'receita' && (
+          <Select
+            label="Cliente"
+            value={formLanc.clienteId}
+            onChange={(e) => setFormLanc({ ...formLanc, clienteId: e.target.value })}
+          >
+            <option value="">Selecione o cliente (opcional)</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}{c.telefone ? ` — ${c.telefone}` : ''}
+              </option>
+            ))}
+          </Select>
+        )}
         {formLanc.natureza === 'despesa' && (
           <Input label="Fornecedor / beneficiário" value={formLanc.fornecedorNome} onChange={(e) => setFormLanc({ ...formLanc, fornecedorNome: e.target.value })} />
         )}
