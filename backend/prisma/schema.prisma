@@ -25,6 +25,7 @@ model User {
   createdAt     DateTime       @default(now()) @map("created_at")
   refreshTokens RefreshToken[]
   interacoes    Interacao[]
+  leadMovimentacoes LeadMovimentacao[]
   auditLogs     AuditLog[]
   cliente       Cliente?       @relation(fields: [clienteId], references: [id])
   tecnico       Tecnico?
@@ -128,12 +129,23 @@ model Lead {
   catalogoServicoId  String? @map("catalogo_servico_id")
   responsavel    String
   etapa          String    @default("novo_lead")
-  /** em_andamento | aguardando_cliente | fechado_ganho | perdido */
+  /** em_andamento | aguardando_cliente | fechado_ganho | perdido | abandonou_qualificacao */
   statusComercial String   @default("em_andamento") @map("status_comercial")
   valorEstimado  Decimal?  @map("valor_estimado") @db.Decimal(12, 2)
   probabilidade  Int       @default(10)
   prioridade     String    @default("media")
   motivoPerda    String?   @map("motivo_perda")
+  observacaoPerda String?  @map("observacao_perda")
+  motivoAbandono String?   @map("motivo_abandono")
+  observacaoAbandono String? @map("observacao_abandono")
+  /** novo | recorrente — usado em CAC (só novos contam como aquisição). */
+  tipoCliente    String?   @map("tipo_cliente")
+  /** Marcos de evento (competência do lead = createdAt; estes são datas de evento). */
+  dataQualificacao DateTime? @map("data_qualificacao")
+  dataOrcamento    DateTime? @map("data_orcamento")
+  dataFechamento   DateTime? @map("data_fechamento")
+  dataPerda        DateTime? @map("data_perda")
+  dataAbandono     DateTime? @map("data_abandono")
   dataPrevista   DateTime? @map("data_prevista")
   proximoContato DateTime? @map("proximo_contato")
   dataUltimaInteracao DateTime? @map("data_ultima_interacao")
@@ -147,6 +159,7 @@ model Lead {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   interacoes     Interacao[]
+  movimentacoes  LeadMovimentacao[]
   cliente        Cliente?  @relation(fields: [clienteId], references: [id], onDelete: SetNull)
   catalogoServico CatalogoServico? @relation(fields: [catalogoServicoId], references: [id], onDelete: SetNull)
   solicitacao    SolicitacaoServico? @relation("LeadOrcamento", fields: [solicitacaoId], references: [id], onDelete: SetNull)
@@ -162,7 +175,28 @@ model Lead {
   @@index([categoriaInteresse])
   @@index([catalogoServicoId])
   @@index([createdAt])
+  @@index([dataFechamento])
+  @@index([tipoCliente])
   @@map("leads")
+}
+
+/** Histórico imutável de mudanças de etapa do funil CRM. */
+model LeadMovimentacao {
+  id            String   @id @default(uuid())
+  leadId        String   @map("lead_id")
+  etapaAnterior String?  @map("etapa_anterior")
+  etapaNova     String   @map("etapa_nova")
+  motivo        String?
+  observacao    String?
+  usuarioId     String?  @map("usuario_id")
+  usuarioNome   String?  @map("usuario_nome")
+  createdAt     DateTime @default(now()) @map("created_at")
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  usuario       User?    @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, createdAt])
+  @@index([etapaNova])
+  @@map("lead_movimentacoes")
 }
 
 model Interacao {

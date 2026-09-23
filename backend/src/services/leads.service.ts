@@ -1,36 +1,20 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { toNumber } from '../utils/helpers.js';
+import {
+  ETAPAS_CRM,
+  ETAPAS_ABERTAS,
+  LABEL_ETAPA,
+  MOTIVOS_ABANDONO,
+  MOTIVOS_PERDA,
+  PROB_POR_ETAPA,
+  isEtapaQualificado,
+  isEtapaTerminal,
+} from '../utils/crm-funil.js';
 
-const ETAPAS = [
-  'novo_lead',
-  'contato_realizado',
-  'qualificado',
-  'proposta_enviada',
-  'negociacao',
-  'fechado',
-  'perdido',
-] as const;
+const ETAPAS = ETAPAS_CRM;
 
-const PROB_POR_ETAPA: Record<string, number> = {
-  novo_lead: 10,
-  contato_realizado: 20,
-  qualificado: 40,
-  proposta_enviada: 60,
-  negociacao: 75,
-  fechado: 100,
-  perdido: 0,
-};
-
-export const MOTIVOS_PERDA = [
-  'Preço',
-  'Parou de responder',
-  'Contratou concorrente',
-  'Prazo/agendamento',
-  'Serviço não atendido',
-  'Desistiu',
-  'Outro',
-] as const;
+export { MOTIVOS_PERDA, MOTIVOS_ABANDONO };
 
 export interface LeadFilters {
   etapa?: string;
@@ -120,6 +104,91 @@ const leadListInclude = {
   pedido: { select: { id: true, numero: true, status: true, valor: true } },
 } satisfies Prisma.LeadInclude;
 
+type MudancaEtapaOpts = {
+  motivo?: string | null;
+  observacao?: string | null;
+  usuarioId?: string | null;
+};
+
+function agregarMotivos(valores: Array<string | null | undefined>) {
+  const map = new Map<string, number>();
+  for (const v of valores) {
+    const key = (v || 'Não informado').trim() || 'Não informado';
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+  const total = [...map.values()].reduce((a, b) => a + b, 0);
+  return [...map.entries()]
+    .map(([motivo, quantidade]) => ({
+      motivo,
+      quantidade,
+      percentual: total ? Math.round((quantidade / total) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.quantidade - a.quantidade);
+}
+
+async function resolverUsuarioNome(usuarioId?: string | null) {
+  if (!usuarioId) return { usuarioId: null as string | null, usuarioNome: null as string | null };
+  const u = await prisma.user.findUnique({ where: { id: usuarioId }, select: { id: true, nome: true } });
+  return { usuarioId: u?.id || null, usuarioNome: u?.nome || null };
+}
+
+async function registrarMovimentacao(
+  leadId: string,
+  etapaAnterior: string | null,
+  etapaNova: string,
+  opts: MudancaEtapaOpts = {}
+) {
+  const { usuarioId, usuarioNome } = await resolverUsuarioNome(opts.usuarioId);
+  return prisma.leadMovimentacao.create({
+    data: {
+      leadId,
+      etapaAnterior,
+      etapaNova,
+      motivo: opts.motivo || null,
+      observacao: opts.observacao || null,
+      usuarioId,
+      usuarioNome,
+    },
+  });
+}
+
+function marcosPorEtapa(
+  etapa: string,
+  lead: {
+    dataQualificacao?: Date | null;
+    dataOrcamento?: Date | null;
+    dataFechamento?: Date | null;
+    dataPerda?: Date | null;
+    dataAbandono?: Date | null;
+  }
+): {
+  dataQualificacao?: Date;
+  dataOrcamento?: Date;
+  dataFechamento?: Date;
+  dataPerda?: Date;
+  dataAbandono?: Date;
+} {
+  const agora = new Date();
+  const patch: {
+    dataQualificacao?: Date;
+    dataOrcamento?: Date;
+    dataFechamento?: Date;
+    dataPerda?: Date;
+    dataAbandono?: Date;
+  } = {};
+  if (isEtapaQualificado(etapa) && !lead.dataQualificacao) patch.dataQualificacao = agora;
+  if (
+    (etapa === 'proposta_enviada' || etapa === 'negociacao' || etapa === 'fechado') &&
+    !lead.dataOrcamento
+  ) {
+    patch.dataOrcamento = agora;
+  }
+  if (etapa === 'fechado' && !lead.dataFechamento) patch.dataFechamento = agora;
+  if (etapa === 'perdido') patch.dataPerda = agora;
+  if (etapa === 'abandonou_qualificacao') patch.dataAbandono = agora;
+  return patch;
+}
+
 export class LeadsService {
   async capturarConsultor(data: {
     nome: string;
@@ -179,7 +248,7 @@ export class LeadsService {
       }
     }
 
-    return prisma.lead.create({
+    const criado = await prisma.lead.create({
       data: {
         nome,
         telefone,
@@ -195,6 +264,8 @@ export class LeadsService {
         ...(categoriaInteresse ? { categoriaInteresse } : {}),
       },
     });
+    await registrarMovimentacao(criado.id, null, 'novo_lead');
+    return criado;
   }
 
   async listar(filters: LeadFilters) {
@@ -206,76 +277,76 @@ export class LeadsService {
   }
 
   /**
-   * Indicadores comerciais do período — usados pelo CRM e pelo Dashboard Executivo.
+   * Indicadores comerciais do período — coorte por createdAt (competência de entrada).
+   * Usados pelo CRM e pelo Dashboard Executivo.
    */
   async indicadores(filters: LeadFilters = {}) {
     const where = buildWhere(filters);
-    const { inicio, fim } = parsePeriodo(filters.de, filters.ate);
-    const periodoSolicitacao: Prisma.DateTimeFilter | undefined =
-      inicio || fim
-        ? {
-            ...(inicio ? { gte: inicio } : {}),
-            ...(fim ? { lte: fim } : {}),
-          }
-        : undefined;
 
-    const [leads, orcamentos, pedidosFechados] = await Promise.all([
-      prisma.lead.findMany({
-        where,
-        select: {
-          id: true,
-          etapa: true,
-          statusComercial: true,
-          valorEstimado: true,
-          probabilidade: true,
-          createdAt: true,
-          updatedAt: true,
-          pedidoId: true,
-          solicitacaoId: true,
-        },
-      }),
-      prisma.solicitacaoServico.count({
-        where: {
-          ...(periodoSolicitacao ? { createdAt: periodoSolicitacao } : {}),
-          OR: [
-            { leadId: { not: null } },
-            { status: { in: ['orcamento_pendente', 'orcamento', 'checkout', 'aprovado', 'aguardando_pagamento'] } },
-          ],
-        },
-      }),
-      prisma.lead.findMany({
-        where: {
-          ...where,
-          etapa: 'fechado',
-          statusComercial: 'fechado_ganho',
-        },
-        select: {
-          createdAt: true,
-          updatedAt: true,
-          valorEstimado: true,
-          pedido: { select: { valor: true, createdAt: true } },
-        },
-      }),
-    ]);
+    const leads = await prisma.lead.findMany({
+      where,
+      select: {
+        id: true,
+        etapa: true,
+        statusComercial: true,
+        valorEstimado: true,
+        probabilidade: true,
+        createdAt: true,
+        updatedAt: true,
+        pedidoId: true,
+        solicitacaoId: true,
+        motivoPerda: true,
+        motivoAbandono: true,
+        tipoCliente: true,
+        dataQualificacao: true,
+        dataOrcamento: true,
+        dataFechamento: true,
+        dataPerda: true,
+        dataAbandono: true,
+        origem: true,
+        campanha: true,
+        pedido: { select: { valor: true, createdAt: true } },
+      },
+    });
 
-    const leadsQualificados = leads.filter((l) =>
-      ['qualificado', 'proposta_enviada', 'negociacao', 'fechado'].includes(l.etapa)
+    const totalLeads = leads.length;
+    const leadsQualificados = leads.filter((l) => isEtapaQualificado(l.etapa)).length;
+    const abandonaram = leads.filter((l) => l.etapa === 'abandonou_qualificacao').length;
+    const perdidos = leads.filter((l) => l.etapa === 'perdido').length;
+    const orcamentos = leads.filter(
+      (l) =>
+        !!l.solicitacaoId ||
+        !!l.dataOrcamento ||
+        ['proposta_enviada', 'negociacao', 'fechado'].includes(l.etapa)
     ).length;
+    const vendasLeads = leads.filter((l) => l.etapa === 'fechado');
+    const vendas = vendasLeads.length;
+    const vendasNovos = vendasLeads.filter((l) => l.tipoCliente !== 'recorrente').length;
 
-    const abertos = leads.filter((l) => !['fechado', 'perdido'].includes(l.etapa));
-    const vendas = pedidosFechados.length;
+    const abertos = leads.filter((l) => (ETAPAS_ABERTAS as readonly string[]).includes(l.etapa));
     const valorPipeline = abertos.reduce((sum, l) => sum + toNumber(l.valorEstimado), 0);
-    const valorVendas = pedidosFechados.reduce(
+    const valorVendas = vendasLeads.reduce(
       (sum, l) => sum + toNumber(l.pedido?.valor ?? l.valorEstimado),
       0
     );
-    const taxaConversao = leads.length ? Math.round((vendas / leads.length) * 1000) / 10 : 0;
+
+    const taxaQualificacao = totalLeads
+      ? Math.round((leadsQualificados / totalLeads) * 1000) / 10
+      : 0;
+    const taxaAbandono = totalLeads ? Math.round((abandonaram / totalLeads) * 1000) / 10 : 0;
+    const taxaQualificadoOrcamento = leadsQualificados
+      ? Math.round((orcamentos / leadsQualificados) * 1000) / 10
+      : 0;
+    const taxaOrcamentoVenda = orcamentos
+      ? Math.round((vendas / orcamentos) * 1000) / 10
+      : 0;
+    const taxaConversao = totalLeads ? Math.round((vendas / totalLeads) * 1000) / 10 : 0;
     const ticketMedio = vendas ? Math.round((valorVendas / vendas) * 100) / 100 : 0;
 
     let tempoMedioFechamento: number | null = null;
-    if (pedidosFechados.length) {
-      const dias = pedidosFechados.map((l) => {
-        const fimClose = l.pedido?.createdAt || l.updatedAt;
+    if (vendasLeads.length) {
+      const dias = vendasLeads.map((l) => {
+        const fimClose = l.dataFechamento || l.pedido?.createdAt || l.updatedAt;
         return Math.max(0, (fimClose.getTime() - l.createdAt.getTime()) / (1000 * 60 * 60 * 24));
       });
       tempoMedioFechamento =
@@ -287,17 +358,136 @@ export class LeadsService {
       quantidade: leads.filter((l) => l.etapa === etapa).length,
     }));
 
+    const motivosAbandono = agregarMotivos(
+      leads.filter((l) => l.etapa === 'abandonou_qualificacao').map((l) => l.motivoAbandono)
+    );
+    const motivosPerda = agregarMotivos(
+      leads.filter((l) => l.etapa === 'perdido').map((l) => l.motivoPerda)
+    );
+
+    const porOrigemMap = new Map<
+      string,
+      { leads: number; qualificados: number; orcamentos: number; vendas: number; receita: number }
+    >();
+    for (const l of leads) {
+      const o = l.origem || 'outros';
+      if (!porOrigemMap.has(o)) {
+        porOrigemMap.set(o, { leads: 0, qualificados: 0, orcamentos: 0, vendas: 0, receita: 0 });
+      }
+      const row = porOrigemMap.get(o)!;
+      row.leads += 1;
+      if (isEtapaQualificado(l.etapa)) row.qualificados += 1;
+      if (
+        l.solicitacaoId ||
+        l.dataOrcamento ||
+        ['proposta_enviada', 'negociacao', 'fechado'].includes(l.etapa)
+      ) {
+        row.orcamentos += 1;
+      }
+      if (l.etapa === 'fechado') {
+        row.vendas += 1;
+        row.receita += toNumber(l.pedido?.valor ?? l.valorEstimado);
+      }
+    }
+    const porOrigem = [...porOrigemMap.entries()]
+      .map(([origem, v]) => ({
+        origem,
+        ...v,
+        receita: Math.round(v.receita * 100) / 100,
+      }))
+      .sort((a, b) => b.leads - a.leads);
+
+    const porCampanhaMap = new Map<
+      string,
+      { leads: number; qualificados: number; orcamentos: number; vendas: number; receita: number }
+    >();
+    for (const l of leads) {
+      const c = (l.campanha || '').trim() || '(sem campanha)';
+      if (!porCampanhaMap.has(c)) {
+        porCampanhaMap.set(c, { leads: 0, qualificados: 0, orcamentos: 0, vendas: 0, receita: 0 });
+      }
+      const row = porCampanhaMap.get(c)!;
+      row.leads += 1;
+      if (isEtapaQualificado(l.etapa)) row.qualificados += 1;
+      if (
+        l.solicitacaoId ||
+        l.dataOrcamento ||
+        ['proposta_enviada', 'negociacao', 'fechado'].includes(l.etapa)
+      ) {
+        row.orcamentos += 1;
+      }
+      if (l.etapa === 'fechado') {
+        row.vendas += 1;
+        row.receita += toNumber(l.pedido?.valor ?? l.valorEstimado);
+      }
+    }
+    const porCampanha = [...porCampanhaMap.entries()]
+      .map(([campanha, v]) => ({
+        campanha,
+        ...v,
+        receita: Math.round(v.receita * 100) / 100,
+      }))
+      .sort((a, b) => b.leads - a.leads)
+      .slice(0, 30);
+
     return {
-      leads: leads.length,
+      leads: totalLeads,
       leadsQualificados,
+      abandonaramQualificacao: abandonaram,
+      perdidos,
       orcamentos,
       vendas,
+      vendasNovosClientes: vendasNovos,
       valorPipeline: Math.round(valorPipeline * 100) / 100,
+      receita: Math.round(valorVendas * 100) / 100,
+      taxaQualificacao,
+      taxaAbandono,
+      taxaQualificadoOrcamento,
+      taxaOrcamentoVenda,
       taxaConversao,
       ticketMedio,
       tempoMedioFechamento,
       porEtapa,
+      motivosAbandono,
+      motivosPerda,
+      porOrigem,
+      porCampanha,
+      funil: {
+        leads: totalLeads,
+        qualificados: leadsQualificados,
+        orcamentos,
+        vendas,
+        taxaLeadQualificado: taxaQualificacao,
+        taxaQualificadoOrcamento,
+        taxaOrcamentoVenda,
+        taxaLeadVenda: taxaConversao,
+      },
     };
+  }
+
+  async mesesComLeads() {
+    const rows = await prisma.$queryRaw<Array<{ ym: string }>>`
+      SELECT DISTINCT to_char("created_at" AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM') AS ym
+      FROM leads
+      ORDER BY ym DESC
+    `;
+    const meses = rows
+      .map((r) => r.ym)
+      .filter(Boolean)
+      .map((ym) => {
+        const [y, m] = ym.split('-').map(Number);
+        const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', {
+          month: 'long',
+          year: 'numeric',
+        });
+        return {
+          key: ym,
+          label: label.charAt(0).toUpperCase() + label.slice(1),
+          de: `${ym}-01`,
+          ate: new Date(y, m, 0).toISOString().slice(0, 10),
+        };
+      });
+    return { meses };
   }
 
   async dashboard(filters: LeadFilters = {}) {
@@ -312,7 +502,7 @@ export class LeadsService {
         proximoContato: true,
       },
     });
-    const abertos = leads.filter((l) => !['fechado', 'perdido'].includes(l.etapa));
+    const abertos = leads.filter((l) => (ETAPAS_ABERTAS as readonly string[]).includes(l.etapa));
     const agora = new Date();
     const pipelinePonderado = abertos.reduce((sum, l) => {
       return sum + toNumber(l.valorEstimado) * ((l.probabilidade || 0) / 100);
@@ -322,7 +512,6 @@ export class LeadsService {
       ...indicadores,
       abertos: abertos.length,
       fechados: indicadores.vendas,
-      perdidos: leads.filter((l) => l.etapa === 'perdido').length,
       conversao: indicadores.taxaConversao,
       pipeline: Math.round(pipelinePonderado * 100) / 100,
       valorAberto: indicadores.valorPipeline,
@@ -338,6 +527,9 @@ export class LeadsService {
         interacoes: {
           orderBy: { data: 'desc' },
           include: { usuario: { select: { nome: true } } },
+        },
+        movimentacoes: {
+          orderBy: { createdAt: 'asc' },
         },
         cliente: { select: { id: true, nome: true, email: true, telefone: true } },
         catalogoServico: { select: { id: true, nome: true, slug: true, categoria: true, precoMinimo: true } },
@@ -450,20 +642,28 @@ export class LeadsService {
       }
     }
 
-    if (lead.etapa === 'fechado') {
+    for (const m of lead.movimentacoes || []) {
+      if (!m.etapaAnterior && m.etapaNova === 'novo_lead') continue; // já coberto por lead_criado
+      const label = LABEL_ETAPA[m.etapaNova] || m.etapaNova;
+      const de = m.etapaAnterior ? LABEL_ETAPA[m.etapaAnterior] || m.etapaAnterior : null;
+      const partes = [
+        de ? `${de} → ${label}` : label,
+        m.motivo ? `Motivo: ${m.motivo}` : null,
+        m.observacao || null,
+        m.usuarioNome ? `por ${m.usuarioNome}` : null,
+      ].filter(Boolean);
       items.push({
-        tipo: 'fechado',
-        titulo: 'Lead fechado (ganho)',
-        descricao: 'Movido automaticamente ou manualmente para Fechado',
-        data: lead.updatedAt.toISOString(),
-      });
-    }
-    if (lead.etapa === 'perdido') {
-      items.push({
-        tipo: 'perdido',
-        titulo: 'Lead perdido',
-        descricao: lead.motivoPerda || 'Sem motivo informado',
-        data: lead.updatedAt.toISOString(),
+        tipo: 'mudanca_etapa',
+        titulo: label,
+        descricao: partes.join(' · '),
+        data: m.createdAt.toISOString(),
+        meta: {
+          etapaAnterior: m.etapaAnterior,
+          etapaNova: m.etapaNova,
+          motivo: m.motivo,
+          observacao: m.observacao,
+          usuario: m.usuarioNome,
+        },
       });
     }
 
@@ -486,7 +686,7 @@ export class LeadsService {
       if (!interesse) interesse = servico.nome;
     }
 
-    return prisma.lead.create({
+    const lead = await prisma.lead.create({
       data: {
         nome: data.nome.trim(),
         cpfCnpj: data.cpfCnpj,
@@ -510,6 +710,9 @@ export class LeadsService {
       },
       include: leadListInclude,
     });
+
+    await registrarMovimentacao(lead.id, null, 'novo_lead');
+    return lead;
   }
 
   async atualizar(
@@ -592,32 +795,105 @@ export class LeadsService {
     });
   }
 
-  async atualizarEtapa(id: string, etapa: string, motivoPerda?: string, proximoContato?: string) {
+  async atualizarEtapa(
+    id: string,
+    etapa: string,
+    opts: {
+      motivoPerda?: string;
+      observacaoPerda?: string;
+      motivoAbandono?: string;
+      observacaoAbandono?: string;
+      proximoContato?: string;
+      usuarioId?: string;
+    } = {}
+  ) {
     if (!ETAPAS.includes(etapa as (typeof ETAPAS)[number])) throw new Error('Etapa inválida');
     const lead = await this.buscarPorId(id);
-    if (etapa === 'perdido' && !motivoPerda && !lead.motivoPerda) {
-      throw new Error('Informe o motivo da perda');
+    if (lead.etapa === etapa) return lead;
+
+    if (etapa === 'perdido') {
+      const motivo = opts.motivoPerda || lead.motivoPerda;
+      if (!motivo) throw new Error('Informe o motivo da perda');
+    }
+    if (etapa === 'abandonou_qualificacao') {
+      const motivo = opts.motivoAbandono || lead.motivoAbandono;
+      if (!motivo) throw new Error('Informe o motivo do abandono');
     }
 
     let statusComercial = lead.statusComercial;
-    if (etapa === 'perdido') statusComercial = 'perdido';
+    if (etapa === 'perdido' || etapa === 'abandonou_qualificacao') statusComercial = 'perdido';
     if (etapa === 'fechado') statusComercial = 'fechado_ganho';
     if (etapa === 'negociacao' || etapa === 'proposta_enviada') {
-      if (proximoContato) statusComercial = 'aguardando_cliente';
+      if (opts.proximoContato) statusComercial = 'aguardando_cliente';
+      else if (statusComercial === 'perdido') statusComercial = 'em_andamento';
+    }
+    if (!isEtapaTerminal(etapa) && statusComercial === 'perdido') {
+      statusComercial = 'em_andamento';
     }
 
-    return prisma.lead.update({
+    let tipoCliente = lead.tipoCliente;
+    if (etapa === 'fechado' && !tipoCliente && lead.clienteId) {
+      const pedidosAnteriores = await prisma.pedido.count({
+        where: {
+          clienteId: lead.clienteId,
+          ...(lead.pedidoId ? { id: { not: lead.pedidoId } } : {}),
+        },
+      });
+      tipoCliente = pedidosAnteriores > 0 ? 'recorrente' : 'novo';
+    } else if (etapa === 'fechado' && !tipoCliente) {
+      tipoCliente = 'novo';
+    }
+
+    const motivo =
+      etapa === 'perdido'
+        ? opts.motivoPerda || lead.motivoPerda
+        : etapa === 'abandonou_qualificacao'
+          ? opts.motivoAbandono || lead.motivoAbandono
+          : null;
+    const observacao =
+      etapa === 'perdido'
+        ? opts.observacaoPerda
+        : etapa === 'abandonou_qualificacao'
+          ? opts.observacaoAbandono
+          : null;
+
+    const updated = await prisma.lead.update({
       where: { id },
       data: {
         etapa,
         statusComercial,
         probabilidade: PROB_POR_ETAPA[etapa] ?? lead.probabilidade,
-        ...(etapa === 'perdido' && motivoPerda ? { motivoPerda } : {}),
-        ...(proximoContato ? { proximoContato: new Date(proximoContato) } : {}),
+        ...(tipoCliente ? { tipoCliente } : {}),
+        ...(etapa === 'perdido'
+          ? {
+              motivoPerda: motivo,
+              ...(opts.observacaoPerda !== undefined
+                ? { observacaoPerda: opts.observacaoPerda || null }
+                : {}),
+            }
+          : {}),
+        ...(etapa === 'abandonou_qualificacao'
+          ? {
+              motivoAbandono: motivo,
+              ...(opts.observacaoAbandono !== undefined
+                ? { observacaoAbandono: opts.observacaoAbandono || null }
+                : {}),
+            }
+          : {}),
+        ...(opts.proximoContato ? { proximoContato: new Date(opts.proximoContato) } : {}),
+        ...marcosPorEtapa(etapa, lead),
         dataUltimaInteracao: new Date(),
       },
       include: leadListInclude,
     });
+
+    await registrarMovimentacao(id, lead.etapa, etapa, {
+      motivo,
+      observacao,
+      usuarioId: opts.usuarioId,
+    });
+
+    return updated;
   }
 
   async atualizarStatusComercial(
@@ -647,16 +923,27 @@ export class LeadsService {
       ...(data.responsavel ? { responsavel: data.responsavel } : {}),
       dataUltimaInteracao: new Date(),
     };
+    let novaEtapa: string | null = null;
     if (status === 'fechado_ganho') {
       patch.etapa = 'fechado';
       patch.probabilidade = 100;
+      Object.assign(patch, marcosPorEtapa('fechado', lead));
+      novaEtapa = 'fechado';
     }
     if (status === 'perdido') {
       patch.etapa = 'perdido';
       patch.probabilidade = 0;
+      Object.assign(patch, marcosPorEtapa('perdido', lead));
+      novaEtapa = 'perdido';
     }
 
-    return prisma.lead.update({ where: { id }, data: patch, include: leadListInclude });
+    const updated = await prisma.lead.update({ where: { id }, data: patch, include: leadListInclude });
+    if (novaEtapa && novaEtapa !== lead.etapa) {
+      await registrarMovimentacao(id, lead.etapa, novaEtapa, {
+        motivo: data.motivoPerda || null,
+      });
+    }
+    return updated;
   }
 
   /** Vincula orçamento (SolicitacaoServico) ao lead e avança para Proposta Enviada. */
@@ -670,21 +957,33 @@ export class LeadsService {
       data: { leadId },
     });
 
+    const novaEtapa = ['fechado', 'perdido', 'abandonou_qualificacao'].includes(lead.etapa)
+      ? lead.etapa
+      : 'proposta_enviada';
+
     const updated = await prisma.lead.update({
       where: { id: leadId },
       data: {
         solicitacaoId,
         ...(sol.clienteId && !lead.clienteId ? { clienteId: sol.clienteId } : {}),
         ...(sol.precoFinal != null ? { valorEstimado: sol.precoFinal } : {}),
-        etapa: ['fechado', 'perdido'].includes(lead.etapa) ? lead.etapa : 'proposta_enviada',
+        etapa: novaEtapa,
         statusComercial: ['fechado_ganho', 'perdido'].includes(lead.statusComercial)
           ? lead.statusComercial
           : 'em_andamento',
-        probabilidade: ['fechado', 'perdido'].includes(lead.etapa) ? lead.probabilidade : 60,
+        probabilidade: isEtapaTerminal(lead.etapa) ? lead.probabilidade : 60,
+        ...marcosPorEtapa(novaEtapa, lead),
         dataUltimaInteracao: new Date(),
       },
       include: leadListInclude,
     });
+
+    if (novaEtapa !== lead.etapa) {
+      await registrarMovimentacao(leadId, lead.etapa, novaEtapa, {
+        usuarioId,
+        motivo: 'Orçamento vinculado',
+      });
+    }
 
     if (usuarioId) {
       await prisma.interacao.create({
@@ -746,10 +1045,19 @@ export class LeadsService {
         clienteId: opts.clienteId,
         pedidoId: opts.pedidoId,
         ...(opts.solicitacaoId ? { solicitacaoId: opts.solicitacaoId } : {}),
+        ...marcosPorEtapa('fechado', lead),
+        tipoCliente: lead.tipoCliente || 'novo',
         dataUltimaInteracao: new Date(),
       },
       include: leadListInclude,
     });
+
+    if (lead.etapa !== 'fechado') {
+      await registrarMovimentacao(lead.id, lead.etapa, 'fechado', {
+        usuarioId: opts.usuarioId,
+        motivo: 'Fechamento automático',
+      });
+    }
 
     if (opts.usuarioId) {
       await prisma.interacao.create({
@@ -928,20 +1236,30 @@ export class LeadsService {
       include: { usuario: { select: { nome: true } } },
     });
 
+    const leadAtual = await prisma.lead.findUnique({ where: { id: leadId } });
     const patch: Prisma.LeadUpdateInput = {
       dataUltimaInteracao: new Date(),
       ...(data.proximoContato ? { proximoContato: new Date(data.proximoContato) } : {}),
       ...(data.proximaAcao !== undefined ? { proximaAcao: data.proximaAcao } : {}),
     };
-    if (data.tipo === 'ligacao' || data.tipo === 'whatsapp' || data.tipo === 'email') {
-      const lead = await prisma.lead.findUnique({ where: { id: leadId } });
-      if (lead?.etapa === 'novo_lead') {
-        patch.etapa = 'contato_realizado';
-        patch.probabilidade = 20;
-      }
+    let avancouContato = false;
+    if (
+      leadAtual &&
+      (data.tipo === 'ligacao' || data.tipo === 'whatsapp' || data.tipo === 'email') &&
+      leadAtual.etapa === 'novo_lead'
+    ) {
+      patch.etapa = 'contato_realizado';
+      patch.probabilidade = 20;
+      avancouContato = true;
     }
 
     await prisma.lead.update({ where: { id: leadId }, data: patch });
+    if (avancouContato && leadAtual) {
+      await registrarMovimentacao(leadId, leadAtual.etapa, 'contato_realizado', {
+        usuarioId: data.usuarioId,
+        motivo: 'Contato registrado',
+      });
+    }
     return interacao;
   }
 
@@ -963,11 +1281,8 @@ export class LeadsService {
     const manterEtapa = opts?.manterEtapa !== false && !fechar;
 
     if (lead.clienteId) {
-      if (fechar) {
-        await prisma.lead.update({
-          where: { id: leadId },
-          data: { etapa: 'fechado', statusComercial: 'fechado_ganho', probabilidade: 100 },
-        });
+      if (fechar && lead.etapa !== 'fechado') {
+        await this.atualizarEtapa(leadId, 'fechado', { usuarioId });
       }
       return prisma.cliente.findUniqueOrThrow({ where: { id: lead.clienteId } });
     }
@@ -997,11 +1312,14 @@ export class LeadsService {
       where: { id: leadId },
       data: {
         clienteId: cliente.id,
-        ...(manterEtapa
-          ? {}
-          : { etapa: 'fechado', statusComercial: 'fechado_ganho', probabilidade: 100 }),
       },
     });
+
+    if (!manterEtapa && lead.etapa !== 'fechado') {
+      await this.atualizarEtapa(leadId, 'fechado', { usuarioId });
+    } else if (usuarioId) {
+      // noop — movimentação já cobre quando fecha
+    }
 
     if (usuarioId) {
       await prisma.interacao.create({
@@ -1040,12 +1358,17 @@ export class LeadsService {
   getEtapas() {
     return ETAPAS.map((key) => ({
       key,
+      label: LABEL_ETAPA[key],
       probabilidade: PROB_POR_ETAPA[key],
     }));
   }
 
   getMotivosPerda() {
     return [...MOTIVOS_PERDA];
+  }
+
+  getMotivosAbandono() {
+    return [...MOTIVOS_ABANDONO];
   }
 }
 

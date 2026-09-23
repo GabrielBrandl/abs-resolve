@@ -90,6 +90,15 @@ export interface Lead {
   statusComercial?: string;
   valorEstimado?: number | string | null;
   motivoPerda?: string | null;
+  observacaoPerda?: string | null;
+  motivoAbandono?: string | null;
+  observacaoAbandono?: string | null;
+  tipoCliente?: string | null;
+  dataQualificacao?: string | null;
+  dataOrcamento?: string | null;
+  dataFechamento?: string | null;
+  dataPerda?: string | null;
+  dataAbandono?: string | null;
   proximoContato?: string | null;
   dataUltimaInteracao?: string | null;
   proximaAcao?: string | null;
@@ -99,6 +108,7 @@ export interface Lead {
   pedidoId?: string | null;
   createdAt: string;
   interacoes?: Interacao[];
+  movimentacoes?: LeadMovimentacao[];
   catalogoServico?: { id: string; nome: string; slug: string; categoria: string } | null;
   solicitacao?: {
     id: string;
@@ -110,16 +120,68 @@ export interface Lead {
   cliente?: { id: string; nome: string; email?: string; telefone?: string } | null;
 }
 
+export interface LeadMovimentacao {
+  id: string;
+  etapaAnterior?: string | null;
+  etapaNova: string;
+  motivo?: string | null;
+  observacao?: string | null;
+  usuarioNome?: string | null;
+  createdAt: string;
+}
+
+export interface CrmMotivoResumo {
+  motivo: string;
+  quantidade: number;
+  percentual: number;
+}
+
 export interface CrmIndicadores {
   leads: number;
   leadsQualificados: number;
+  abandonaramQualificacao?: number;
+  perdidos?: number;
   orcamentos: number;
   vendas: number;
+  vendasNovosClientes?: number;
   valorPipeline: number;
+  receita?: number;
+  taxaQualificacao?: number;
+  taxaAbandono?: number;
+  taxaQualificadoOrcamento?: number;
+  taxaOrcamentoVenda?: number;
   taxaConversao: number;
   ticketMedio: number;
   tempoMedioFechamento: number | null;
   porEtapa?: Array<{ etapa: string; quantidade: number }>;
+  motivosAbandono?: CrmMotivoResumo[];
+  motivosPerda?: CrmMotivoResumo[];
+  porOrigem?: Array<{
+    origem: string;
+    leads: number;
+    qualificados: number;
+    orcamentos: number;
+    vendas: number;
+    receita: number;
+  }>;
+  porCampanha?: Array<{
+    campanha: string;
+    leads: number;
+    qualificados: number;
+    orcamentos: number;
+    vendas: number;
+    receita: number;
+  }>;
+  funil?: {
+    leads: number;
+    qualificados: number;
+    orcamentos: number;
+    vendas: number;
+    taxaLeadQualificado: number;
+    taxaQualificadoOrcamento: number;
+    taxaOrcamentoVenda: number;
+    taxaLeadVenda: number;
+  };
   atrasados?: number;
 }
 
@@ -465,6 +527,8 @@ export interface DashboardGerencial {
     funil: {
       leads: number;
       leadsQualificados?: number;
+      abandonaramQualificacao?: number;
+      perdidos?: number;
       orcamentos: number;
       vendas: number;
       vendasPedidos?: number;
@@ -476,16 +540,42 @@ export interface DashboardGerencial {
       taxaLeadOrcamento: number;
       taxaOrcamentoVenda: number;
       taxaLeadVenda: number;
+      taxaLeadQualificado?: number;
+      taxaQualificadoOrcamento?: number;
+      taxaAbandono?: number;
+      receita?: number;
     };
-    vendasPorOrigem: Array<{ origem: string; vendas: number; receita: number }>;
+    vendasPorOrigem: Array<{
+      origem: string;
+      vendas: number;
+      receita: number;
+      leads?: number;
+      qualificados?: number;
+      orcamentos?: number;
+    }>;
+    motivosAbandono?: CrmMotivoResumo[];
+    motivosPerda?: CrmMotivoResumo[];
+    porCampanha?: Array<{
+      campanha: string;
+      leads: number;
+      qualificados: number;
+      orcamentos: number;
+      vendas: number;
+      receita: number;
+    }>;
     marketing: {
       investimento: number;
       leads: number;
+      leadsQualificados?: number;
       cpl: number | null;
+      cpql?: number | null;
+      custoOrcamento?: number | null;
       vendas: number;
+      vendasNovos?: number;
       cac: number | null;
       receita: number;
       margem: number | null;
+      roas?: number | null;
     };
   };
   operacao: {
@@ -533,11 +623,25 @@ export interface DashboardGerencial {
 
 export const MOTIVOS_PERDA = [
   'Preço',
+  'Fechou com concorrente',
+  'Desistiu do serviço',
+  'Prazo/agenda',
+  'Forma de pagamento',
+  'Não respondeu após orçamento',
+  'Orçamento não aprovado',
+  'Fora do escopo da ABS Resolve',
+  'Fora da área de atendimento',
+  'Sem disponibilidade da equipe',
+  'Outro',
+] as const;
+
+export const MOTIVOS_ABANDONO = [
+  'Não respondeu à triagem',
+  'Não enviou fotos/vídeos',
+  'Não enviou informações necessárias',
   'Parou de responder',
-  'Contratou concorrente',
-  'Prazo/agendamento',
-  'Serviço não atendido',
-  'Desistiu',
+  'Contato inválido',
+  'Serviço não identificado',
   'Outro',
 ] as const;
 
@@ -568,6 +672,7 @@ export const ETAPAS_LEAD = [
   { key: 'negociacao', label: 'Negociação' },
   { key: 'fechado', label: 'Fechado' },
   { key: 'perdido', label: 'Perdido' },
+  { key: 'abandonou_qualificacao', label: 'Abandonou Qualificação' },
 ];
 
 export const STATUS_PEDIDO = [

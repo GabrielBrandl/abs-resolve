@@ -84,34 +84,192 @@ export function DashboardPage() {
         </div>
 
         <h2 className="mb-3 text-lg font-bold text-primary-700">Comercial</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Funil e motivos usam a coorte de leads pela data de entrada (competência). Vendas fechadas em outro mês
+          continuam na coorte de entrada.
+        </p>
         <div className="mb-8 grid gap-4 lg:grid-cols-3">
           <Card>
             <h3 className="mb-4 font-semibold">Funil de vendas</h3>
-            <div className="space-y-3 text-center">
-              <div className="rounded-lg bg-[#0033B5] p-3 text-white"><b>{dados.comercial.funil.leads}</b> Leads</div>
-              <p className="text-xs text-slate-500">{dados.comercial.funil.leadsQualificados ?? 0} qualificados · {dados.comercial.funil.taxaLeadOrcamento.toFixed(1)}% → orçamento</p>
-              <div className="mx-auto w-4/5 rounded-lg bg-blue-500 p-3 text-white"><b>{dados.comercial.funil.orcamentos}</b> Orçamentos</div>
-              <p className="text-xs text-slate-500">{dados.comercial.funil.taxaOrcamentoVenda.toFixed(1)}% convertem</p>
-              <div className="mx-auto w-3/5 rounded-lg bg-[#F7C400] p-3 font-medium text-primary-900"><b>{dados.comercial.funil.vendas}</b> Vendas</div>
-              <p className="text-xs text-slate-500">Conversão: {(dados.comercial.funil.taxaConversao ?? dados.comercial.funil.taxaLeadVenda).toFixed(1)}%</p>
+            <div className="space-y-2 text-center">
+              <div className="rounded-lg bg-[#0033B5] p-3 text-white">
+                <b>{dados.comercial.funil.leads}</b> Leads
+              </div>
+              <p className="text-xs text-slate-500">
+                Taxa de qualificação:{' '}
+                {(dados.comercial.funil.taxaLeadQualificado ?? 0).toFixed(1)}%
+              </p>
+              <div className="mx-auto w-[90%] rounded-lg bg-blue-600 p-3 text-white">
+                <b>{dados.comercial.funil.leadsQualificados ?? 0}</b> Qualificados
+              </div>
+              <p className="text-xs text-slate-500">
+                Qualificado → Orçamento: {(dados.comercial.funil.taxaQualificadoOrcamento ?? 0).toFixed(1)}%
+              </p>
+              <div className="mx-auto w-4/5 rounded-lg bg-blue-500 p-3 text-white">
+                <b>{dados.comercial.funil.orcamentos}</b> Orçamentos
+              </div>
+              <p className="text-xs text-slate-500">
+                Orçamento → Venda: {dados.comercial.funil.taxaOrcamentoVenda.toFixed(1)}%
+              </p>
+              <div className="mx-auto w-3/5 rounded-lg bg-[#F7C400] p-3 font-medium text-primary-900">
+                <b>{dados.comercial.funil.vendas}</b> Vendas
+              </div>
+              <p className="text-xs text-slate-500">
+                Conversão geral (Lead → Venda):{' '}
+                {(dados.comercial.funil.taxaConversao ?? dados.comercial.funil.taxaLeadVenda).toFixed(1)}%
+              </p>
               <div className="mt-3 grid grid-cols-2 gap-2 text-left text-xs">
-                <div className="rounded bg-slate-50 p-2"><span className="text-slate-500">Pipeline</span><br /><b>{formatCurrency(dados.comercial.funil.valorPipeline || 0)}</b></div>
-                <div className="rounded bg-slate-50 p-2"><span className="text-slate-500">Ticket CRM</span><br /><b>{formatCurrency(dados.comercial.funil.ticketMedioCrm || 0)}</b></div>
-                <div className="rounded bg-slate-50 p-2 col-span-2"><span className="text-slate-500">Tempo médio até fechamento</span><br /><b>{dados.comercial.funil.tempoMedioFechamento != null ? `${dados.comercial.funil.tempoMedioFechamento} dias` : '—'}</b></div>
+                <div className="rounded bg-slate-50 p-2">
+                  <span className="text-slate-500">Abandonaram</span>
+                  <br />
+                  <b>{dados.comercial.funil.abandonaramQualificacao ?? 0}</b>
+                  <span className="text-slate-400">
+                    {' '}
+                    ({(dados.comercial.funil.taxaAbandono ?? 0).toFixed(1)}%)
+                  </span>
+                </div>
+                <div className="rounded bg-slate-50 p-2">
+                  <span className="text-slate-500">Perdidos</span>
+                  <br />
+                  <b>{dados.comercial.funil.perdidos ?? 0}</b>
+                </div>
+                <div className="rounded bg-slate-50 p-2">
+                  <span className="text-slate-500">Pipeline</span>
+                  <br />
+                  <b>{formatCurrency(dados.comercial.funil.valorPipeline || 0)}</b>
+                </div>
+                <div className="rounded bg-slate-50 p-2">
+                  <span className="text-slate-500">Ticket CRM</span>
+                  <br />
+                  <b>{formatCurrency(dados.comercial.funil.ticketMedioCrm || 0)}</b>
+                </div>
+                <div className="col-span-2 rounded bg-slate-50 p-2">
+                  <span className="text-slate-500">Tempo médio até fechamento</span>
+                  <br />
+                  <b>
+                    {dados.comercial.funil.tempoMedioFechamento != null
+                      ? `${dados.comercial.funil.tempoMedioFechamento} dias`
+                      : '—'}
+                  </b>
+                </div>
               </div>
             </div>
           </Card>
           <Card>
             <h3 className="mb-4 font-semibold">Vendas por origem</h3>
-            <TableWrapper><table className="w-full text-sm"><thead className="bg-slate-50 text-left"><tr><th className="p-2">Origem</th><th className="p-2">Vendas</th><th className="p-2">Receita</th></tr></thead><tbody>
-              {dados.comercial.vendasPorOrigem.map((r) => <tr key={r.origem} className="border-t"><td className="p-2 capitalize">{r.origem}</td><td className="p-2">{r.vendas}</td><td className="p-2">{formatCurrency(r.receita)}</td></tr>)}
-            </tbody></table></TableWrapper>
+            <TableWrapper>
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-left">
+                  <tr>
+                    <th className="p-2">Origem</th>
+                    <th className="p-2">Leads</th>
+                    <th className="p-2">Vendas</th>
+                    <th className="p-2">Receita</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dados.comercial.vendasPorOrigem.map((r) => (
+                    <tr key={r.origem} className="border-t">
+                      <td className="p-2 capitalize">{r.origem}</td>
+                      <td className="p-2">{r.leads ?? '—'}</td>
+                      <td className="p-2">{r.vendas}</td>
+                      <td className="p-2">{formatCurrency(r.receita)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableWrapper>
           </Card>
           <Card>
             <h3 className="mb-4 font-semibold">Marketing</h3>
             <div className="grid grid-cols-2 gap-3">
-              {[['Investimento', formatCurrency(dados.comercial.marketing.investimento)], ['Leads', dados.comercial.marketing.leads], ['CPL', dados.comercial.marketing.cpl == null ? '—' : formatCurrency(dados.comercial.marketing.cpl)], ['CAC', dados.comercial.marketing.cac == null ? '—' : formatCurrency(dados.comercial.marketing.cac)]].map(([l, v]) => <div key={String(l)} className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">{l}</p><p className="font-bold text-primary-700">{v}</p></div>)}
+              {[
+                ['Investimento', formatCurrency(dados.comercial.marketing.investimento)],
+                ['Leads', dados.comercial.marketing.leads],
+                ['CPL', dados.comercial.marketing.cpl == null ? '—' : formatCurrency(dados.comercial.marketing.cpl)],
+                [
+                  'CPQL',
+                  dados.comercial.marketing.cpql == null
+                    ? '—'
+                    : formatCurrency(dados.comercial.marketing.cpql),
+                ],
+                [
+                  'CAC (novos)',
+                  dados.comercial.marketing.cac == null ? '—' : formatCurrency(dados.comercial.marketing.cac),
+                ],
+                [
+                  'ROAS',
+                  dados.comercial.marketing.roas == null
+                    ? '—'
+                    : `${dados.comercial.marketing.roas.toFixed(2)}x`,
+                ],
+              ].map(([l, v]) => (
+                <div key={String(l)} className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">{l}</p>
+                  <p className="font-bold text-primary-700">{v}</p>
+                </div>
+              ))}
             </div>
+            <p className="mt-3 text-[11px] text-slate-400">
+              ROAS = receita atribuída / investimento (não é lucro). CAC usa clientes novos da coorte.
+            </p>
+          </Card>
+        </div>
+
+        <div className="mb-8 grid gap-4 lg:grid-cols-2">
+          <Card>
+            <h3 className="mb-3 font-semibold">Motivos de abandono</h3>
+            {!(dados.comercial.motivosAbandono || []).length ? (
+              <p className="text-sm text-slate-400">Sem abandonos no período</p>
+            ) : (
+              <TableWrapper>
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left">
+                    <tr>
+                      <th className="p-2">Motivo</th>
+                      <th className="p-2">Qtd.</th>
+                      <th className="p-2">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(dados.comercial.motivosAbandono || []).map((m) => (
+                      <tr key={m.motivo} className="border-t">
+                        <td className="p-2">{m.motivo}</td>
+                        <td className="p-2">{m.quantidade}</td>
+                        <td className="p-2">{m.percentual.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrapper>
+            )}
+          </Card>
+          <Card>
+            <h3 className="mb-3 font-semibold">Motivos de perda</h3>
+            {!(dados.comercial.motivosPerda || []).length ? (
+              <p className="text-sm text-slate-400">Sem perdas no período</p>
+            ) : (
+              <TableWrapper>
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left">
+                    <tr>
+                      <th className="p-2">Motivo</th>
+                      <th className="p-2">Qtd.</th>
+                      <th className="p-2">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(dados.comercial.motivosPerda || []).map((m) => (
+                      <tr key={m.motivo} className="border-t">
+                        <td className="p-2">{m.motivo}</td>
+                        <td className="p-2">{m.quantidade}</td>
+                        <td className="p-2">{m.percentual.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrapper>
+            )}
           </Card>
         </div>
 

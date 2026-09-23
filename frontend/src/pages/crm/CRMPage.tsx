@@ -4,8 +4,13 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { leadsApi, leadsApiExtra, catalogoAdminApi } from '../../services/modules.service';
 import { useToast } from '../../components/Toast';
 import type { CatalogoServicoAdmin, CrmIndicadores, Lead, LeadTimelineItem } from '../../types';
-import { ETAPAS_LEAD, MOTIVOS_PERDA, ORIGENS_LEAD, STATUS_COMERCIAL } from '../../types';
+import { ETAPAS_LEAD, MOTIVOS_ABANDONO, MOTIVOS_PERDA, ORIGENS_LEAD, STATUS_COMERCIAL } from '../../types';
 import { PageHeader, Loading, Modal, Input, Select, Button } from '../../components/ui';
+import {
+  CompetenciaPeriodoSelect,
+  resolverCompetencia,
+  type CompetenciaFiltro,
+} from '../../components/CompetenciaPeriodoSelect';
 
 const EMPTY_LEAD = {
   nome: '',
@@ -36,7 +41,7 @@ function formatDateTime(v?: string | null) {
 
 function isFollowUpAtrasado(lead: Lead) {
   if (!lead.proximoContato) return false;
-  if (['fechado', 'perdido'].includes(lead.etapa)) return false;
+  if (['fechado', 'perdido', 'abandonou_qualificacao'].includes(lead.etapa)) return false;
   return new Date(lead.proximoContato).getTime() < Date.now();
 }
 
@@ -66,8 +71,6 @@ export function CRMPage() {
   const [interacao, setInteracao] = useState({ tipo: 'observacao', descricao: '' });
   const [novoLead, setNovoLead] = useState({ ...EMPTY_LEAD });
   const [filtros, setFiltros] = useState({
-    de: '',
-    ate: '',
     responsavel: '',
     origem: '',
     campanha: '',
@@ -75,8 +78,20 @@ export function CRMPage() {
     servicoId: '',
     etapa: '',
   });
+  const [competencia, setCompetencia] = useState<CompetenciaFiltro>({
+    modo: 'geral',
+    de: '',
+    ate: '',
+  });
+  const [mesesDb, setMesesDb] = useState<Array<{ key: string; de: string; ate: string }>>([]);
   const [perdaPendente, setPerdaPendente] = useState<{ leadId: string; etapaAnterior: string } | null>(null);
   const [motivoPerda, setMotivoPerda] = useState('');
+  const [motivoPerdaOutro, setMotivoPerdaOutro] = useState('');
+  const [observacaoPerda, setObservacaoPerda] = useState('');
+  const [abandonoPendente, setAbandonoPendente] = useState<{ leadId: string; etapaAnterior: string } | null>(null);
+  const [motivoAbandono, setMotivoAbandono] = useState('');
+  const [motivoAbandonoOutro, setMotivoAbandonoOutro] = useState('');
+  const [observacaoAbandono, setObservacaoAbandono] = useState('');
   const [leadForm, setLeadForm] = useState({
     nome: '',
     telefone: '',
@@ -103,8 +118,15 @@ export function CRMPage() {
     Object.entries(filtros).forEach(([k, v]) => {
       if (v) p[k] = v;
     });
+    const periodo = resolverCompetencia(competencia.modo, competencia.de, competencia.ate, mesesDb);
+    if (periodo.de) p.de = periodo.de;
+    if (periodo.ate) p.ate = periodo.ate;
     return p;
-  }, [filtros]);
+  }, [filtros, competencia, mesesDb]);
+
+  useEffect(() => {
+    leadsApi.meses().then((r) => setMesesDb(r.meses || [])).catch(() => setMesesDb([]));
+  }, []);
 
   const servicosFiltradosNovo = useMemo(() => {
     if (!novoLead.categoriaInteresse) return catalogo.filter((s) => s.ativo !== false);
@@ -163,10 +185,19 @@ export function CRMPage() {
     if (!result.destination) return;
     const leadId = result.draggableId;
     const novaEtapa = result.destination.droppableId;
+    const lead = leads.find((l) => l.id === leadId);
     if (novaEtapa === 'perdido') {
-      const lead = leads.find((l) => l.id === leadId);
       setPerdaPendente({ leadId, etapaAnterior: lead?.etapa || 'novo_lead' });
       setMotivoPerda('');
+      setMotivoPerdaOutro('');
+      setObservacaoPerda('');
+      return;
+    }
+    if (novaEtapa === 'abandonou_qualificacao') {
+      setAbandonoPendente({ leadId, etapaAnterior: lead?.etapa || 'novo_lead' });
+      setMotivoAbandono('');
+      setMotivoAbandonoOutro('');
+      setObservacaoAbandono('');
       return;
     }
     try {
@@ -220,12 +251,41 @@ export function CRMPage() {
 
   const confirmarPerda = async () => {
     if (!perdaPendente || !motivoPerda) return;
+    const motivo = motivoPerda === 'Outro' ? motivoPerdaOutro.trim() : motivoPerda;
+    if (!motivo) {
+      toast('Informe o motivo da perda', 'error');
+      return;
+    }
     try {
-      await leadsApi.etapa(perdaPendente.leadId, 'perdido', { motivoPerda });
+      await leadsApi.etapa(perdaPendente.leadId, 'perdido', {
+        motivoPerda: motivo,
+        observacaoPerda: observacaoPerda || undefined,
+      });
       setPerdaPendente(null);
       toast('Lead marcado como perdido', 'success');
       carregar();
       if (modalLead?.id === perdaPendente.leadId) await abrirLeadPorId(perdaPendente.leadId);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao atualizar lead', 'error');
+    }
+  };
+
+  const confirmarAbandono = async () => {
+    if (!abandonoPendente || !motivoAbandono) return;
+    const motivo = motivoAbandono === 'Outro' ? motivoAbandonoOutro.trim() : motivoAbandono;
+    if (!motivo) {
+      toast('Informe o motivo do abandono', 'error');
+      return;
+    }
+    try {
+      await leadsApi.etapa(abandonoPendente.leadId, 'abandonou_qualificacao', {
+        motivoAbandono: motivo,
+        observacaoAbandono: observacaoAbandono || undefined,
+      });
+      setAbandonoPendente(null);
+      toast('Lead marcado como abandonou qualificação', 'success');
+      carregar();
+      if (modalLead?.id === abandonoPendente.leadId) await abrirLeadPorId(abandonoPendente.leadId);
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Erro ao atualizar lead', 'error');
     }
@@ -354,6 +414,8 @@ export function CRMPage() {
     if (!modalLead) return;
     setPerdaPendente({ leadId: modalLead.id, etapaAnterior: modalLead.etapa });
     setMotivoPerda(leadForm.motivoPerda || '');
+    setMotivoPerdaOutro('');
+    setObservacaoPerda('');
   };
 
   const salvarFollowUp = async () => {
@@ -380,21 +442,24 @@ export function CRMPage() {
       />
 
       {indicadores && (
-        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {[
-            ['Leads', indicadores.leads, null],
-            ['Qualificados', indicadores.leadsQualificados, null],
-            ['Orçamentos', indicadores.orcamentos, null],
-            ['Vendas', indicadores.vendas, null],
-            ['Pipeline', formatMoney(indicadores.valorPipeline), null],
-            ['Conversão', `${indicadores.taxaConversao}%`, null],
-            ['Ticket médio', formatMoney(indicadores.ticketMedio), null],
+            ['Leads', indicadores.leads],
+            ['Qualificados', indicadores.leadsQualificados],
+            ['Taxa qualif.', `${indicadores.taxaQualificacao ?? 0}%`],
+            ['Abandonaram', indicadores.abandonaramQualificacao ?? 0],
+            ['Orçamentos', indicadores.orcamentos],
+            ['Vendas', indicadores.vendas],
+            ['Perdidos', indicadores.perdidos ?? 0],
+            ['Pipeline', formatMoney(indicadores.valorPipeline)],
+            ['Conversão', `${indicadores.taxaConversao}%`],
+            ['Ticket médio', formatMoney(indicadores.ticketMedio)],
+            ['Receita coorte', formatMoney(indicadores.receita)],
             [
               'Tempo médio',
               indicadores.tempoMedioFechamento != null
                 ? `${indicadores.tempoMedioFechamento}d`
                 : '—',
-              null,
             ],
           ].map(([label, value]) => (
             <div key={String(label)} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -405,9 +470,11 @@ export function CRMPage() {
         </div>
       )}
 
-      <div className="mb-4 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-        <Input label="De" type="date" value={filtros.de} onChange={(e) => setFiltros({ ...filtros, de: e.target.value })} />
-        <Input label="Até" type="date" value={filtros.ate} onChange={(e) => setFiltros({ ...filtros, ate: e.target.value })} />
+      <div className="mb-3">
+        <CompetenciaPeriodoSelect value={competencia} onChange={setCompetencia} />
+      </div>
+
+      <div className="mb-4 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Input
           label="Responsável"
           value={filtros.responsavel}
@@ -776,8 +843,10 @@ export function CRMPage() {
       </Modal>
 
       <Modal open={!!perdaPendente} onClose={() => setPerdaPendente(null)} title="Motivo da perda">
-        <p className="mb-3 text-sm text-slate-500">Informe o motivo antes de mover o lead para Perdido. O lead não será apagado.</p>
-        <Select label="Motivo" value={motivoPerda} onChange={(e) => setMotivoPerda(e.target.value)}>
+        <p className="mb-3 text-sm text-slate-500">
+          Oportunidade que avançou no comercial, mas não fechou. Informe o motivo antes de mover.
+        </p>
+        <Select label="Motivo da perda" value={motivoPerda} onChange={(e) => setMotivoPerda(e.target.value)}>
           <option value="">Selecione...</option>
           {MOTIVOS_PERDA.map((m) => (
             <option key={m} value={m}>
@@ -785,12 +854,62 @@ export function CRMPage() {
             </option>
           ))}
         </Select>
+        {motivoPerda === 'Outro' && (
+          <Input
+            label="Descreva o motivo"
+            value={motivoPerdaOutro}
+            onChange={(e) => setMotivoPerdaOutro(e.target.value)}
+          />
+        )}
+        <Input
+          label="Observação da perda (opcional)"
+          value={observacaoPerda}
+          onChange={(e) => setObservacaoPerda(e.target.value)}
+          placeholder="Ex.: Cliente encontrou outro profissional por R$ 450"
+        />
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setPerdaPendente(null)}>
             Cancelar
           </Button>
-          <Button disabled={!motivoPerda} onClick={confirmarPerda}>
+          <Button disabled={!motivoPerda || (motivoPerda === 'Outro' && !motivoPerdaOutro.trim())} onClick={confirmarPerda}>
             Confirmar perda
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={!!abandonoPendente} onClose={() => setAbandonoPendente(null)} title="Abandonou qualificação">
+        <p className="mb-3 text-sm text-slate-500">
+          Lead que iniciou contato, mas não concluiu a triagem necessária para ser qualificado.
+        </p>
+        <Select label="Motivo do abandono" value={motivoAbandono} onChange={(e) => setMotivoAbandono(e.target.value)}>
+          <option value="">Selecione...</option>
+          {MOTIVOS_ABANDONO.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </Select>
+        {motivoAbandono === 'Outro' && (
+          <Input
+            label="Descreva o motivo"
+            value={motivoAbandonoOutro}
+            onChange={(e) => setMotivoAbandonoOutro(e.target.value)}
+          />
+        )}
+        <Input
+          label="Observação (opcional)"
+          value={observacaoAbandono}
+          onChange={(e) => setObservacaoAbandono(e.target.value)}
+        />
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setAbandonoPendente(null)}>
+            Cancelar
+          </Button>
+          <Button
+            disabled={!motivoAbandono || (motivoAbandono === 'Outro' && !motivoAbandonoOutro.trim())}
+            onClick={confirmarAbandono}
+          >
+            Confirmar abandono
           </Button>
         </div>
       </Modal>

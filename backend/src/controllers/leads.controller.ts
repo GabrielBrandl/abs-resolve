@@ -110,12 +110,14 @@ export class LeadsController {
 
   async atualizarEtapa(req: Request, res: Response) {
     try {
-      const data = await leadsService.atualizarEtapa(
-        paramId(req.params.id),
-        req.body.etapa,
-        req.body.motivoPerda,
-        req.body.proximoContato
-      );
+      const data = await leadsService.atualizarEtapa(paramId(req.params.id), req.body.etapa, {
+        motivoPerda: req.body.motivoPerda,
+        observacaoPerda: req.body.observacaoPerda,
+        motivoAbandono: req.body.motivoAbandono,
+        observacaoAbandono: req.body.observacaoAbandono,
+        proximoContato: req.body.proximoContato,
+        usuarioId: req.user?.userId,
+      });
       return success(res, data);
     } catch (err) {
       return error(res, err instanceof Error ? err.message : 'Erro', 400);
@@ -225,6 +227,18 @@ export class LeadsController {
 
   async motivosPerda(_req: Request, res: Response) {
     return success(res, leadsService.getMotivosPerda());
+  }
+
+  async motivosAbandono(_req: Request, res: Response) {
+    return success(res, leadsService.getMotivosAbandono());
+  }
+
+  async meses(_req: Request, res: Response) {
+    try {
+      return success(res, await leadsService.mesesComLeads());
+    } catch (err) {
+      return error(res, err instanceof Error ? err.message : 'Erro', 500);
+    }
   }
 }
 

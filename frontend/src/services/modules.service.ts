@@ -89,8 +89,13 @@ export const leadsApi = {
   buscar: (id: string) => get<Lead>(`/leads/${id}`),
   criar: (body: unknown) => post<Lead>('/leads', body),
   atualizar: (id: string, body: unknown) => patch<Lead>(`/leads/${id}`, body),
-  etapa: (id: string, etapa: string, extra?: { motivoPerda?: string; proximoContato?: string }) =>
-    patch<Lead>(`/leads/${id}/etapa`, { etapa, ...extra }),
+  etapa: (id: string, etapa: string, extra?: {
+    motivoPerda?: string;
+    observacaoPerda?: string;
+    motivoAbandono?: string;
+    observacaoAbandono?: string;
+    proximoContato?: string;
+  }) => patch<Lead>(`/leads/${id}/etapa`, { etapa, ...extra }),
   statusComercial: (id: string, body: unknown) => patch<Lead>(`/leads/${id}/status-comercial`, body),
   interacao: (id: string, body: unknown) => post(`/leads/${id}/interacoes`, body),
   indicadores: (params?: Record<string, string>) =>
@@ -99,6 +104,7 @@ export const leadsApi = {
     get<CrmIndicadores & { pipeline?: number; atrasados?: number }>(
       `/leads/dashboard?${new URLSearchParams(params)}`
     ),
+  meses: () => get<{ meses: Array<{ key: string; label: string; de: string; ate: string }> }>('/leads/meses'),
   timeline: (id: string) => get<LeadTimelineItem[]>(`/leads/${id}/timeline`),
   criarOrcamento: (id: string, body?: unknown) => post<Lead>(`/leads/${id}/orcamento`, body || {}),
   criarPedido: (id: string, body?: unknown) => post<Lead>(`/leads/${id}/pedido`, body || {}),

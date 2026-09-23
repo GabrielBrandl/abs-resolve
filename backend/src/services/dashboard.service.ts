@@ -163,57 +163,83 @@ export class DashboardService {
       ate: ant.fimYmd,
     });
 
-    // Funil comercial (CRM) — mesmos indicadores do módulo CRM (sem duplicar cálculo)
+    // Funil comercial (CRM) — coorte por createdAt (competência de entrada do lead)
     const { leadsService } = await import('./leads.service.js');
     const crmInd = await leadsService.indicadores({
       de: atual.inicioYmd,
       ate: atual.fimYmd,
     });
     const vendasCrm = crmInd.vendas;
-    const baseLeads = Math.max(crmInd.leads, leadsPeriodo);
-    const taxaLeadOrc =
-      baseLeads > 0 ? Math.min(100, round2((crmInd.orcamentos / baseLeads) * 100)) : 0;
-    const taxaOrcVenda =
-      crmInd.orcamentos > 0 ? Math.min(100, round2((vendasCrm / crmInd.orcamentos) * 100)) : 0;
+    const taxaLeadQualificado = crmInd.taxaQualificacao ?? 0;
+    const taxaQualificadoOrc = crmInd.taxaQualificadoOrcamento ?? 0;
+    const taxaOrcVenda = crmInd.taxaOrcamentoVenda ?? 0;
     const taxaLeadVenda = crmInd.taxaConversao;
+    const taxaLeadOrc =
+      crmInd.leads > 0 ? Math.min(100, round2((crmInd.orcamentos / crmInd.leads) * 100)) : 0;
     const vendasPedidos = nVendas;
 
-    // Vendas por origem
-    const origemMap = new Map<string, { vendas: number; receita: number }>();
-    for (const p of pedidosAtual) {
-      const o = normalizarOrigem(p.cliente?.origem);
-      if (!origemMap.has(o)) origemMap.set(o, { vendas: 0, receita: 0 });
-      const row = origemMap.get(o)!;
-      row.vendas += 1;
-      row.receita += toNumber(p.valor);
-    }
-    const vendasPorOrigem = [
-      'whatsapp',
-      'site',
-      'meta_ads',
-      'instagram',
-      'google',
-      'indicacao',
-      'recorrente',
-      'outros',
-    ].map((origem) => ({
-      origem,
-      vendas: origemMap.get(origem)?.vendas || 0,
-      receita: round2(origemMap.get(origem)?.receita || 0),
-    }));
+    // Vendas por origem — preferir coorte CRM quando houver dados
+    const vendasPorOrigem =
+      crmInd.porOrigem && crmInd.porOrigem.length
+        ? crmInd.porOrigem.map((r) => ({
+            origem: r.origem,
+            vendas: r.vendas,
+            receita: r.receita,
+            leads: r.leads,
+            qualificados: r.qualificados,
+            orcamentos: r.orcamentos,
+          }))
+        : (() => {
+            const origemMap = new Map<string, { vendas: number; receita: number }>();
+            for (const p of pedidosAtual) {
+              const o = normalizarOrigem(p.cliente?.origem);
+              if (!origemMap.has(o)) origemMap.set(o, { vendas: 0, receita: 0 });
+              const row = origemMap.get(o)!;
+              row.vendas += 1;
+              row.receita += toNumber(p.valor);
+            }
+            return [
+              'whatsapp',
+              'site',
+              'meta_ads',
+              'instagram',
+              'google',
+              'indicacao',
+              'recorrente',
+              'outros',
+            ].map((origem) => ({
+              origem,
+              vendas: origemMap.get(origem)?.vendas || 0,
+              receita: round2(origemMap.get(origem)?.receita || 0),
+            }));
+          })();
 
-    // Marketing structure (CPL/CAC) — investimento = despesas marketing no DRE
-    const investimentoMarketing = dre.despesasComerciaisDetalhe
-      .filter((d) => /ads|marketing|meta|google/i.test(d.nome))
-      .reduce((s, d) => s + d.valor, 0) || dre.despesasComerciais;
+    // Marketing structure (CPL/CPQL/CAC/ROAS) — investimento = despesas marketing no DRE
+    const investimentoMarketing =
+      dre.despesasComerciaisDetalhe
+        .filter((d) => /ads|marketing|meta|google/i.test(d.nome))
+        .reduce((s, d) => s + d.valor, 0) || dre.despesasComerciais;
+    const leadsMkt = crmInd.leads;
+    const qualificadosMkt = crmInd.leadsQualificados;
+    const orcamentosMkt = crmInd.orcamentos;
+    const vendasNovos = crmInd.vendasNovosClientes ?? crmInd.vendas;
+    const receitaAtribuida = crmInd.receita ?? 0;
     const marketing = {
       investimento: round2(investimentoMarketing),
-      leads: leadsPeriodo,
-      cpl: leadsPeriodo > 0 ? round2(investimentoMarketing / leadsPeriodo) : null,
+      leads: leadsMkt,
+      leadsQualificados: qualificadosMkt,
+      cpl: leadsMkt > 0 ? round2(investimentoMarketing / leadsMkt) : null,
+      cpql: qualificadosMkt > 0 ? round2(investimentoMarketing / qualificadosMkt) : null,
+      custoOrcamento: orcamentosMkt > 0 ? round2(investimentoMarketing / orcamentosMkt) : null,
       vendas: vendasPedidos,
-      cac: vendasPedidos > 0 ? round2(investimentoMarketing / vendasPedidos) : null,
-      receita: round2(faturamento),
+      vendasNovos,
+      cac: vendasNovos > 0 ? round2(investimentoMarketing / vendasNovos) : null,
+      receita: round2(receitaAtribuida || faturamento),
       margem: margem,
+      roas:
+        investimentoMarketing > 0
+          ? round2((receitaAtribuida || faturamento) / investimentoMarketing)
+          : null,
     };
 
     // Operação
@@ -379,6 +405,8 @@ export class DashboardService {
         funil: {
           leads: crmInd.leads,
           leadsQualificados: crmInd.leadsQualificados,
+          abandonaramQualificacao: crmInd.abandonaramQualificacao,
+          perdidos: crmInd.perdidos,
           orcamentos: crmInd.orcamentos,
           vendas: crmInd.vendas,
           vendasPedidos,
@@ -390,8 +418,15 @@ export class DashboardService {
           taxaLeadOrcamento: taxaLeadOrc,
           taxaOrcamentoVenda: taxaOrcVenda,
           taxaLeadVenda: taxaLeadVenda,
+          taxaLeadQualificado,
+          taxaQualificadoOrcamento: taxaQualificadoOrc,
+          taxaAbandono: crmInd.taxaAbandono,
+          receita: crmInd.receita,
         },
         vendasPorOrigem,
+        motivosAbandono: crmInd.motivosAbandono,
+        motivosPerda: crmInd.motivosPerda,
+        porCampanha: crmInd.porCampanha,
         marketing,
       },
       operacao: op,
