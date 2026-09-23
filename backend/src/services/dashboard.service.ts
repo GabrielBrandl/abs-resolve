@@ -324,11 +324,20 @@ export class DashboardService {
 
     const servMap = new Map<
       string,
-      { servico: string; quantidade: number; receita: number; custoDireto: number }
+      { servico: string; categoria: string; quantidade: number; receita: number; custoDireto: number }
     >();
     for (const s of solicitacoesPeriodo) {
       const nome = s.servico.nome;
-      if (!servMap.has(nome)) servMap.set(nome, { servico: nome, quantidade: 0, receita: 0, custoDireto: 0 });
+      const categoria = s.servico.categoria || 'outros';
+      if (!servMap.has(nome)) {
+        servMap.set(nome, {
+          servico: nome,
+          categoria,
+          quantidade: 0,
+          receita: 0,
+          custoDireto: 0,
+        });
+      }
       const row = servMap.get(nome)!;
       row.quantidade += 1;
       row.receita += toNumber(s.precoFinal || 0);
@@ -349,6 +358,89 @@ export class DashboardService {
         custoReal: r.custoDireto > 0,
       };
     });
+
+    const qtdTotal = desempenhoServicos.reduce((s, r) => s + r.quantidade, 0);
+    const fatTotal = desempenhoServicos.reduce((s, r) => s + r.receita, 0);
+    const comCusto = desempenhoServicos.filter((r) => r.custoReal);
+    const contribTotalApurada = comCusto.reduce((s, r) => s + r.margemContribuicao, 0);
+    const pendentesMargem = desempenhoServicos.filter((r) => !r.custoReal).length;
+
+    const mixPorServico = desempenhoServicos
+      .map((r) => ({
+        chave: r.servico,
+        label: r.servico,
+        categoria: r.categoria,
+        quantidade: r.quantidade,
+        pctQuantidade: qtdTotal > 0 ? round2((r.quantidade / qtdTotal) * 100) : 0,
+        faturamento: r.receita,
+        pctFaturamento: fatTotal > 0 ? round2((r.receita / fatTotal) * 100) : 0,
+        contribuicao: r.custoReal ? r.margemContribuicao : null,
+        pctContribuicao:
+          r.custoReal && contribTotalApurada !== 0
+            ? round2((r.margemContribuicao / contribTotalApurada) * 100)
+            : null,
+        margemPct: r.custoReal ? r.margemPct : null,
+        ticketMedio: r.ticketMedio,
+        custoReal: r.custoReal,
+      }))
+      .sort((a, b) => b.faturamento - a.faturamento);
+
+    const catMap = new Map<
+      string,
+      {
+        quantidade: number;
+        faturamento: number;
+        contribuicao: number;
+        comCusto: boolean;
+      }
+    >();
+    for (const r of desempenhoServicos) {
+      const cat = r.categoria || 'outros';
+      if (!catMap.has(cat)) {
+        catMap.set(cat, { quantidade: 0, faturamento: 0, contribuicao: 0, comCusto: false });
+      }
+      const row = catMap.get(cat)!;
+      row.quantidade += r.quantidade;
+      row.faturamento += r.receita;
+      if (r.custoReal) {
+        row.contribuicao += r.margemContribuicao;
+        row.comCusto = true;
+      }
+    }
+    const mixPorCategoria = [...catMap.entries()]
+      .map(([categoria, r]) => ({
+        chave: categoria,
+        label: categoria,
+        quantidade: r.quantidade,
+        pctQuantidade: qtdTotal > 0 ? round2((r.quantidade / qtdTotal) * 100) : 0,
+        faturamento: round2(r.faturamento),
+        pctFaturamento: fatTotal > 0 ? round2((r.faturamento / fatTotal) * 100) : 0,
+        contribuicao: r.comCusto ? round2(r.contribuicao) : null,
+        pctContribuicao:
+          r.comCusto && contribTotalApurada !== 0
+            ? round2((r.contribuicao / contribTotalApurada) * 100)
+            : null,
+        margemPct:
+          r.comCusto && r.faturamento > 0
+            ? round2((r.contribuicao / r.faturamento) * 100)
+            : null,
+        ticketMedio: r.quantidade ? round2(r.faturamento / r.quantidade) : 0,
+        custoReal: r.comCusto,
+      }))
+      .sort((a, b) => b.faturamento - a.faturamento);
+
+    const mixServicos = {
+      quantidadeTotal: qtdTotal,
+      faturamentoTotal: round2(fatTotal),
+      contribuicaoTotalApurada: round2(contribTotalApurada),
+      pendentesMargem,
+      notaContribuicao:
+        pendentesMargem > 0
+          ? `Mix de contribuição considera somente serviços com custo apurado (${comCusto.length} de ${desempenhoServicos.length}). ${pendentesMargem} serviço(s) com margem pendente.`
+          : null,
+      porServico: mixPorServico,
+      porCategoria: mixPorCategoria,
+    };
 
     // Clientes
     const clientesComPedidos = await prisma.pedido.groupBy({
@@ -440,6 +532,7 @@ export class DashboardService {
         temDadosReais: finResumo.temDadosReais,
       },
       servicos: desempenhoServicos,
+      mixServicos,
       clientes: {
         novos: clientesNovos,
         novosAnterior: clientesNovosAnt,

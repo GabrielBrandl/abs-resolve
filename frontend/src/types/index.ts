@@ -598,6 +598,7 @@ export interface DashboardGerencial {
   };
   servicos: Array<{
     servico: string;
+    categoria?: string;
     quantidade: number;
     receita: number;
     ticketMedio: number;
@@ -606,6 +607,40 @@ export interface DashboardGerencial {
     margemPct: number;
     custoReal: boolean;
   }>;
+  mixServicos?: {
+    quantidadeTotal: number;
+    faturamentoTotal: number;
+    contribuicaoTotalApurada: number;
+    pendentesMargem: number;
+    notaContribuicao: string | null;
+    porServico: Array<{
+      chave: string;
+      label: string;
+      categoria: string;
+      quantidade: number;
+      pctQuantidade: number;
+      faturamento: number;
+      pctFaturamento: number;
+      contribuicao: number | null;
+      pctContribuicao: number | null;
+      margemPct: number | null;
+      ticketMedio: number;
+      custoReal: boolean;
+    }>;
+    porCategoria: Array<{
+      chave: string;
+      label: string;
+      quantidade: number;
+      pctQuantidade: number;
+      faturamento: number;
+      pctFaturamento: number;
+      contribuicao: number | null;
+      pctContribuicao: number | null;
+      margemPct: number | null;
+      ticketMedio: number;
+      custoReal: boolean;
+    }>;
+  };
   clientes: {
     novos: number;
     recorrentes: number;

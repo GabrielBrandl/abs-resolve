@@ -11,12 +11,28 @@ import { useToast } from '../components/Toast';
 
 type Periodo = 'hoje' | '7d' | 'mes' | 'mes_passado' | 'ano' | 'personalizado';
 type SortServico = 'quantidade' | 'receita' | 'margemPct';
+type MixVisao = 'quantidade' | 'faturamento' | 'contribuicao';
+type MixAgrupamento = 'servico' | 'categoria';
 
 const Variacao = ({ valor }: { valor: number | null }) => (
   <p className={`mt-1 text-xs ${valor == null ? 'text-slate-400' : valor >= 0 ? 'text-green-600' : 'text-red-600'}`}>
     {valor == null ? 'Sem período anterior' : `${valor >= 0 ? '▲' : '▼'} ${Math.abs(valor).toFixed(1)}% vs. anterior`}
   </p>
 );
+
+function labelCategoria(slug: string) {
+  const map: Record<string, string> = {
+    'ar-condicionado': 'Climatização',
+    climatizacao: 'Climatização',
+    eletricista: 'Elétrica',
+    eletrica: 'Elétrica',
+    hidraulica: 'Hidráulica',
+    encanador: 'Hidráulica',
+    montagem: 'Montagem',
+    outros: 'Outros',
+  };
+  return map[slug] || slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export function DashboardPage() {
   const [periodo, setPeriodo] = useState<Periodo>('mes');
@@ -25,6 +41,8 @@ export function DashboardPage() {
   const [dados, setDados] = useState<DashboardGerencial | null>(null);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortServico>('receita');
+  const [mixVisao, setMixVisao] = useState<MixVisao>('faturamento');
+  const [mixGrupo, setMixGrupo] = useState<MixAgrupamento>('servico');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -39,6 +57,42 @@ export function DashboardPage() {
   const servicos = useMemo(
     () => [...(dados?.servicos || [])].sort((a, b) => b[sort] - a[sort]),
     [dados, sort],
+  );
+
+  const mixRows = useMemo(() => {
+    const mix = dados?.mixServicos;
+    if (!mix) return [];
+    const base = mixGrupo === 'categoria' ? mix.porCategoria : mix.porServico;
+    return [...base]
+      .map((r) => ({
+        ...r,
+        label: mixGrupo === 'categoria' ? labelCategoria(r.label) : r.label,
+        valorPct:
+          mixVisao === 'contribuicao'
+            ? r.pctContribuicao
+            : mixVisao === 'quantidade'
+              ? r.pctQuantidade
+              : r.pctFaturamento,
+        valorAbs:
+          mixVisao === 'quantidade'
+            ? r.quantidade
+            : mixVisao === 'faturamento'
+              ? r.faturamento
+              : r.contribuicao,
+      }))
+      .sort((a, b) => (b.valorPct ?? -1) - (a.valorPct ?? -1));
+  }, [dados, mixVisao, mixGrupo]);
+
+  const mixChartData = useMemo(
+    () =>
+      mixRows
+        .filter((r) => r.valorPct != null && r.valorPct > 0)
+        .slice(0, 8)
+        .map((r) => ({
+          name: r.label.length > 22 ? `${r.label.slice(0, 20)}…` : r.label,
+          pct: r.valorPct ?? 0,
+        })),
+    [mixRows],
   );
 
   return (
@@ -96,9 +150,19 @@ export function DashboardPage() {
                 <b>{dados.comercial.funil.leads}</b> Leads
               </div>
               <p className="text-xs text-slate-500">
+                Taxa de abandono:{' '}
+                <b>{(dados.comercial.funil.taxaAbandono ?? 0).toFixed(1)}%</b>
+                {' · '}
                 Taxa de qualificação:{' '}
                 {(dados.comercial.funil.taxaLeadQualificado ?? 0).toFixed(1)}%
               </p>
+              <div className="mx-auto w-[95%] rounded-lg bg-slate-500 p-3 text-white">
+                <b>{dados.comercial.funil.abandonaramQualificacao ?? 0}</b> Abandonou
+                Qualificação
+                <span className="mt-0.5 block text-xs font-normal text-slate-200">
+                  {(dados.comercial.funil.taxaAbandono ?? 0).toFixed(1)}% dos leads
+                </span>
+              </div>
               <div className="mx-auto w-[90%] rounded-lg bg-blue-600 p-3 text-white">
                 <b>{dados.comercial.funil.leadsQualificados ?? 0}</b> Qualificados
               </div>
@@ -120,15 +184,6 @@ export function DashboardPage() {
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2 text-left text-xs">
                 <div className="rounded bg-slate-50 p-2">
-                  <span className="text-slate-500">Abandonaram</span>
-                  <br />
-                  <b>{dados.comercial.funil.abandonaramQualificacao ?? 0}</b>
-                  <span className="text-slate-400">
-                    {' '}
-                    ({(dados.comercial.funil.taxaAbandono ?? 0).toFixed(1)}%)
-                  </span>
-                </div>
-                <div className="rounded bg-slate-50 p-2">
                   <span className="text-slate-500">Perdidos</span>
                   <br />
                   <b>{dados.comercial.funil.perdidos ?? 0}</b>
@@ -143,12 +198,12 @@ export function DashboardPage() {
                   <br />
                   <b>{formatCurrency(dados.comercial.funil.ticketMedioCrm || 0)}</b>
                 </div>
-                <div className="col-span-2 rounded bg-slate-50 p-2">
-                  <span className="text-slate-500">Tempo médio até fechamento</span>
+                <div className="rounded bg-slate-50 p-2">
+                  <span className="text-slate-500">Tempo médio</span>
                   <br />
                   <b>
                     {dados.comercial.funil.tempoMedioFechamento != null
-                      ? `${dados.comercial.funil.tempoMedioFechamento} dias`
+                      ? `${dados.comercial.funil.tempoMedioFechamento}d`
                       : '—'}
                   </b>
                 </div>
@@ -297,13 +352,180 @@ export function DashboardPage() {
 
         <div className="mb-8 grid gap-4 xl:grid-cols-3">
           <Card className="xl:col-span-2">
-            <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold text-primary-700">Serviços</h2><Select label="" value={sort} onChange={(e) => setSort(e.target.value as SortServico)}><option value="quantidade">Ordenar por quantidade</option><option value="receita">Ordenar por receita</option><option value="margemPct">Ordenar por margem</option></Select></div>
-            <TableWrapper><table className="w-full min-w-[650px] text-sm"><thead className="bg-slate-50 text-left"><tr><th className="p-3">Serviço</th><th className="p-3">Qtd.</th><th className="p-3">Receita</th><th className="p-3">Ticket</th><th className="p-3">Margem</th></tr></thead><tbody>
-              {servicos.map((s) => <tr key={s.servico} className="border-t"><td className="p-3 font-medium">{s.servico}</td><td className="p-3">{s.quantidade}</td><td className="p-3">{formatCurrency(s.receita)}</td><td className="p-3">{formatCurrency(s.ticketMedio)}</td><td className="p-3">{s.custoReal ? `${formatCurrency(s.margemContribuicao)} · ${s.margemPct.toFixed(1)}%` : <span className="text-amber-700">— Cadastre custos</span>}</td></tr>)}
-            </tbody></table></TableWrapper>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-bold text-primary-700">Desempenho de Serviços</h2>
+              <Select label="" value={sort} onChange={(e) => setSort(e.target.value as SortServico)}>
+                <option value="quantidade">Ordenar por quantidade</option>
+                <option value="receita">Ordenar por receita</option>
+                <option value="margemPct">Ordenar por margem</option>
+              </Select>
+            </div>
+            <TableWrapper>
+              <table className="w-full min-w-[650px] text-sm">
+                <thead className="bg-slate-50 text-left">
+                  <tr>
+                    <th className="p-3">Serviço</th>
+                    <th className="p-3">Qtd.</th>
+                    <th className="p-3">Receita</th>
+                    <th className="p-3">Ticket</th>
+                    <th className="p-3">Margem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {servicos.map((s) => (
+                    <tr key={s.servico} className="border-t">
+                      <td className="p-3 font-medium">
+                        {s.servico}
+                        {s.categoria && (
+                          <span className="mt-0.5 block text-[11px] font-normal text-slate-400">
+                            {labelCategoria(s.categoria)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3">{s.quantidade}</td>
+                      <td className="p-3">{formatCurrency(s.receita)}</td>
+                      <td className="p-3">{formatCurrency(s.ticketMedio)}</td>
+                      <td className="p-3">
+                        {s.custoReal ? (
+                          `${formatCurrency(s.margemContribuicao)} · ${s.margemPct.toFixed(1)}%`
+                        ) : (
+                          <span className="text-amber-700">— Cadastre custos</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableWrapper>
+
+            <div className="mt-6 border-t pt-4">
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-primary-700">Mix de Serviços</h3>
+                  <p className="text-xs text-slate-500">
+                    Serviços efetivamente vendidos no período · margem % ≠ participação na contribuição
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Select
+                    label=""
+                    value={mixGrupo}
+                    onChange={(e) => setMixGrupo(e.target.value as MixAgrupamento)}
+                  >
+                    <option value="servico">Por serviço</option>
+                    <option value="categoria">Por categoria</option>
+                  </Select>
+                  <div className="flex rounded-lg border border-slate-200 p-0.5">
+                    {(
+                      [
+                        ['quantidade', 'Quantidade'],
+                        ['faturamento', 'Faturamento'],
+                        ['contribuicao', 'Contribuição'],
+                      ] as const
+                    ).map(([k, l]) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setMixVisao(k)}
+                        className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+                          mixVisao === k
+                            ? 'bg-[#0033B5] text-white'
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {dados.mixServicos?.notaContribuicao && mixVisao === 'contribuicao' && (
+                <p className="mb-3 rounded bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  {dados.mixServicos.notaContribuicao}
+                </p>
+              )}
+
+              {!mixRows.length ? (
+                <p className="text-sm text-slate-400">Sem vendas de serviços no período.</p>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={mixChartData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" unit="%" tick={{ fontSize: 10 }} />
+                      <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
+                      <Bar dataKey="pct" fill="#0033B5" radius={[0, 4, 4, 0]} name="% participação" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <TableWrapper>
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-left">
+                        <tr>
+                          <th className="p-2">{mixGrupo === 'categoria' ? 'Categoria' : 'Serviço'}</th>
+                          <th className="p-2">Valor</th>
+                          <th className="p-2">%</th>
+                          {mixVisao === 'contribuicao' && <th className="p-2">Margem</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mixRows.slice(0, 12).map((r) => (
+                          <tr key={r.chave} className="border-t">
+                            <td className="p-2 font-medium">{r.label}</td>
+                            <td className="p-2">
+                              {mixVisao === 'quantidade'
+                                ? r.quantidade
+                                : r.valorAbs == null
+                                  ? '—'
+                                  : formatCurrency(r.valorAbs)}
+                            </td>
+                            <td className="p-2">
+                              {r.valorPct == null ? '—' : `${r.valorPct.toFixed(1)}%`}
+                            </td>
+                            {mixVisao === 'contribuicao' && (
+                              <td className="p-2 text-slate-500">
+                                {r.margemPct == null ? '—' : `${r.margemPct.toFixed(1)}%`}
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </TableWrapper>
+                </div>
+              )}
+            </div>
           </Card>
-          <Card><h2 className="mb-4 text-lg font-bold text-primary-700">Clientes</h2><div className="mb-4 grid grid-cols-3 gap-2 text-center"><div><b>{dados.clientes.novos}</b><p className="text-xs text-slate-500">Novos</p></div><div><b>{dados.clientes.recorrentes}</b><p className="text-xs text-slate-500">Recorrentes</p></div><div><b>{dados.clientes.taxaRecompra.toFixed(1)}%</b><p className="text-xs text-slate-500">Recompra</p></div></div>
-            {dados.clientes.topClientes.map((c) => <Link key={c.clienteId} to={`/clientes/${c.clienteId}`} className="flex justify-between border-t py-2 text-sm hover:text-primary-600"><span>{c.nome}<small className="block text-slate-400">{c.compras} compras</small></span><b>{formatCurrency(c.faturamento)}</b></Link>)}
+          <Card>
+            <h2 className="mb-4 text-lg font-bold text-primary-700">Clientes</h2>
+            <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <b>{dados.clientes.novos}</b>
+                <p className="text-xs text-slate-500">Novos</p>
+              </div>
+              <div>
+                <b>{dados.clientes.recorrentes}</b>
+                <p className="text-xs text-slate-500">Recorrentes</p>
+              </div>
+              <div>
+                <b>{dados.clientes.taxaRecompra.toFixed(1)}%</b>
+                <p className="text-xs text-slate-500">Recompra</p>
+              </div>
+            </div>
+            {dados.clientes.topClientes.map((c) => (
+              <Link
+                key={c.clienteId}
+                to={`/clientes/${c.clienteId}`}
+                className="flex justify-between border-t py-2 text-sm hover:text-primary-600"
+              >
+                <span>
+                  {c.nome}
+                  <small className="block text-slate-400">{c.compras} compras</small>
+                </span>
+                <b>{formatCurrency(c.faturamento)}</b>
+              </Link>
+            ))}
           </Card>
         </div>
 
