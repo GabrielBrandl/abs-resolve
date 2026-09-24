@@ -4,7 +4,7 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { leadsApi, leadsApiExtra, catalogoAdminApi } from '../../services/modules.service';
 import { useToast } from '../../components/Toast';
 import type { CatalogoServicoAdmin, CrmIndicadores, Lead, LeadTimelineItem } from '../../types';
-import { ETAPAS_LEAD, MOTIVOS_ABANDONO, MOTIVOS_PERDA, ORIGENS_LEAD, STATUS_COMERCIAL } from '../../types';
+import { ETAPAS_LEAD, MOTIVOS_ABANDONO, MOTIVOS_PERDA, ORIGENS_LEAD, SEGMENTOS_B2B, STATUS_COMERCIAL } from '../../types';
 import { PageHeader, Loading, Modal, Input, Select, Button } from '../../components/ui';
 import {
   CompetenciaPeriodoSelect,
@@ -14,9 +14,16 @@ import {
 
 const EMPTY_LEAD = {
   nome: '',
+  nomeFantasia: '',
+  cpfCnpj: '',
   telefone: '',
   email: '',
-  origem: 'whatsapp',
+  origem: 'prospeccao_b2b',
+  tipoLead: 'prospeccao_b2b',
+  segmento: '',
+  contatoNome: '',
+  contatoCargo: '',
+  cidade: 'Manaus',
   campanha: '',
   categoriaInteresse: '',
   catalogoServicoId: '',
@@ -77,6 +84,9 @@ export function CRMPage() {
     categoria: '',
     servicoId: '',
     etapa: '',
+    tipoLead: '',
+    segmento: '',
+    fila: '',
   });
   const [competencia, setCompetencia] = useState<CompetenciaFiltro>({
     modo: 'geral',
@@ -94,9 +104,16 @@ export function CRMPage() {
   const [observacaoAbandono, setObservacaoAbandono] = useState('');
   const [leadForm, setLeadForm] = useState({
     nome: '',
+    nomeFantasia: '',
+    cpfCnpj: '',
     telefone: '',
     email: '',
     origem: 'whatsapp',
+    tipoLead: 'inbound',
+    segmento: '',
+    contatoNome: '',
+    contatoCargo: '',
+    cidade: '',
     campanha: '',
     categoriaInteresse: '',
     catalogoServicoId: '',
@@ -212,9 +229,16 @@ export function CRMPage() {
   const preencherLeadForm = (lead: Lead) =>
     setLeadForm({
       nome: lead.nome || '',
+      nomeFantasia: lead.nomeFantasia || '',
+      cpfCnpj: lead.cpfCnpj || '',
       telefone: lead.telefone || '',
       email: lead.email || '',
       origem: lead.origem || 'whatsapp',
+      tipoLead: lead.tipoLead || 'inbound',
+      segmento: lead.segmento || '',
+      contatoNome: lead.contatoNome || '',
+      contatoCargo: lead.contatoCargo || '',
+      cidade: lead.cidade || '',
       campanha: lead.campanha || '',
       categoriaInteresse: lead.categoriaInteresse || lead.catalogoServico?.categoria || '',
       catalogoServicoId: lead.catalogoServicoId || '',
@@ -296,9 +320,16 @@ export function CRMPage() {
     try {
       await leadsApi.atualizar(modalLead.id, {
         nome: leadForm.nome,
+        nomeFantasia: leadForm.nomeFantasia || null,
+        cpfCnpj: leadForm.cpfCnpj || null,
         telefone: leadForm.telefone,
         email: leadForm.email || '',
         origem: leadForm.origem,
+        tipoLead: leadForm.tipoLead,
+        segmento: leadForm.segmento || null,
+        contatoNome: leadForm.contatoNome || null,
+        contatoCargo: leadForm.contatoCargo || null,
+        cidade: leadForm.cidade || null,
         campanha: leadForm.campanha || null,
         categoriaInteresse: leadForm.categoriaInteresse || null,
         catalogoServicoId: leadForm.catalogoServicoId || null,
@@ -338,9 +369,16 @@ export function CRMPage() {
     try {
       await leadsApi.criar({
         nome: novoLead.nome,
+        nomeFantasia: novoLead.nomeFantasia || null,
+        cpfCnpj: novoLead.cpfCnpj || null,
         telefone: novoLead.telefone,
         email: novoLead.email || '',
         origem: novoLead.origem,
+        tipoLead: novoLead.tipoLead,
+        segmento: novoLead.segmento || null,
+        contatoNome: novoLead.contatoNome || null,
+        contatoCargo: novoLead.contatoCargo || null,
+        cidade: novoLead.cidade || null,
         campanha: novoLead.campanha || null,
         categoriaInteresse: novoLead.categoriaInteresse || null,
         catalogoServicoId: novoLead.catalogoServicoId || null,
@@ -438,7 +476,7 @@ export function CRMPage() {
       <PageHeader
         title="CRM"
         subtitle="Pipeline comercial integrado ao Catálogo, Orçamentos e Pedidos"
-        action={<Button onClick={abrirNovoLead}>Novo Lead</Button>}
+        action={<Button onClick={abrirNovoLead}>Novo Lead B2B</Button>}
       />
 
       {indicadores && (
@@ -474,7 +512,43 @@ export function CRMPage() {
         <CompetenciaPeriodoSelect value={competencia} onChange={setCompetencia} />
       </div>
 
-      <div className="mb-4 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-3 flex flex-wrap gap-2">
+        <Button
+          variant={filtros.fila === 'hoje' ? 'primary' : 'secondary'}
+          onClick={() => setFiltros({ ...filtros, fila: filtros.fila === 'hoje' ? '' : 'hoje' })}
+        >
+          Fila hoje
+        </Button>
+        <Button
+          variant={filtros.fila === 'atrasados' ? 'primary' : 'secondary'}
+          onClick={() => setFiltros({ ...filtros, fila: filtros.fila === 'atrasados' ? '' : 'atrasados' })}
+        >
+          Atrasados
+        </Button>
+      </div>
+
+      <div className="mb-4 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <Select
+          label="Tipo"
+          value={filtros.tipoLead}
+          onChange={(e) => setFiltros({ ...filtros, tipoLead: e.target.value })}
+        >
+          <option value="">Todos</option>
+          <option value="inbound">Inbound</option>
+          <option value="prospeccao_b2b">Prospecção B2B</option>
+        </Select>
+        <Select
+          label="Segmento"
+          value={filtros.segmento}
+          onChange={(e) => setFiltros({ ...filtros, segmento: e.target.value })}
+        >
+          <option value="">Todos</option>
+          {SEGMENTOS_B2B.map((s) => (
+            <option key={s.key} value={s.key}>
+              {s.label}
+            </option>
+          ))}
+        </Select>
         <Input
           label="Responsável"
           value={filtros.responsavel}
@@ -557,24 +631,42 @@ export function CRMPage() {
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <p className={`text-sm font-semibold ${atrasado ? 'text-red-700' : 'text-slate-900'}`}>
-                                  {lead.nome}
+                                  {lead.nomeFantasia || lead.nome}
                                 </p>
-                                {atrasado && (
-                                  <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-700">
-                                    Atrasado
-                                  </span>
-                                )}
+                                <div className="flex flex-shrink-0 flex-wrap justify-end gap-1">
+                                  {atrasado && (
+                                    <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                                      Atrasado
+                                    </span>
+                                  )}
+                                  {lead.tipoLead === 'prospeccao_b2b' && (
+                                    <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-700">
+                                      B2B
+                                    </span>
+                                  )}
+                                  {lead.contatoCargo && (
+                                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">
+                                      Resp. ID
+                                    </span>
+                                  )}
+                                </div>
                               </div>
+                              {lead.contatoNome && (
+                                <p className="mt-1 text-xs text-slate-600">
+                                  {lead.contatoNome}
+                                  {lead.contatoCargo ? ` · ${lead.contatoCargo}` : ''}
+                                </p>
+                              )}
                               <p className="mt-1 text-xs text-slate-600">
-                                {lead.catalogoServico?.nome || lead.interesse || 'Sem serviço'}
+                                {lead.segmento
+                                  ? SEGMENTOS_B2B.find((s) => s.key === lead.segmento)?.label || lead.segmento
+                                  : lead.catalogoServico?.nome || lead.interesse || 'Sem serviço'}
                               </p>
-                              <p className={`mt-1 text-sm font-medium ${atrasado ? 'text-red-600' : 'text-slate-800'}`}>
-                                {formatMoney(lead.valorEstimado)}
-                              </p>
-                              <p className="mt-1 text-[11px] capitalize text-slate-500">
-                                {lead.origem}
-                                {lead.campanha ? ` · ${lead.campanha}` : ''}
-                              </p>
+                              {lead.valorEstimado != null && lead.valorEstimado !== '' && (
+                                <p className={`mt-1 text-sm font-medium ${atrasado ? 'text-red-600' : 'text-slate-800'}`}>
+                                  {formatMoney(lead.valorEstimado)}
+                                </p>
+                              )}
                               <p className={`mt-1 text-[11px] ${atrasado ? 'font-semibold text-red-600' : 'text-slate-500'}`}>
                                 {lead.proximaAcao || 'Sem próxima ação'}
                                 {lead.proximoContato ? ` · ${formatDateTime(lead.proximoContato)}` : ''}
@@ -664,7 +756,21 @@ export function CRMPage() {
             )}
 
             <div className="grid gap-x-3 sm:grid-cols-2">
-              <Input label="Nome" value={leadForm.nome} onChange={(e) => setLeadForm({ ...leadForm, nome: e.target.value })} />
+              <Input
+                label="Empresa / razão social"
+                value={leadForm.nome}
+                onChange={(e) => setLeadForm({ ...leadForm, nome: e.target.value })}
+              />
+              <Input
+                label="Nome fantasia"
+                value={leadForm.nomeFantasia}
+                onChange={(e) => setLeadForm({ ...leadForm, nomeFantasia: e.target.value })}
+              />
+              <Input
+                label="CNPJ"
+                value={leadForm.cpfCnpj}
+                onChange={(e) => setLeadForm({ ...leadForm, cpfCnpj: e.target.value })}
+              />
               <Input
                 label="WhatsApp/telefone"
                 value={leadForm.telefone}
@@ -675,6 +781,22 @@ export function CRMPage() {
                 value={leadForm.email}
                 onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
               />
+              <Select
+                label="Tipo de lead"
+                value={leadForm.tipoLead}
+                onChange={(e) => {
+                  const tipoLead = e.target.value;
+                  setLeadForm({
+                    ...leadForm,
+                    tipoLead,
+                    origem: tipoLead === 'prospeccao_b2b' ? 'prospeccao_b2b' : leadForm.origem,
+                    cidade: tipoLead === 'prospeccao_b2b' && !leadForm.cidade ? 'Manaus' : leadForm.cidade,
+                  });
+                }}
+              >
+                <option value="inbound">Inbound</option>
+                <option value="prospeccao_b2b">Prospecção B2B</option>
+              </Select>
               <Select label="Origem" value={leadForm.origem} onChange={(e) => setLeadForm({ ...leadForm, origem: e.target.value })}>
                 {ORIGENS_LEAD.map((o) => (
                   <option key={o.key} value={o.key}>
@@ -687,6 +809,43 @@ export function CRMPage() {
                 value={leadForm.campanha}
                 onChange={(e) => setLeadForm({ ...leadForm, campanha: e.target.value })}
               />
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <h4 className="mb-2 text-sm font-semibold text-slate-800">Prospecção</h4>
+              <div className="grid gap-x-3 sm:grid-cols-2">
+                <Select
+                  label="Segmento"
+                  value={leadForm.segmento}
+                  onChange={(e) => setLeadForm({ ...leadForm, segmento: e.target.value })}
+                >
+                  <option value="">Selecione</option>
+                  {SEGMENTOS_B2B.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </Select>
+                <Input
+                  label="Cidade"
+                  value={leadForm.cidade}
+                  onChange={(e) => setLeadForm({ ...leadForm, cidade: e.target.value })}
+                  placeholder="Manaus"
+                />
+                <Input
+                  label="Contato (responsável)"
+                  value={leadForm.contatoNome}
+                  onChange={(e) => setLeadForm({ ...leadForm, contatoNome: e.target.value })}
+                />
+                <Input
+                  label="Cargo / função"
+                  value={leadForm.contatoCargo}
+                  onChange={(e) => setLeadForm({ ...leadForm, contatoCargo: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-x-3 sm:grid-cols-2">
               <Select
                 label="Categoria de interesse"
                 value={leadForm.categoriaInteresse}
@@ -720,7 +879,7 @@ export function CRMPage() {
                 onChange={(e) => setLeadForm({ ...leadForm, valorEstimado: e.target.value })}
               />
               <Input
-                label="Responsável"
+                label="Responsável ABS"
                 value={leadForm.responsavel}
                 onChange={(e) => setLeadForm({ ...leadForm, responsavel: e.target.value })}
               />
@@ -914,30 +1073,75 @@ export function CRMPage() {
         </div>
       </Modal>
 
-      <Modal open={modalNovo} onClose={fecharNovoLead} title="Novo Lead" wide>
+      <Modal open={modalNovo} onClose={fecharNovoLead} title="Novo Lead B2B" wide>
         <div className="grid gap-x-3 sm:grid-cols-2">
-          <Input label="Nome" value={novoLead.nome} onChange={(e) => setNovoLead({ ...novoLead, nome: e.target.value })} />
+          <Input
+            label="Empresa / razão social"
+            value={novoLead.nome}
+            onChange={(e) => setNovoLead({ ...novoLead, nome: e.target.value })}
+          />
+          <Input
+            label="Nome fantasia"
+            value={novoLead.nomeFantasia}
+            onChange={(e) => setNovoLead({ ...novoLead, nomeFantasia: e.target.value })}
+          />
+          <Input
+            label="CNPJ"
+            value={novoLead.cpfCnpj}
+            onChange={(e) => setNovoLead({ ...novoLead, cpfCnpj: e.target.value })}
+          />
+          <Select
+            label="Segmento"
+            value={novoLead.segmento}
+            onChange={(e) => setNovoLead({ ...novoLead, segmento: e.target.value })}
+          >
+            <option value="">Selecione</option>
+            {SEGMENTOS_B2B.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </Select>
+          <Input
+            label="Contato (responsável)"
+            value={novoLead.contatoNome}
+            onChange={(e) => setNovoLead({ ...novoLead, contatoNome: e.target.value })}
+          />
+          <Input
+            label="Cargo / função"
+            value={novoLead.contatoCargo}
+            onChange={(e) => setNovoLead({ ...novoLead, contatoCargo: e.target.value })}
+          />
           <Input
             label="WhatsApp/telefone"
             value={novoLead.telefone}
             onChange={(e) => setNovoLead({ ...novoLead, telefone: e.target.value })}
           />
           <Input
+            label="Cidade"
+            value={novoLead.cidade}
+            onChange={(e) => setNovoLead({ ...novoLead, cidade: e.target.value })}
+          />
+          <Input
             label="E-mail (opcional)"
             value={novoLead.email}
             onChange={(e) => setNovoLead({ ...novoLead, email: e.target.value })}
           />
-          <Select label="Origem" value={novoLead.origem} onChange={(e) => setNovoLead({ ...novoLead, origem: e.target.value })}>
-            {ORIGENS_LEAD.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
           <Input
-            label="Campanha"
-            value={novoLead.campanha}
-            onChange={(e) => setNovoLead({ ...novoLead, campanha: e.target.value })}
+            label="Responsável ABS"
+            value={novoLead.responsavel}
+            onChange={(e) => setNovoLead({ ...novoLead, responsavel: e.target.value })}
+          />
+          <Input
+            label="Próxima ação"
+            value={novoLead.proximaAcao}
+            onChange={(e) => setNovoLead({ ...novoLead, proximaAcao: e.target.value })}
+          />
+          <Input
+            label="Data/hora próximo contato"
+            type="datetime-local"
+            value={novoLead.proximoContato}
+            onChange={(e) => setNovoLead({ ...novoLead, proximoContato: e.target.value })}
           />
           <Select
             label="Categoria de interesse"
@@ -965,28 +1169,6 @@ export function CRMPage() {
               </option>
             ))}
           </Select>
-          <Input
-            label="Valor potencial"
-            type="number"
-            value={novoLead.valorEstimado}
-            onChange={(e) => setNovoLead({ ...novoLead, valorEstimado: e.target.value })}
-          />
-          <Input
-            label="Responsável"
-            value={novoLead.responsavel}
-            onChange={(e) => setNovoLead({ ...novoLead, responsavel: e.target.value })}
-          />
-          <Input
-            label="Próxima ação"
-            value={novoLead.proximaAcao}
-            onChange={(e) => setNovoLead({ ...novoLead, proximaAcao: e.target.value })}
-          />
-          <Input
-            label="Data/hora próximo contato"
-            type="datetime-local"
-            value={novoLead.proximoContato}
-            onChange={(e) => setNovoLead({ ...novoLead, proximoContato: e.target.value })}
-          />
           <div className="sm:col-span-2">
             <Input
               label="Observações"
@@ -995,7 +1177,7 @@ export function CRMPage() {
             />
           </div>
           <Button onClick={criarLead} className="mt-2 sm:col-span-2">
-            Criar Lead
+            Criar Lead B2B
           </Button>
         </div>
       </Modal>

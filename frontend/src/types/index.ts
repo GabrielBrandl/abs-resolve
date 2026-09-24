@@ -77,6 +77,7 @@ export interface SolicitacaoFotos {
 export interface Lead {
   id: string;
   nome: string;
+  nomeFantasia?: string | null;
   cpfCnpj?: string;
   telefone: string;
   email: string;
@@ -85,6 +86,11 @@ export interface Lead {
   campanha?: string | null;
   categoriaInteresse?: string | null;
   catalogoServicoId?: string | null;
+  segmento?: string | null;
+  contatoNome?: string | null;
+  contatoCargo?: string | null;
+  cidade?: string | null;
+  tipoLead?: string;
   responsavel: string;
   etapa: string;
   statusComercial?: string;
@@ -688,7 +694,18 @@ export const ORIGENS_LEAD = [
   { key: 'instagram', label: 'Instagram' },
   { key: 'google', label: 'Google' },
   { key: 'consultor_site', label: 'Consultor do site' },
+  { key: 'prospeccao_b2b', label: 'Prospecção B2B' },
   { key: 'manual', label: 'Manual' },
+  { key: 'outros', label: 'Outros' },
+] as const;
+
+export const SEGMENTOS_B2B = [
+  { key: 'condominio', label: 'Condomínio' },
+  { key: 'shopping', label: 'Shopping' },
+  { key: 'industria', label: 'Indústria' },
+  { key: 'hotel', label: 'Hotel' },
+  { key: 'comercio', label: 'Comércio' },
+  { key: 'escritorio', label: 'Escritório' },
   { key: 'outros', label: 'Outros' },
 ] as const;
 

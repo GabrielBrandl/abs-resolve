@@ -26,6 +26,9 @@ export class LeadsController {
           categoria: req.query.categoria as string,
           servicoId: req.query.servicoId as string,
           etapa: req.query.etapa as string,
+          tipoLead: req.query.tipoLead as string,
+          segmento: req.query.segmento as string,
+          fila: req.query.fila as string,
         })
       );
     } catch (err) {
@@ -46,6 +49,9 @@ export class LeadsController {
           categoria: req.query.categoria as string,
           servicoId: req.query.servicoId as string,
           etapa: req.query.etapa as string,
+          tipoLead: req.query.tipoLead as string,
+          segmento: req.query.segmento as string,
+          fila: req.query.fila as string,
         })
       );
     } catch (err) {
@@ -66,6 +72,9 @@ export class LeadsController {
         busca: req.query.busca as string,
         de: req.query.de as string,
         ate: req.query.ate as string,
+        tipoLead: req.query.tipoLead as string,
+        segmento: req.query.segmento as string,
+        fila: req.query.fila as string,
       });
       return success(res, data);
     } catch (err) {

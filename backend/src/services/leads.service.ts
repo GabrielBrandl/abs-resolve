@@ -27,10 +27,15 @@ export interface LeadFilters {
   busca?: string;
   de?: string;
   ate?: string;
+  tipoLead?: string;
+  segmento?: string;
+  /** hoje | atrasados — fila de follow-up */
+  fila?: string;
 }
 
 type LeadCreateInput = {
   nome: string;
+  nomeFantasia?: string | null;
   cpfCnpj?: string;
   telefone: string;
   email?: string;
@@ -39,6 +44,11 @@ type LeadCreateInput = {
   campanha?: string | null;
   categoriaInteresse?: string | null;
   catalogoServicoId?: string | null;
+  segmento?: string | null;
+  contatoNome?: string | null;
+  contatoCargo?: string | null;
+  cidade?: string | null;
+  tipoLead?: string;
   responsavel: string;
   valorEstimado?: number | null;
   probabilidade?: number;
@@ -56,6 +66,19 @@ function parsePeriodo(de?: string, ate?: string) {
   return { inicio, fim };
 }
 
+function inicioFimDiaBrasil(ref = new Date()) {
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(ref);
+  return {
+    inicio: new Date(`${ymd}T00:00:00-03:00`),
+    fim: new Date(`${ymd}T23:59:59.999-03:00`),
+  };
+}
+
 function buildWhere(filters: LeadFilters): Prisma.LeadWhereInput {
   const where: Prisma.LeadWhereInput = {};
   if (filters.etapa) where.etapa = filters.etapa;
@@ -69,6 +92,8 @@ function buildWhere(filters: LeadFilters): Prisma.LeadWhereInput {
   if (filters.categoria) where.categoriaInteresse = filters.categoria;
   if (filters.servicoId) where.catalogoServicoId = filters.servicoId;
   if (filters.prioridade) where.prioridade = filters.prioridade;
+  if (filters.tipoLead) where.tipoLead = filters.tipoLead;
+  if (filters.segmento) where.segmento = filters.segmento;
   const { inicio, fim } = parsePeriodo(filters.de, filters.ate);
   if (inicio || fim) {
     where.createdAt = {
@@ -76,13 +101,28 @@ function buildWhere(filters: LeadFilters): Prisma.LeadWhereInput {
       ...(fim ? { lte: fim } : {}),
     };
   }
+
+  if (filters.fila === 'hoje' || filters.fila === 'atrasados') {
+    const dia = inicioFimDiaBrasil();
+    where.etapa = {
+      in: [...ETAPAS_ABERTAS],
+    };
+    where.proximoContato =
+      filters.fila === 'hoje'
+        ? { gte: dia.inicio, lte: dia.fim }
+        : { lt: dia.inicio };
+  }
+
   if (filters.busca) {
     where.OR = [
       { nome: { contains: filters.busca, mode: 'insensitive' } },
+      { nomeFantasia: { contains: filters.busca, mode: 'insensitive' } },
       { email: { contains: filters.busca, mode: 'insensitive' } },
       { telefone: { contains: filters.busca } },
       { interesse: { contains: filters.busca, mode: 'insensitive' } },
       { campanha: { contains: filters.busca, mode: 'insensitive' } },
+      { contatoNome: { contains: filters.busca, mode: 'insensitive' } },
+      { segmento: { contains: filters.busca, mode: 'insensitive' } },
     ];
   }
   return where;
@@ -686,17 +726,28 @@ export class LeadsService {
       if (!interesse) interesse = servico.nome;
     }
 
+    const tipoLead =
+      data.tipoLead === 'prospeccao_b2b' || data.origem === 'prospeccao_b2b'
+        ? 'prospeccao_b2b'
+        : data.tipoLead || 'inbound';
+
     const lead = await prisma.lead.create({
       data: {
         nome: data.nome.trim(),
+        nomeFantasia: data.nomeFantasia?.trim() || null,
         cpfCnpj: data.cpfCnpj,
         telefone: data.telefone.replace(/\D/g, '') || data.telefone,
         email: (data.email || '').trim().toLowerCase(),
-        origem: data.origem || 'manual',
+        origem: data.origem || (tipoLead === 'prospeccao_b2b' ? 'prospeccao_b2b' : 'manual'),
         interesse,
         campanha: data.campanha || null,
         categoriaInteresse,
         catalogoServicoId,
+        segmento: data.segmento || null,
+        contatoNome: data.contatoNome?.trim() || null,
+        contatoCargo: data.contatoCargo?.trim() || null,
+        cidade: data.cidade?.trim() || (tipoLead === 'prospeccao_b2b' ? 'Manaus' : null),
+        tipoLead,
         responsavel: data.responsavel || 'Comercial',
         etapa: 'novo_lead',
         valorEstimado: data.valorEstimado ?? null,
@@ -761,6 +812,7 @@ export class LeadsService {
       where: { id },
       data: {
         ...(data.nome != null ? { nome: data.nome } : {}),
+        ...(data.nomeFantasia !== undefined ? { nomeFantasia: data.nomeFantasia || null } : {}),
         ...(data.cpfCnpj !== undefined ? { cpfCnpj: data.cpfCnpj } : {}),
         ...(data.telefone != null ? { telefone: data.telefone } : {}),
         ...(data.email != null ? { email: data.email } : {}),
@@ -769,6 +821,11 @@ export class LeadsService {
         ...(data.campanha !== undefined ? { campanha: data.campanha } : {}),
         ...(categoriaInteresse !== undefined ? { categoriaInteresse } : {}),
         ...(data.catalogoServicoId !== undefined ? { catalogoServicoId: data.catalogoServicoId } : {}),
+        ...(data.segmento !== undefined ? { segmento: data.segmento || null } : {}),
+        ...(data.contatoNome !== undefined ? { contatoNome: data.contatoNome || null } : {}),
+        ...(data.contatoCargo !== undefined ? { contatoCargo: data.contatoCargo || null } : {}),
+        ...(data.cidade !== undefined ? { cidade: data.cidade || null } : {}),
+        ...(data.tipoLead != null ? { tipoLead: data.tipoLead } : {}),
         ...(data.responsavel != null ? { responsavel: data.responsavel } : {}),
         ...(data.valorEstimado !== undefined ? { valorEstimado: data.valorEstimado } : {}),
         ...(data.probabilidade !== undefined ? { probabilidade: data.probabilidade } : {}),
@@ -790,6 +847,7 @@ export class LeadsService {
         ...(data.pedidoId !== undefined ? { pedidoId: data.pedidoId } : {}),
         ...(data.solicitacaoId !== undefined ? { solicitacaoId: data.solicitacaoId } : {}),
         ...(data.clienteId !== undefined ? { clienteId: data.clienteId } : {}),
+        dataUltimaInteracao: new Date(),
       },
       include: leadListInclude,
     });
