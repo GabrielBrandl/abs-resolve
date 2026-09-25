@@ -95,7 +95,7 @@ export function CRMPage() {
     categoria: '',
     servicoId: '',
     etapa: '',
-    tipoLead: 'prospeccao_b2b',
+    tipoLead: '',
     segmento: '',
     bairro: '',
     ligou: '',
