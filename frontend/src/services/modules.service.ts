@@ -850,6 +850,49 @@ export const adminApiExtra = {
   processarCampanhas: () => post<{ processadas: number }>('/admin/campanhas/processar'),
 };
 
+export const nfseAdminApi = {
+  dashboard: () =>
+    get<{
+      total: number;
+      autorizadas: number;
+      processando: number;
+      erro: number;
+      valorEmitido: number;
+      mockMode: boolean;
+      ambiente: string;
+      provider: string;
+    }>('/admin/nfse/dashboard'),
+  config: () => get<Record<string, unknown>>('/admin/nfse/config'),
+  listar: (params?: Record<string, string>) =>
+    get<
+      Array<{
+        id: string;
+        status: string;
+        numero?: string | null;
+        codigoVerificacao?: string | null;
+        pdfUrl?: string | null;
+        mensagemErro?: string | null;
+        createdAt: string;
+        pedido?: {
+          id: string;
+          numero: string;
+          valor?: number | string | null;
+          cliente?: { id: string; nome: string } | null;
+        } | null;
+        pagamento?: {
+          id: string;
+          valor?: number | string | null;
+          metodo?: string | null;
+          status?: string | null;
+        } | null;
+      }>
+    >(`/admin/nfse?${new URLSearchParams(params)}`),
+  buscar: (id: string) => get(`/admin/nfse/${id}`),
+  consultar: (id: string) => post(`/admin/nfse/${id}/consultar`),
+  reemitir: (id: string) => post(`/admin/nfse/${id}/reemitir`),
+  emitir: (pagamentoId: string) => post('/admin/nfse/emitir', { pagamentoId }),
+};
+
 export const leadsApiExtra = {
   converterCliente: (id: string) => post(`/leads/${id}/converter-cliente`),
 };

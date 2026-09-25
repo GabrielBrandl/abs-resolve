@@ -4,6 +4,7 @@ import { StoreHeader } from './StoreHeader';
 import { StoreFooter } from './StoreFooter';
 import { ShopSidebar } from './ShopSidebar';
 import { WhatsAppFab } from './store-ui';
+import { HelpConsultorWidget } from '../HelpConsultorWidget';
 import { useToast } from '../Toast';
 import { onCartChange } from '../../store/cartStore';
 
@@ -51,6 +52,7 @@ export function StoreLayout({ showCategories = true }: { showCategories?: boolea
       )}
       <StoreFooter />
       <WhatsAppFab />
+      <HelpConsultorWidget />
     </div>
   );
 }

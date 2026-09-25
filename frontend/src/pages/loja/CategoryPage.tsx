@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { Loading } from '../../components/ui';
+import { Seo } from '../../components/Seo';
 import { ServiceCard } from '../../components/loja/ServiceCard';
 import { ProductCarousel, ProductCarouselItem } from '../../components/loja/ProductCarousel';
 import { Breadcrumb, SectionTitle, TrustRow } from '../../components/loja/store-ui';
@@ -18,6 +19,7 @@ export function CategoryPage() {
   const navCats = CATEGORY_NAV.filter(
     (c, i, arr) => arr.findIndex((x) => x.slug === c.slug) === i
   ).filter((c) => pecasAvulsasAtivas || c.slug !== 'pecas');
+  const nomeCat = categoria?.nome || CATEGORY_NAV.find((c) => c.slug === slug)?.label || 'Categoria';
 
   if (loading) return <Loading />;
 
@@ -37,7 +39,13 @@ export function CategoryPage() {
 
   return (
     <div>
-      <Breadcrumb items={[{ label: 'Início', to: '/' }, { label: categoria?.nome || 'Categoria' }]} />
+      <Seo
+        title={`${nomeCat} em Manaus`}
+        description={`Serviços de ${nomeCat.toLowerCase()} em Manaus com preço visível, pagamento online e garantia. Contrate pela ABS Resolve.`}
+        path={`/c/${slug}`}
+        image={cover || undefined}
+      />
+      <Breadcrumb items={[{ label: 'Início', to: '/' }, { label: nomeCat }]} />
       <div className="mt-3 overflow-hidden rounded-[14px] bg-[#002d62] text-white lg:grid lg:grid-cols-[1.1fr_0.9fr]">
         <div className="p-6">
           <p className="text-xs font-black uppercase tracking-wide text-accent-400">Categoria</p>

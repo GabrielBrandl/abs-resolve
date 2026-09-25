@@ -32,6 +32,7 @@ import {
 } from '../../utils/multi-unidade';
 
 import { avaliarShowIf, type FluxoPerguntaShowIf } from '../../utils/show-if';
+import { Seo } from '../../components/Seo';
 
 type FluxoPergunta = {
   id: string;
@@ -1161,6 +1162,39 @@ export function ServicePage() {
 
   return (
     <div className="pb-24 lg:pb-0">
+      <Seo
+        title={`${servico.nome} em Manaus`}
+        description={
+          servico.descricao ||
+          `${servico.nome} em Manaus com preço transparente, agendamento online e garantia de até ${servico.garantiaDias || 90} dias. ABS Resolve.`
+        }
+        path={`/s/${servico.slug}`}
+        image={fotoServico(servico)}
+        type="product"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'Service',
+          name: servico.nome,
+          description: servico.descricao || servico.nome,
+          provider: {
+            '@type': 'HomeAndConstructionBusiness',
+            name: 'ABS Resolve',
+            areaServed: 'Manaus, AM',
+          },
+          areaServed: { '@type': 'City', name: 'Manaus' },
+          url: `https://absresolve.com.br/s/${servico.slug}`,
+          ...(servico.precoMinimo != null
+            ? {
+                offers: {
+                  '@type': 'Offer',
+                  priceCurrency: 'BRL',
+                  price: Number(servico.precoMinimo),
+                  availability: 'https://schema.org/InStock',
+                },
+              }
+            : {}),
+        }}
+      />
       <Breadcrumb
         items={[
           { label: 'Início', to: '/' },

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Loading } from '../../components/ui';
+import { Seo } from '../../components/Seo';
 import { ServiceCard } from '../../components/loja/ServiceCard';
 import { ProductCarousel, ProductCarouselItem } from '../../components/loja/ProductCarousel';
 import { HeroBannerCarousel } from '../../components/loja/HeroBannerCarousel';
@@ -49,6 +50,11 @@ export function HomePage() {
 
   return (
     <div className="space-y-6">
+      <Seo
+        title="ABS Resolve | Serviços técnicos em Manaus"
+        description="Elétrica, hidráulica, montagem e ar-condicionado em Manaus. Preço visível, pagamento online e garantia de até 90 dias."
+        path="/"
+      />
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16.5rem]">
         <HeroBannerCarousel />
 

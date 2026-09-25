@@ -32,6 +32,7 @@ const EstoqueAdminPage = lazy(() => import('./pages/admin/EstoqueAdminPage').the
 const AgendaAdminPage = lazy(() => import('./pages/admin/AgendaAdminPage').then((m) => ({ default: m.AgendaAdminPage })));
 const AgendaTecnicoPage = lazy(() => import('./pages/admin/AgendaAdminPage').then((m) => ({ default: m.AgendaTecnicoPage })));
 const OrcamentosAdminPage = lazy(() => import('./pages/admin/OrcamentosAdminPage').then((m) => ({ default: m.OrcamentosAdminPage })));
+const NfseAdminPage = lazy(() => import('./pages/admin/NfseAdminPage').then((m) => ({ default: m.NfseAdminPage })));
 const QuestionariosAdminPage = lazy(() => import('./pages/admin/QuestionariosAdminPage').then((m) => ({ default: m.QuestionariosAdminPage })));
 const ParceirosAdminPage = lazy(() => import('./pages/admin/ParceirosAdminPage').then((m) => ({ default: m.ParceirosAdminPage })));
 const IaTreinamentoAdminPage = lazy(() => import('./pages/admin/IaTreinamentoAdminPage').then((m) => ({ default: m.IaTreinamentoAdminPage })));
@@ -118,6 +119,7 @@ function AppRoutes() {
               <Route path="/admin/estoque" element={<EstoqueAdminPage />} />
               <Route path="/admin/agenda" element={<Navigate to="/agenda" replace />} />
               <Route path="/admin/orcamentos" element={<OrcamentosAdminPage />} />
+              <Route path="/admin/nfse" element={<NfseAdminPage />} />
             </Route>
           </Route>
         </Route>

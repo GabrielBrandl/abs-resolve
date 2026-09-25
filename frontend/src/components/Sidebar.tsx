@@ -41,7 +41,10 @@ const navGroups: NavGroup[] = [
   },
   {
     title: 'Financeiro',
-    items: [{ label: 'Financeiro', path: '/financeiro', roles: ['admin', 'comercial'], icon: '$' }],
+    items: [
+      { label: 'Financeiro', path: '/financeiro', roles: ['admin', 'comercial'], icon: '$' },
+      { label: 'NFS-e', path: '/admin/nfse', roles: ['admin', 'comercial'], icon: '📄' },
+    ],
   },
   {
     title: 'Configuração',
