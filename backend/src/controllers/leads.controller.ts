@@ -28,6 +28,10 @@ export class LeadsController {
           etapa: req.query.etapa as string,
           tipoLead: req.query.tipoLead as string,
           segmento: req.query.segmento as string,
+          bairro: req.query.bairro as string,
+          ligou: req.query.ligou as string,
+          atendeu: req.query.atendeu as string,
+          contatoDecisorOk: req.query.contatoDecisorOk as string,
           fila: req.query.fila as string,
         })
       );
@@ -51,6 +55,10 @@ export class LeadsController {
           etapa: req.query.etapa as string,
           tipoLead: req.query.tipoLead as string,
           segmento: req.query.segmento as string,
+          bairro: req.query.bairro as string,
+          ligou: req.query.ligou as string,
+          atendeu: req.query.atendeu as string,
+          contatoDecisorOk: req.query.contatoDecisorOk as string,
           fila: req.query.fila as string,
         })
       );
@@ -74,6 +82,10 @@ export class LeadsController {
         ate: req.query.ate as string,
         tipoLead: req.query.tipoLead as string,
         segmento: req.query.segmento as string,
+        bairro: req.query.bairro as string,
+        ligou: req.query.ligou as string,
+        atendeu: req.query.atendeu as string,
+        contatoDecisorOk: req.query.contatoDecisorOk as string,
         fila: req.query.fila as string,
       });
       return success(res, data);

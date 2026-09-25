@@ -129,11 +129,23 @@ model Lead {
   /** Slug da categoria do catálogo (ex.: ar-condicionado). */
   categoriaInteresse String? @map("categoria_interesse")
   catalogoServicoId  String? @map("catalogo_servico_id")
-  /** Segmento B2B: condominio, shopping, industria, hotel, comercio, escritorio, outros. */
+  /** Segmento B2B (texto livre / select — ex.: Farmácia, Condomínio). */
   segmento       String?
-  /** Contato responsável pela manutenção (prospecção B2B). */
+  /** Bairro (prospecção B2B — cabeçalho da planilha). */
+  bairro         String?
+  /** Ligou? (Sim/Não) — triagem da planilha. */
+  ligou          Boolean?
+  /** Atendeu? (Sim/Não). */
+  atendeu        Boolean?
+  /** Contato responsável / decisor (prospecção B2B). */
   contatoNome    String?   @map("contato_nome")
   contatoCargo   String?   @map("contato_cargo")
+  /** Telefone/WhatsApp do decisor. */
+  contatoTelefone String?  @map("contato_telefone")
+  /** E-mail do decisor. */
+  contatoEmail   String?   @map("contato_email")
+  /** Conseguiu contato do decisor? (Sim/Não). */
+  contatoDecisorOk Boolean? @map("contato_decisor_ok")
   cidade         String?
   /** inbound | prospeccao_b2b */
   tipoLead       String    @default("inbound") @map("tipo_lead")
@@ -189,6 +201,7 @@ model Lead {
   @@index([tipoCliente])
   @@index([tipoLead])
   @@index([segmento])
+  @@index([bairro])
   @@map("leads")
 }
 

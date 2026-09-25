@@ -29,6 +29,10 @@ export interface LeadFilters {
   ate?: string;
   tipoLead?: string;
   segmento?: string;
+  bairro?: string;
+  ligou?: string;
+  atendeu?: string;
+  contatoDecisorOk?: string;
   /** hoje | atrasados — fila de follow-up */
   fila?: string;
 }
@@ -45,8 +49,14 @@ type LeadCreateInput = {
   categoriaInteresse?: string | null;
   catalogoServicoId?: string | null;
   segmento?: string | null;
+  bairro?: string | null;
+  ligou?: boolean | string | null;
+  atendeu?: boolean | string | null;
   contatoNome?: string | null;
   contatoCargo?: string | null;
+  contatoTelefone?: string | null;
+  contatoEmail?: string | null;
+  contatoDecisorOk?: boolean | string | null;
   cidade?: string | null;
   tipoLead?: string;
   responsavel: string;
@@ -59,6 +69,17 @@ type LeadCreateInput = {
   tags?: string[];
   observacoes?: string | null;
 };
+
+/** Aceita boolean, "sim"/"nao", "true"/"false". Undefined = não enviado; null = limpar. */
+function parseSimNao(v: unknown): boolean | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null || v === '') return null;
+  if (typeof v === 'boolean') return v;
+  const s = String(v).trim().toLowerCase();
+  if (['sim', 's', 'true', '1', 'yes'].includes(s)) return true;
+  if (['nao', 'não', 'n', 'false', '0', 'no'].includes(s)) return false;
+  return null;
+}
 
 function parsePeriodo(de?: string, ate?: string) {
   const inicio = de ? new Date(`${de}T00:00:00.000`) : undefined;
@@ -94,6 +115,15 @@ function buildWhere(filters: LeadFilters): Prisma.LeadWhereInput {
   if (filters.prioridade) where.prioridade = filters.prioridade;
   if (filters.tipoLead) where.tipoLead = filters.tipoLead;
   if (filters.segmento) where.segmento = filters.segmento;
+  if (filters.bairro) {
+    where.bairro = { contains: filters.bairro, mode: 'insensitive' };
+  }
+  const ligouF = parseSimNao(filters.ligou);
+  if (ligouF !== undefined && ligouF !== null) where.ligou = ligouF;
+  const atendeuF = parseSimNao(filters.atendeu);
+  if (atendeuF !== undefined && atendeuF !== null) where.atendeu = atendeuF;
+  const decisorF = parseSimNao(filters.contatoDecisorOk);
+  if (decisorF !== undefined && decisorF !== null) where.contatoDecisorOk = decisorF;
   const { inicio, fim } = parsePeriodo(filters.de, filters.ate);
   if (inicio || fim) {
     where.createdAt = {
@@ -123,6 +153,9 @@ function buildWhere(filters: LeadFilters): Prisma.LeadWhereInput {
       { campanha: { contains: filters.busca, mode: 'insensitive' } },
       { contatoNome: { contains: filters.busca, mode: 'insensitive' } },
       { segmento: { contains: filters.busca, mode: 'insensitive' } },
+      { bairro: { contains: filters.busca, mode: 'insensitive' } },
+      { contatoTelefone: { contains: filters.busca } },
+      { contatoEmail: { contains: filters.busca, mode: 'insensitive' } },
     ];
   }
   return where;
@@ -744,8 +777,14 @@ export class LeadsService {
         categoriaInteresse,
         catalogoServicoId,
         segmento: data.segmento || null,
+        bairro: data.bairro?.trim() || null,
+        ligou: parseSimNao(data.ligou) ?? null,
+        atendeu: parseSimNao(data.atendeu) ?? null,
         contatoNome: data.contatoNome?.trim() || null,
         contatoCargo: data.contatoCargo?.trim() || null,
+        contatoTelefone: data.contatoTelefone?.replace(/\D/g, '') || data.contatoTelefone?.trim() || null,
+        contatoEmail: data.contatoEmail?.trim().toLowerCase() || null,
+        contatoDecisorOk: parseSimNao(data.contatoDecisorOk) ?? null,
         cidade: data.cidade?.trim() || (tipoLead === 'prospeccao_b2b' ? 'Manaus' : null),
         tipoLead,
         responsavel: data.responsavel || 'Comercial',
@@ -822,8 +861,23 @@ export class LeadsService {
         ...(categoriaInteresse !== undefined ? { categoriaInteresse } : {}),
         ...(data.catalogoServicoId !== undefined ? { catalogoServicoId: data.catalogoServicoId } : {}),
         ...(data.segmento !== undefined ? { segmento: data.segmento || null } : {}),
+        ...(data.bairro !== undefined ? { bairro: data.bairro || null } : {}),
+        ...(data.ligou !== undefined ? { ligou: parseSimNao(data.ligou) ?? null } : {}),
+        ...(data.atendeu !== undefined ? { atendeu: parseSimNao(data.atendeu) ?? null } : {}),
         ...(data.contatoNome !== undefined ? { contatoNome: data.contatoNome || null } : {}),
         ...(data.contatoCargo !== undefined ? { contatoCargo: data.contatoCargo || null } : {}),
+        ...(data.contatoTelefone !== undefined
+          ? {
+              contatoTelefone:
+                data.contatoTelefone?.replace(/\D/g, '') || data.contatoTelefone || null,
+            }
+          : {}),
+        ...(data.contatoEmail !== undefined
+          ? { contatoEmail: data.contatoEmail?.trim().toLowerCase() || null }
+          : {}),
+        ...(data.contatoDecisorOk !== undefined
+          ? { contatoDecisorOk: parseSimNao(data.contatoDecisorOk) ?? null }
+          : {}),
         ...(data.cidade !== undefined ? { cidade: data.cidade || null } : {}),
         ...(data.tipoLead != null ? { tipoLead: data.tipoLead } : {}),
         ...(data.responsavel != null ? { responsavel: data.responsavel } : {}),

@@ -87,8 +87,14 @@ export interface Lead {
   categoriaInteresse?: string | null;
   catalogoServicoId?: string | null;
   segmento?: string | null;
+  bairro?: string | null;
+  ligou?: boolean | null;
+  atendeu?: boolean | null;
   contatoNome?: string | null;
   contatoCargo?: string | null;
+  contatoTelefone?: string | null;
+  contatoEmail?: string | null;
+  contatoDecisorOk?: boolean | null;
   cidade?: string | null;
   tipoLead?: string;
   responsavel: string;
@@ -700,6 +706,7 @@ export const ORIGENS_LEAD = [
 ] as const;
 
 export const SEGMENTOS_B2B = [
+  { key: 'farmacia', label: 'Farmácia' },
   { key: 'condominio', label: 'Condomínio' },
   { key: 'shopping', label: 'Shopping' },
   { key: 'industria', label: 'Indústria' },
@@ -707,6 +714,12 @@ export const SEGMENTOS_B2B = [
   { key: 'comercio', label: 'Comércio' },
   { key: 'escritorio', label: 'Escritório' },
   { key: 'outros', label: 'Outros' },
+] as const;
+
+export const SIM_NAO_OPTIONS = [
+  { key: '', label: '—' },
+  { key: 'sim', label: 'Sim' },
+  { key: 'nao', label: 'Não' },
 ] as const;
 
 export const STATUS_COMERCIAL = [
