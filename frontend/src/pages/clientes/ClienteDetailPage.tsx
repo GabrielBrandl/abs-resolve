@@ -214,7 +214,7 @@ export function ClienteDetailPage() {
             <Input label="" value={interacao.descricao} onChange={(e) => setInteracao({ ...interacao, descricao: e.target.value })} placeholder="Descrição..." />
             <Button onClick={registrarInteracao} className="self-end">Registrar</Button>
           </div>
-          {!!cliente.leads?.length && <div className="mb-4 rounded-lg bg-slate-50 p-3"><h4 className="mb-2 text-sm font-semibold">Leads vinculados</h4>{cliente.leads.map((lead) => <Link key={lead.id} to={`/crm?lead=${lead.id}`} className="flex justify-between border-t py-2 text-sm first:border-0"><span>{lead.interesse || lead.nome}</span><span><Badge>{lead.etapa}</Badge>{lead.statusComercial && <Badge color="ml-1 bg-blue-100 text-blue-700">{lead.statusComercial.replace(/_/g, ' ')}</Badge>}</span></Link>)}</div>}
+          {!!cliente.leads?.length && <div className="mb-4 rounded-lg bg-slate-50 p-3"><h4 className="mb-2 text-sm font-semibold">Leads vinculados</h4>{cliente.leads.map((lead) => <Link key={lead.id} to={(lead.tipoLead === 'prospeccao_b2b' ? '/crm/b2b' : '/crm/b2c') + `?lead=${lead.id}`} className="flex justify-between border-t py-2 text-sm first:border-0"><span>{lead.interesse || lead.nome}</span><span><Badge>{lead.etapa}</Badge>{lead.statusComercial && <Badge color="ml-1 bg-blue-100 text-blue-700">{lead.statusComercial.replace(/_/g, ' ')}</Badge>}</span></Link>)}</div>}
           {cliente.interacoes?.map((i) => (
             <div key={i.id} className="border-b py-2 text-sm last:border-0">
               <Badge>{i.tipo}</Badge>

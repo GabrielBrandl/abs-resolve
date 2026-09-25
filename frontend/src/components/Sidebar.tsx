@@ -23,7 +23,8 @@ const navGroups: NavGroup[] = [
     title: 'Comercial',
     items: [
       { label: 'Clientes', path: '/clientes', roles: ['admin', 'comercial', 'operacional'], icon: '☺' },
-      { label: 'CRM', path: '/crm', roles: ['admin', 'comercial'], icon: '★' },
+      { label: 'CRM B2C', path: '/crm/b2c', roles: ['admin', 'comercial'], icon: '★' },
+      { label: 'CRM B2B', path: '/crm/b2b', roles: ['admin', 'comercial'], icon: '◆' },
       { label: 'Pedidos', path: '/pedidos', roles: ['admin', 'comercial', 'operacional'], icon: '▤' },
       { label: 'Marketplace', path: '/marketplace', roles: ['admin', 'comercial'], icon: '▣' },
       { label: 'Orçamentos', path: '/admin/orcamentos', roles: ['admin', 'comercial'], icon: '✎' },
