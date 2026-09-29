@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { leadsApi, leadsApiExtra, catalogoAdminApi } from '../../services/modules.service';
+import { mensagemErroApi } from '../../utils/api-error';
 import { useToast } from '../../components/Toast';
 import type { CatalogoServicoAdmin, CrmIndicadores, Lead, LeadTimelineItem } from '../../types';
 import {
@@ -245,7 +246,7 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
       setLeads(lista);
       setIndicadores(ind);
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao carregar CRM', 'error');
+      toast(mensagemErroApi(e, 'Erro ao carregar CRM'), 'error');
     } finally {
       setLoading(false);
     }
@@ -288,7 +289,7 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
       setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, etapa: novaEtapa } : l)));
       carregar();
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao mover lead', 'error');
+      toast(mensagemErroApi(e, 'Erro ao mover lead'), 'error');
     }
   };
 
@@ -375,7 +376,7 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
       await carregar();
       navigate(`${destinoB2B ? '/crm/b2b' : '/crm/b2c'}?lead=${modalLead.id}`);
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao mover lead', 'error');
+      toast(mensagemErroApi(e, 'Erro ao mover lead'), 'error');
     }
   };
 

@@ -106,9 +106,11 @@ export function createApp() {
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
-      max: isProd ? 300 : 800,
+      max: isProd ? 2500 : 8000,
       standardHeaders: true,
       legacyHeaders: false,
+      skip: (req) =>
+        req.method === 'OPTIONS' || req.path === '/health' || req.path === '/',
       message: { success: false, error: 'Muitas requisições. Tente novamente em alguns minutos.' },
     })
   );

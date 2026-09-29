@@ -93,8 +93,14 @@ api.interceptors.response.use(
         }
       } catch (refreshError) {
         processQueue(refreshError, null);
-        setAccessToken(null);
-        window.location.href = '/login';
+        const status = axios.isAxiosError(refreshError) ? refreshError.response?.status : 0;
+        // 429 no refresh não pode derrubar a sessão — o limite é temporário.
+        if (status !== 429) {
+          setAccessToken(null);
+          if (!window.location.pathname.startsWith('/login')) {
+            window.location.href = '/login';
+          }
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
