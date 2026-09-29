@@ -350,6 +350,35 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
     setSearchParams({});
   };
 
+  const moverParaOutroCrm = async () => {
+    if (!modalLead) return;
+    const destinoB2B = !isB2B;
+    const destinoLabel = destinoB2B ? 'CRM B2B' : 'CRM B2C';
+    const ok = window.confirm(
+      `Mover "${modalLead.nome}" para o ${destinoLabel}? O lead some desta lista e abre no outro CRM.`
+    );
+    if (!ok) return;
+    try {
+      const origemAtual = modalLead.origem || '';
+      await leadsApi.atualizar(modalLead.id, {
+        tipoLead: destinoB2B ? 'prospeccao_b2b' : 'inbound',
+        origem: destinoB2B
+          ? 'prospeccao_b2b'
+          : origemAtual === 'prospeccao_b2b'
+            ? 'manual'
+            : origemAtual || 'manual',
+        cidade: destinoB2B ? modalLead.cidade || 'Manaus' : modalLead.cidade || null,
+      });
+      toast(`Lead movido para o ${destinoLabel}`, 'success');
+      setModalLead(null);
+      setTimeline([]);
+      await carregar();
+      navigate(`${destinoB2B ? '/crm/b2b' : '/crm/b2c'}?lead=${modalLead.id}`);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro ao mover lead', 'error');
+    }
+  };
+
   const confirmarPerda = async () => {
     if (!perdaPendente || !motivoPerda) return;
     const motivo = motivoPerda === 'Outro' ? motivoPerdaOutro.trim() : motivoPerda;
@@ -853,6 +882,9 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
               </Button>
               <Button variant="secondary" onClick={acaoPerdido}>
                 Marcar como perdido
+              </Button>
+              <Button variant="secondary" onClick={moverParaOutroCrm}>
+                {isB2B ? 'Mover para CRM B2C' : 'Mover para CRM B2B'}
               </Button>
               <Button
                 variant="danger"
