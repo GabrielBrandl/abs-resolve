@@ -33,6 +33,7 @@ export interface LeadFilters {
   ligou?: string;
   atendeu?: string;
   contatoDecisorOk?: string;
+  motivoPerda?: string;
   /** hoje | atrasados — fila de follow-up */
   fila?: string;
 }
@@ -114,6 +115,7 @@ function buildWhere(filters: LeadFilters): Prisma.LeadWhereInput {
   if (filters.servicoId) where.catalogoServicoId = filters.servicoId;
   if (filters.prioridade) where.prioridade = filters.prioridade;
   if (filters.tipoLead) where.tipoLead = filters.tipoLead;
+  if (filters.motivoPerda) where.motivoPerda = filters.motivoPerda;
   if (filters.segmento) where.segmento = filters.segmento;
   if (filters.bairro) {
     where.bairro = { contains: filters.bairro, mode: 'insensitive' };
@@ -809,6 +811,7 @@ export class LeadsService {
     id: string,
     data: Partial<LeadCreateInput> & {
       motivoPerda?: string | null;
+      observacaoPerda?: string | null;
       statusComercial?: string;
       proximaAcao?: string | null;
       pedidoId?: string | null;
@@ -885,6 +888,7 @@ export class LeadsService {
         ...(data.probabilidade !== undefined ? { probabilidade: data.probabilidade } : {}),
         ...(data.prioridade != null ? { prioridade: data.prioridade } : {}),
         ...(data.motivoPerda !== undefined ? { motivoPerda: data.motivoPerda } : {}),
+        ...(data.observacaoPerda !== undefined ? { observacaoPerda: data.observacaoPerda || null } : {}),
         ...(data.dataPrevista !== undefined
           ? { dataPrevista: data.dataPrevista ? new Date(data.dataPrevista) : null }
           : {}),

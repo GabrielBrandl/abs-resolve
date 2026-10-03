@@ -14,7 +14,7 @@ import {
   SIM_NAO_OPTIONS,
   STATUS_COMERCIAL,
 } from '../../types';
-import { PageHeader, Loading, Modal, Input, Select, Button } from '../../components/ui';
+import { PageHeader, Loading, Modal, Input, Select, Button, Tabs } from '../../components/ui';
 import {
   CompetenciaPeriodoSelect,
   resolverCompetencia,
@@ -127,6 +127,10 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
   const [catalogo, setCatalogo] = useState<CatalogoServicoAdmin[]>([]);
   const [categorias, setCategorias] = useState<Array<{ slug: string; nome: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [abaLead, setAbaLead] = useState<'cadastro' | 'nao_fechamento'>('cadastro');
+  const [motivoAba, setMotivoAba] = useState('');
+  const [motivoAbaOutro, setMotivoAbaOutro] = useState('');
+  const [obsAba, setObsAba] = useState('');
   const [modalLead, setModalLead] = useState<Lead | null>(null);
   const [timeline, setTimeline] = useState<LeadTimelineItem[]>([]);
   const [modalNovo, setModalNovo] = useState(false);
@@ -145,6 +149,7 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
     atendeu: '',
     contatoDecisorOk: '',
     fila: '',
+    motivo: '',
   });
   const [competencia, setCompetencia] = useState<CompetenciaFiltro>({
     modo: 'geral',
@@ -332,6 +337,11 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
         navigate(`${leadEhB2B ? '/crm/b2b' : '/crm/b2c'}?lead=${id}`, { replace: true });
         return;
       }
+      setAbaLead((aba) => (modalLead?.id === full.id ? aba : 'cadastro'));
+      const conhecido = !!full.motivoPerda && (MOTIVOS_PERDA as readonly string[]).includes(full.motivoPerda);
+      setMotivoAba(conhecido ? full.motivoPerda || '' : full.motivoPerda ? 'Outro' : '');
+      setMotivoAbaOutro(conhecido || !full.motivoPerda ? '' : full.motivoPerda);
+      setObsAba(full.observacaoPerda || '');
       setModalLead(full);
       setTimeline(tl);
       preencherLeadForm(full);
@@ -348,6 +358,7 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
   const fecharLead = () => {
     setModalLead(null);
     setTimeline([]);
+    setAbaLead('cadastro');
     setSearchParams({});
   };
 
@@ -569,10 +580,36 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
 
   const acaoPerdido = () => {
     if (!modalLead) return;
-    setPerdaPendente({ leadId: modalLead.id, etapaAnterior: modalLead.etapa });
-    setMotivoPerda(leadForm.motivoPerda || '');
-    setMotivoPerdaOutro('');
-    setObservacaoPerda('');
+    setAbaLead('nao_fechamento');
+  };
+
+  const registrarNaoFechamento = async () => {
+    if (!modalLead) return;
+    const motivo = motivoAba === 'Outro' ? motivoAbaOutro.trim() : motivoAba;
+    if (!motivo) {
+      toast('Escolha o motivo do não fechamento', 'error');
+      return;
+    }
+    try {
+      if (modalLead.etapa === 'perdido') {
+        await leadsApi.atualizar(modalLead.id, {
+          motivoPerda: motivo,
+          observacaoPerda: obsAba || null,
+          etapa: 'perdido',
+          statusComercial: 'perdido',
+        });
+      } else {
+        await leadsApi.etapa(modalLead.id, 'perdido', {
+          motivoPerda: motivo,
+          observacaoPerda: obsAba || undefined,
+        });
+      }
+      toast('Motivo do não fechamento registrado', 'success');
+      await abrirLeadPorId(modalLead.id);
+      carregar();
+    } catch (e) {
+      toast(mensagemErroApi(e, 'Erro ao registrar motivo'), 'error');
+    }
   };
 
   const salvarFollowUp = async () => {
@@ -748,6 +785,18 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
           onChange={(e) => setFiltros({ ...filtros, responsavel: e.target.value })}
           placeholder="Nome"
         />
+        <Select
+          label="Não fechou por"
+          value={filtros.motivo}
+          onChange={(e) => setFiltros({ ...filtros, motivo: e.target.value })}
+        >
+          <option value="">Todos</option>
+          {MOTIVOS_PERDA.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </Select>
         <Select label="Etapa" value={filtros.etapa} onChange={(e) => setFiltros({ ...filtros, etapa: e.target.value })}>
           <option value="">Todas</option>
           {ETAPAS_LEAD.map((e) => (
@@ -833,6 +882,9 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
                                 </p>
                               )}
                               <p className="mt-1 text-[11px] text-slate-500">{lead.telefone}</p>
+                              {lead.motivoPerda && (
+                                <p className="mt-1 text-[11px] font-medium text-rose-700">Não fechou: {lead.motivoPerda}</p>
+                              )}
                               {lead.valorEstimado != null && lead.valorEstimado !== '' && !isB2B && (
                                 <p className={`mt-1 text-sm font-medium ${atrasado ? 'text-red-600' : 'text-slate-800'}`}>
                                   {formatMoney(lead.valorEstimado)}
@@ -882,7 +934,7 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
                 Agendar follow-up
               </Button>
               <Button variant="secondary" onClick={acaoPerdido}>
-                Marcar como perdido
+                Motivo do não fechamento
               </Button>
               <Button variant="secondary" onClick={moverParaOutroCrm}>
                 {isB2B ? 'Mover para CRM B2C' : 'Mover para CRM B2B'}
@@ -928,6 +980,17 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
               </p>
             )}
 
+            <Tabs
+              tabs={[
+                { key: 'cadastro', label: 'Cadastro' },
+                { key: 'nao_fechamento', label: 'Motivo do não fechamento' },
+              ]}
+              active={abaLead}
+              onChange={(k) => setAbaLead(k as 'cadastro' | 'nao_fechamento')}
+            />
+
+            {abaLead === 'cadastro' ? (
+            <>
             {isB2B ? (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <h4 className="mb-2 text-sm font-semibold text-slate-800">Prospecção B2B (planilha)</h4>
@@ -1159,6 +1222,58 @@ export function CRMBoard({ modo }: { modo: CrmModo }) {
                 Salvar lead
               </Button>
             </div>
+            </>
+            ) : (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <h4 className="text-sm font-semibold text-slate-800">Por que não fechou?</h4>
+                <p className="mt-1 text-sm text-slate-600">
+                  Escolha o motivo. Ao registrar, o lead vai para a etapa Perdido. Se já estiver perdido, só atualiza o motivo.
+                </p>
+                {modalLead.motivoPerda && (
+                  <p className="mt-2 text-sm font-medium text-rose-700">Motivo atual: {modalLead.motivoPerda}</p>
+                )}
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {MOTIVOS_PERDA.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMotivoAba(m)}
+                      className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                        motivoAba === m
+                          ? 'border-primary-600 bg-primary-50 font-medium text-primary-800'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                {motivoAba === 'Outro' && (
+                  <div className="mt-3">
+                    <Input
+                      label="Descreva o motivo"
+                      value={motivoAbaOutro}
+                      onChange={(e) => setMotivoAbaOutro(e.target.value)}
+                    />
+                  </div>
+                )}
+                <label className="mt-3 mb-1 block text-sm font-medium text-slate-700">Observação</label>
+                <textarea
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  rows={3}
+                  value={obsAba}
+                  onChange={(e) => setObsAba(e.target.value)}
+                  placeholder="Detalhe o que aconteceu, se quiser"
+                />
+                <Button
+                  className="mt-3"
+                  disabled={!motivoAba || (motivoAba === 'Outro' && !motivoAbaOutro.trim())}
+                  onClick={registrarNaoFechamento}
+                >
+                  Registrar não fechamento
+                </Button>
+              </div>
+            )}
 
             <div>
               <h4 className="mb-2 text-sm font-semibold">Timeline</h4>

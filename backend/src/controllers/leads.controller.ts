@@ -32,6 +32,7 @@ export class LeadsController {
           ligou: req.query.ligou as string,
           atendeu: req.query.atendeu as string,
           contatoDecisorOk: req.query.contatoDecisorOk as string,
+          motivoPerda: req.query.motivo as string,
           fila: req.query.fila as string,
         })
       );
@@ -59,6 +60,7 @@ export class LeadsController {
           ligou: req.query.ligou as string,
           atendeu: req.query.atendeu as string,
           contatoDecisorOk: req.query.contatoDecisorOk as string,
+          motivoPerda: req.query.motivo as string,
           fila: req.query.fila as string,
         })
       );
@@ -86,6 +88,7 @@ export class LeadsController {
         ligou: req.query.ligou as string,
         atendeu: req.query.atendeu as string,
         contatoDecisorOk: req.query.contatoDecisorOk as string,
+        motivoPerda: req.query.motivo as string,
         fila: req.query.fila as string,
       });
       return success(res, data);

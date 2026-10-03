@@ -669,16 +669,21 @@ export interface DashboardGerencial {
 }
 
 export const MOTIVOS_PERDA = [
-  'Preço',
+  'Financeiro',
+  'Confiança',
+  'Pagamento antecipado',
   'Fechou com concorrente',
-  'Desistiu do serviço',
   'Prazo/agenda',
-  'Forma de pagamento',
+  'Desistiu do serviço',
   'Não respondeu após orçamento',
   'Orçamento não aprovado',
+  'Decisor não aprovou',
+  'Já tem fornecedor ou contrato',
   'Fora do escopo da ABS Resolve',
   'Fora da área de atendimento',
   'Sem disponibilidade da equipe',
+  'Preço',
+  'Forma de pagamento',
   'Outro',
 ] as const;
 

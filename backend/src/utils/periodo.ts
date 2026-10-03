@@ -148,13 +148,20 @@ export function variacaoPercentual(atual: number, anterior: number): number | nu
 }
 
 export const MOTIVOS_PERDA = [
-  'Preço alto',
-  'Demora no atendimento',
-  'Cliente desistiu',
-  'Contratou concorrente',
-  'Sem disponibilidade de agenda',
-  'Serviço fora do escopo',
-  'Não respondeu',
+  'Financeiro',
+  'Confiança',
+  'Pagamento antecipado',
+  'Fechou com concorrente',
+  'Prazo/agenda',
+  'Desistiu do serviço',
+  'Não respondeu após orçamento',
+  'Orçamento não aprovado',
+  'Decisor não aprovou',
+  'Já tem fornecedor ou contrato',
+  'Fora do escopo da ABS Resolve',
+  'Fora da área de atendimento',
+  'Sem disponibilidade da equipe',
+  'Preço',
   'Forma de pagamento',
   'Outro',
 ] as const;
